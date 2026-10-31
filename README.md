@@ -1,33 +1,34 @@
 # Expense Policy Validator
 
-An LLM classifies receipt lines; a deterministic engine checks each receipt against the nine policies, citing policy text for every exception. Results: [`outputs/v1/results.jsonl`](outputs/v1/results.jsonl). See also the [evaluation](docs/evaluation.md), the [AWS design](docs/aws-design.md), the [research notes](DECISIONS.md) and the [working log](NOTES.md).
+A language model says what each receipt line is. Plain code then checks the receipt against the nine policies and quotes the policy for every exception. The results are in [`outputs/v1/results.jsonl`](outputs/v1/results.jsonl). See also the [evaluation](docs/evaluation.md), [AWS design](docs/aws-design.md), [research notes](DECISIONS.md) and [working log](NOTES.md).
 
-**Setup.** Install Python 3.12 and [uv](https://docs.astral.sh/uv/), put the organisers' `data/` at the repo root, and run `uv sync`. Then run `make test` (offline), `make run`, `make eval`, `make baseline` and `make app` (the viewer). All of these replay the committed model cache, so no key is needed. New model calls need a `.env` (see `.env.example`) with `LLM_PROVIDER=deepseek` and `DEEPSEEK_API_KEY`, or `openrouter` and `OPENROUTER_API_KEY`.
+**Setup.** Install Python 3.12 and [uv](https://docs.astral.sh/uv/), copy the organisers' `data/` folder to the repo root, and run `uv sync`. `make test` runs the offline tests. `make run`, `make eval`, `make baseline` and `make app` (the viewer) replay the committed model cache, so none of them needs a key. New model calls need a `.env`, set up as in `.env.example` for DeepSeek or OpenRouter.
 
 ## Architecture
 
-The pipeline is normalise → **translate** → **classify** → retrieve → **engine** → report. It runs over all 32 receipts, because some caps add up spend across receipts.
-- **Translate** glosses non-English lines in one temperature-0 call per receipt, and keeps the original text.
-- **Classify** makes one call per receipt. It returns each line's category, item kind, recipient and reason. Code validates the reply and retries once. `restricted` comes from the taxonomy, and confidence is the probability of the category tokens, taken from logprobs.
-- **Retrieve** picks the rules whose `applies_to` matches: 7.1 of 31 per receipt, with 100% recall.
+Before any code, I asked how expense tools actually do this, because I wanted the boring version that is known to work. Expensify, Navan, Concur and Ramp's policy agent all draw the same line: AI reads the receipt, and limits, category lists and MCC rules stay plain configuration. So does this project.
 
-Every call is cached and logged, so a rerun is byte-identical and makes no calls.
+The pipeline is normalise → translate → classify → retrieve → engine → report. It runs over all 32 receipts at once, because some caps add up spend across receipts. Non-English lines get an English gloss beside the original. One classifier call per receipt returns a category, item kind, recipient and reason for each line, and code validates the reply, with one retry. `restricted` comes from the taxonomy, not the model, and confidence is the probability of the category tokens. Retrieval keeps the rules whose `applies_to` matches, 7.1 of 31 per receipt, and missed none. Every call is cached, so a rerun is free and writes the same bytes.
 
 ## Prompts
 
-`classify-v1` ([classifier.py](validator/classifier.py)) defines the categories in wording written for this project, not copied from the receipts. It tells the model to classify what an item *is* rather than the words in its name, to keep category separate from purpose, and to treat the merchant as context only. `category` comes before `reason`, so the confidence measures the answer, not a rationale. The translation prompt (`translate-v1`) asks for a literal, brief gloss and forbids classifying, so the classifier sees the original and an unbiased reading. All prompt work used a hand-written dev set (43 items in six languages).
+`classify-v1` ([classifier.py](validator/classifier.py)) defines the 21 categories in its own words, not the receipts' wording. It tells the model to classify what an item is rather than the words in its name, to keep category apart from purpose, and to treat the merchant as context only. `category` comes before `reason` in the reply, so the confidence measures the answer, not a justification.
+
+`translate-v1` asks for a short, literal gloss and tells the model not to classify. All prompt work was done on a hand-written dev set of 43 items in six languages, never on the receipts.
 
 ## Policy engine
 
-[`rules/rules.yaml`](rules/rules.yaml) holds 37 rules, each with a severity, parameters, `applies_to` and an `evidence` quote. Tests check that each quote is verbatim policy text. Each of the 31 rules that can fire has its own Python check. The engine first builds the cross-receipt totals: meals per employee-day and OTC spend per trip. Then, per receipt, it applies regional overrides and runs the checks, using `Decimal` money and inclusive caps. It honours waivers by reference kind (`PA-` waives only TECH-02), reports any rule it can't apply as `not_evaluated`, and sets the disposition with EXC-03 and then EXC-01.
+One requirement I set up front decided the build order: if the finished system got a receipt wrong, I wanted to know which stage did it. So the deterministic half came first, tested on the answer key's categories ("oracle mode") before any model was connected. Later, a blame report swaps in the correct answer one stage at a time to name the stage at fault.
 
-**Confidence threshold: 0.5.** A line below it raises EXC-03 and is left out of every rule. The rule for choosing the threshold was fixed before the dev set ran. Every dev item came back right with confidence above 0.96, so the default stood.
+[`rules/rules.yaml`](rules/rules.yaml) holds 37 rules, each with a severity, parameters, `applies_to`, and an `evidence` quote that a test checks word for word against the policy. The 31 that can fire each have a small Python check. The engine builds the cross-receipt totals (meals per employee per day, OTC spend per trip), applies regional overrides, and runs the checks with `Decimal` money and inclusive caps. A rule that can't be applied is reported as `not_evaluated`, not passed. EXC-03, then EXC-01, sets the disposition.
 
-**Oracle mode.** The engine was built against the answer key (gold categories and hand-annotated recipients) before the freeze. So v1 is blind for the classifier and the threshold, but not for the engine. Oracle mode matched 28/28 on its first run, so no rule was bent to fit a label. Two further guards: disabling any one of the 31 checks breaks a test, and 30 synthetic receipts cover the 11 rules no gold receipt raises.
+**Confidence threshold: 0.5.** A line below it raises EXC-03 and is left out of every other rule. The rule for choosing the threshold was fixed before the dev set ran. Every dev item came back right at 0.96 or higher, so the default stood.
+
+Oracle mode matched all 28 in-scope receipts on its first run, so no rule was changed to fit a label. It does mean the engine saw the answers before the freeze. Switching off any one of the 31 checks fails a test, and 30 synthetic receipts cover the 11 rules no gold receipt raises.
 
 ## Evaluation summary
 
-The config was tagged `v1-frozen`, and its first real run was committed before it was scored. Nothing changed after that, so **v1 (blind) is final**. Results cover the 28 in-scope receipts; intervals are 95% Wilson.
+When I asked what we would test against, the awkward answer was that the 32 labelled receipts are also the only test set. So the prompts were developed on the dev set, the config was tagged `v1-frozen`, and its first real run was committed before it was scored. Nothing changed after that, so v1 is final. The numbers cover the 28 in-scope receipts, with 95% Wilson intervals.
 
 | | System v1 = final | Keyword baseline |
 |---|---|---|
@@ -35,33 +36,27 @@ The config was tagged `v1-frozen`, and its first real run was committed before i
 | Receipts exactly right | 28 / 28 (88–100%) | 20 / 28 |
 | False positives · missed violations | 0 / 9 (0–30%) · 0 / 16 (0–19%) | 2 / 9 · 2 / 16 |
 
-- **Why so clean.** The traps are the taxonomy's own examples, and a fresh repeat flipped none of the 79 answers. But the prompt's authors had seen the receipts, and with only nine clean receipts a 30% false-positive rate is still possible.
-- **The baseline** falls for beer-battered cod and misses brand names, untranslated lines, and the public official on RCP-022.
-- **Failures.** None in scope. Both failure cases come from the out-of-scope timing receipts: RCP-020/021 split a lunch and a dinner around the meal cap (TIME-03), and RCP-029 is an overnight charge (TIME-01). Both are rule logic, because the TIME rules aren't built.
-- **Base rate.** This set is 57% violations, while a real stream has a few percent, so false flags would dominate.
-- **Stress test on real receipts (CORD).** To see how v1 behaves outside the curated set, it was run unchanged on 100 public Indonesian receipts, hand-labelled, 2% of them violations. This was a check, not a target, and nothing was tuned on it.
-  - v1 got 93% of lines right and found both violations.
-  - Only 2 of its 8 flags were right, mostly because packaging was read as household goods, which the taxonomy doesn't settle.
-  - It exposed a crash, now fixed; the fix changes no v1 output ([evaluation, section 8](docs/evaluation.md)).
+The clean score mostly says the traps are the taxonomy's own examples, and a fresh repeat flipped none of the 79 answers. It proves less than it looks. The prompt's authors had seen these receipts, and with nine clean receipts a 30% false-positive rate is still inside the interval. The keyword baseline falls for beer-battered cod and misses brand names, untranslated lines and the public official on RCP-022. We only get the out-of-scope timing receipts wrong (a lunch and dinner split around the meal cap, an overnight charge), because the TIME rules aren't built.
 
-## Walkthrough: RCP-011
-
-Cellar Door Fine Wines (MCC 5921), declared as "Client Entertainment", with pre-approval PA-2026-0431. The line "Vino tinto Rioja Reserva 750ml" is glossed "Rioja Reserva red wine" and classified `alcohol`, restricted, at confidence 0.99999. Retrieval picks 10 rules. The engine raises ALC-03 (high, L1: alcohol bought where it isn't served) and MCC-01 (high: a high-risk MCC). The pre-approval waives neither, so the result is **flag**, matching the answer key line for line. Each exception carries its verbatim policy text and an explanation built from the computed facts.
+The set is also 57% violations, where a real stream has a few percent, so I wanted more data to check v1 on. I ran it unchanged on 100 public receipts from Indonesian cafés and shops (CORD). It got 93% of lines right and caught both real violations, though only 2 of its 8 flags were right, mostly over bags and boxes the taxonomy has no category for. It also exposed a crash none of the 32 had hit, now fixed with v1's outputs unchanged. Nothing was tuned on it ([details](cord/README.md)).
 
 ## AI collaboration
 
-Claude Code (Claude Opus 5.5) researched, planned and drafted the code, tests and docs, one gated milestone at a time. NOTES.md logs every mistake it made. Two examples:
-- At temperature 0, DeepSeek gives every chosen token logprob 0.0, so the planned smoke test passed on meaningless confidences. Reading the raw values caught it; the classifier now runs at temperature 1, and a test asserts the logprobs are informative.
-- The viewer lost the results-source choice on `st.switch_page`. Clicking through the app caught it; no test could.
+Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs. I set the working rules, made the calls and checked the results, but most of my steering was questions. The ones above (how real tools split the work, which stage gets the blame, what we test on, whether it holds up on real receipts) each changed what got built. NOTES.md logs those calls and every mistake the assistant made. For example, at temperature 0 DeepSeek gives every chosen token a logprob of 0.0, and the planned smoke test passed on those meaningless numbers until someone read the raw values. The classifier now runs at temperature 1, and a test checks that its logprobs carry information.
 
-**Checked by hand:** the 11 translation glosses and the 3 recipient annotations (`review/`).
+I signed off the 11 translation glosses by hand (`review/translations.csv`). The three recipients in `review/item_attributes.csv` were annotated from the line text.
 
-**Where the data went:** Anthropic (through the assistant) saw the brief, policies, receipts and answer key. DeepSeek's API saw line text, merchant, MCC description and expense type, never amounts, employee fields or labels. OpenRouter saw nothing.
+Anthropic, through the assistant, saw the brief, policies, receipts and answer key. DeepSeek's API saw line text, merchant, MCC description and expense type, plus the public CORD lines, but never amounts, employee fields or labels. OpenRouter saw nothing.
 
 ## Spend
 
-**$0.0759 over 350 calls** at peak prices (`outputs/spend.jsonl`), of which the v1 run was $0.0074 and the CORD pilot $0.0394. The model is `deepseek-flash` (DeepSeek V4.1 Flash) on DeepSeek's API. It returns the logprobs the confidence method needs, handles all six languages and costs about $0.00025 per receipt. Only a DeepSeek key was available, so the OpenRouter path is built but has not been run.
+**$0.0759 over 350 calls** at peak prices (`outputs/spend.jsonl`). The v1 run cost $0.0074 and the CORD pilot $0.0394. The rest went on development and checks.
+
+I had half expected to use Jev, the new classification model, because it returns probabilities for free. A head-to-head talked me out of it. Jev is weakest with many categories and with non-English text, and this data has both. In the one comparison I found, it trailed DeepSeek V4.1 Flash, 72.5% to 76%. So the model is `deepseek-flash` (DeepSeek V4.1 Flash) on DeepSeek's API. It gives the logprobs the confidence method needs, handles all six languages, and costs about $0.00025 a receipt. I only had a DeepSeek key, so the OpenRouter path is built but has never run.
 
 ## What I would do next
 
-Build the TIME rules. Calibrate the confidence threshold and measure flag precision on a labelled sample of the company's own receipts. CORD showed confident errors (0.96–1.0) that 0.5 lets through. Ask whether a free ($0) line should raise an item exception, as it does now. Rerun the gates through OpenRouter. Send names to the model only as placeholders.
+- Build the TIME rules.
+- Calibrate the threshold and measure flag precision on a labelled sample of the company's own receipts.
+- Rerun the gates through OpenRouter.
+- Send names to the model only as placeholders.

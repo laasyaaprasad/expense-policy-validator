@@ -1,6 +1,6 @@
 # Working notes
 
-Written as the work happens, not at the end. The README's AI collaboration section is drawn from here.
+Kept as the work went, not written up at the end. The README's AI collaboration section comes from here.
 
 ## Data conventions
 
@@ -24,12 +24,7 @@ One line per convention the data dictionary (`data/README.md`) settles. Each get
 
 ## Interpretation decisions
 
-Each time the engine is changed to agree with the answer key, the policy sentence that justifies it.
-
-| Receipt | Rule | Decision | Policy sentence |
-|---|---|---|---|
-
-Oracle mode matched the answer key on 28 / 28 on its first run (M4), so no rule was changed to agree with a label. The choices below were made before that run, where the policy text leaves room. Each is covered by a test.
+Where the policy text leaves room, these are the readings the engine takes. All were made before the first oracle run (M4), which matched the answer key on 28 / 28, so none was changed to fit a label. Each has a test.
 
 | Where | Rule | Decision | Policy sentence |
 |---|---|---|---|
@@ -50,87 +45,61 @@ Oracle mode matched the answer key on 28 / 28 on its first run (M4), so no rule 
 
 The rule is fixed here before any classification output has been seen, on the dev set or the receipts. Each candidate threshold t in {0.3, 0.4, …, 0.9} scores the number of wrong dev items with confidence below t, minus the number of right dev items below t. The best score wins, and a tie goes to the lower t (fewer signals). If no candidate scores above zero, the threshold stays at 0.5, the default argued in DECISIONS.md section 3. The real receipts are never used to choose or adjust it. Their threshold sweep is reported only as analysis after the v1 freeze.
 
-**Result (M9).** The 43 dev items came back right on category, item kind and recipient in all three runs (as configured, a fresh repeat, and without merchant context). None flipped, and the lowest confidence was 0.96, so every candidate scored 0 and the threshold stayed at 0.5 (`outputs/dev/threshold.json`). The dev set is too easy to tell thresholds apart. That says nothing about whether 0.5 is a good threshold.
+**Result (M9).** All 43 dev items came back right on category, item kind and recipient in all three runs: as configured, a fresh repeat, and without merchant context. None flipped and the lowest confidence was 0.96, so every candidate scored 0 and the threshold stayed at 0.5 (`outputs/dev/threshold.json`). The dev set is too easy to tell thresholds apart, so this says nothing about whether 0.5 is a good threshold.
 
 ## The v1 run (M9)
 
-The config was frozen at tag `v1-frozen` (`outputs/v1/frozen_config.json`). The first classification of the real receipts was committed untouched (`outputs/v1/classifications.jsonl`, commit 8f9cc38) before anything was scored against gold. That took 31 calls, all valid on the first attempt, for $0.0074.
+The config was frozen at tag `v1-frozen` (`outputs/v1/frozen_config.json`), and the first classification of the real receipts was committed untouched (`outputs/v1/classifications.jsonl`, commit 8f9cc38) before anything was scored. It took 31 calls, all valid first time, for $0.0074.
 
-- **65 / 65 in-scope items right.** Macro F1 is 1.000 over the 19 answer categories, restricted F1 is 1.000, and there are no restricted-flag errors (`make items`). The three named recipients match `review/item_attributes.csv`, and no line got an item kind.
-- **EXC-03 never fires.** The lowest confidence on any of the 79 items is 0.979 (the iPad line in Japanese). With the threshold at 0.5, no item is uncertain, so the confidence signal plays no part in v1's dispositions.
-- **Stable, and not leaning on the merchant.** A fresh repeat of all 31 calls at temperature 1 changed 0 of 79 answers. A run without merchant and expense type also got 65 / 65 and changed nothing. The two runs cost $0.0150 (`make items` reports them from `outputs/v1/classifications_{repeat,no_context}.jsonl`).
-- **Why it is so clean.** The traps in the data are the examples the taxonomy and the meals policy give themselves ("Beer-battered cod", "Arnold Palmer", "virgin mojito", "Cooking wine", rum cake, barware). The prompt quotes none of them, but its definitions follow the taxonomy table. A capable model given those documents is expected to get them right.
-- **What "blind" means here.** No prompt, setting or threshold was changed after a look at gold. The prompt and dev set were still written by people who had read the receipt lines and the aggregate label counts while planning (IMPLEMENTATION_PLAN.md, "Facts from the data"). So v1 is not a test of a prompt written without knowledge of the data. With 65 items and 7 one-item categories, a perfect score is also weak evidence of how the classifier would do on new receipts.
+All 65 in-scope items came back right: macro F1 1.000 over the 19 answer categories and restricted F1 1.000 (`make items`). The three named recipients match `review/item_attributes.csv`, and no line was given an item kind. EXC-03 never fired. The lowest confidence on any of the 79 items was 0.979, on the Japanese iPad line, so at 0.5 confidence played no part in v1's decisions.
 
-**Integrated (M10).** The full pipeline (`make run`) matches the answer key on 28 / 28 in-scope receipts, the same as oracle mode. Over all 32 it gives 18 flag, 3 review and 11 pass. The four out-of-scope receipts differ only where TIME rules apply. So the blame report has nothing to blame on v1. Its tests plant one fault per stage in the v1 classifications and check that the right stage is named, including a case it must call "unknown".
+The answers were also stable. A fresh repeat of all 31 calls at temperature 1 changed none of the 79, and a run without the merchant and expense type still got 65 / 65. The two runs cost $0.0150 (`outputs/v1/classifications_{repeat,no_context}.jsonl`).
 
-**Evaluated (M11, `make eval`).** False positives are 0 / 9 (95% Wilson interval 0–30%) and missed violations are 0 / 16 (0–19%). All 26 gold exceptions are found, none extra, and each cites exactly the gold line IDs. The intervals are the honest part: with 9 should-pass receipts, a perfect score is consistent with a false-positive rate as high as 30%. The after-the-fact threshold sweep changes nothing up to 0.95. At 0.98 the iPad line becomes uncertain and one receipt goes wrong; at 0.999 five lines do and four receipts go wrong. On this data the threshold could sit anywhere below 0.95 without changing a result.
+I don't read much into the perfect score. The traps in the data are the examples the taxonomy and the meals policy give themselves (beer-battered cod, Arnold Palmer, virgin mojito, cooking wine, rum cake, barware). The prompt quotes none of them, but its definitions follow the taxonomy table, and a capable model given those documents should get them right. "Blind" is also narrower than it sounds. Nothing was changed after a look at gold, but the prompt and dev set were written by people who had read the receipt lines and the label counts while planning (IMPLEMENTATION_PLAN.md, "Facts from the data"). With 65 items and seven one-item categories, a perfect score says little about new receipts.
+
+**Integrated (M10).** `make run` matches the answer key on 28 / 28 in-scope receipts, the same as oracle mode. Over all 32 it gives 18 flag, 3 review and 11 pass, and the four out-of-scope receipts differ only where TIME rules apply. That leaves the blame report nothing to blame on v1. So its tests plant one fault per stage in the v1 classifications and check that it names the right stage, including one case where the right answer is "unknown".
+
+**Evaluated (M11, `make eval`).** False positives are 0 / 9 (95% Wilson interval 0–30%) and missed violations 0 / 16 (0–19%). All 26 gold exceptions are found, none extra, and each cites exactly the gold line IDs. Nine should-pass receipts can't rule out a false-positive rate as high as 30%, so the zero means less than it looks. The after-the-fact threshold sweep changes nothing up to 0.95. At 0.98 the iPad line becomes uncertain and one receipt goes wrong; at 0.999 five lines do and four receipts go wrong. On this data the threshold could sit anywhere below 0.95.
 
 ## Keyword baseline (M12)
 
-The word list (`rules/keywords.yaml`) was committed in f3ea89b, before the baseline's first run on the receipts. It has no brand names. The assistant that wrote it had seen the receipt lines (printed for the M9 leakage check), and two entries may owe something to that: `ipa`, and the German compound `weißwein`, the only compound in the list. So its score is, if anything, optimistic.
+The word list (`rules/keywords.yaml`) was committed in f3ea89b, before its first run on the receipts, and has no brand names. The assistant that wrote it had already seen the receipt lines (printed for the M9 leakage check), and two entries may owe something to that: `ipa`, and the German compound `weißwein`, the only compound in the list. If anything, its score is flattering.
 
-Through the same retriever and engine, the baseline gets 49 / 65 items and 20 / 28 receipts exactly right (system: 65 and 28). Restricted F1 is 0.791 and macro F1 0.738. False positives are 2 / 9 and missed violations 2 / 16 (system: 0 and 0). Its 16 item errors are the ones DECISIONS.md section 8 predicted:
-- **Names that lie:** beer-battered cod, rum cake and the alcohol-free mojito read as alcohol. RCP-004, which should pass, is flagged.
-- **Brand names:** Chianti, Barolo, Marlboro and the iPad are not found. RCP-024 drops from flag to review.
-- **No translation:** the French and German food lines, and a Portuguese laundry line, become `other` or clothing ("camisas").
-- **Category vs purpose:** "Dry cleaning - 3 shirts" is clothing, so a laundry receipt that should pass is flagged.
-- **No recipients:** with no recipient, the gift to a public official on RCP-022 falls under GIFT-01's cap instead of GIFT-04. A receipt that should be flagged passes.
+Through the same retriever and engine, the baseline gets 49 / 65 items and 20 / 28 receipts right, against the system's 65 and 28. Restricted F1 is 0.791 and macro F1 0.738. False positives are 2 / 9 and missed violations 2 / 16, against 0 and 0. Its 16 item errors are the ones DECISIONS.md section 8 predicted:
+- Beer-battered cod, rum cake and the alcohol-free mojito read as alcohol, so RCP-004, which should pass, is flagged.
+- Chianti, Barolo, Marlboro and the iPad aren't found, and RCP-024 drops from flag to review.
+- Untranslated French and German food lines become `other`, and the Portuguese "camisas" on a laundry bill becomes clothing.
+- "Dry cleaning - 3 shirts" becomes clothing too, so a laundry receipt that should pass is flagged.
+- With no recipient, the gift for a public official on RCP-022 falls under GIFT-01's cap instead of GIFT-04, so it passes when it should be flagged.
 
-Where it does better: it costs nothing, runs in milliseconds, gives the same answer every time with no cache, and sends no receipt data to any outside service. On this data it is not more accurate on any measure.
+It does win on cost, speed and privacy: it costs nothing, runs in milliseconds, gives the same answer every time without a cache, and sends no receipt data anywhere. It isn't more accurate on any measure here.
 
-## Real receipts: the CORD pilot (method fixed 2026-10-30, before any label or model call)
+## Real receipts (CORD)
 
-The 32 receipts are 57% violations, and nothing in them is unseen or messy. This pilot asks what v1 does on real receipt text, at the rate restricted items actually occur.
-
-- **Data.** The 100 receipts in CORD v2's validation split (CC-BY-4.0): real receipts from Indonesian restaurants, cafés, bakeries and shops, 270 lines after conversion. Text only (`cord/README.md`).
-  - The train split is too large for the API that serves the text.
-  - The test split stays unseen for a later held-out check.
-- **Context.** CORD has none, so every receipt gets the same declared, synthetic context: a US employee, "Meals - Individual", MCC 5812, one attendee, IDR at 16,000 per USD, one employee per receipt. Under it, the only rule that can fire without an item cause is the $100 international meal cap (MEAL-01), on CORD-V041.
-- **Labels.** The assistant labels every line, sure or unsure, following the guide in `cord/README.md`. The labels are committed before the first model call and never reach a prompt. The user then checks every restricted and every unsure label, plus a random 30 of the rest.
-- **What runs.** v1 exactly as frozen: same prompts, model, rules, and threshold 0.5. Nothing is tuned on the pilot. The correct decisions come from the engine run on the labels (oracle mode), under the same context.
-- **Metrics.**
-  1. **Items:** accuracy and macro F1 on all lines and on sure lines, plus restricted precision and recall.
-  2. **Receipts:** false alarms are receipts the labels pass but v1 flags, or sends to review; each count gets a Wilson interval. Flag precision is the share of v1's flags that the labels also flag.
-  3. **Confidence:** accuracy by confidence band, and how many lines and receipts each threshold in the `SWEEP` grid would send to review.
-  4. **Disagreements:** each one is listed with its raw text, gloss, v1 category and label.
-- **Threshold rule, fixed now for a full run.** For each t in the `SWEEP` grid:
-  - cost(t) = 10 × (lines at or above t whose restricted flag is wrong) + 1 × (receipts with any line below t).
-  - The lowest cost wins, and ties go to the lower t. The result is also shown at weights of 5 and 20.
-  - **On the pilot,** this is computed for illustration only.
-  - **To be adopted,** a threshold must be chosen on the train split, checked on the unseen test split, and released as v2.
-
-**Results** (`make cord`, `outputs/cord/v1/metrics.json`). The run took 200 calls and cost $0.0394, or $0.00039 per receipt; translation adds a third, because every line is glossed. The first attempt crashed on CORD-V048 (see the changes table).
-- **Items:**
-  - 252 / 270 lines right (93%), and 239 / 244 on sure labels (98%).
-  - The one restricted line, the rice soap, was found.
-  - Seven lines were wrongly called restricted, and only one of those has a sure label.
-- **Receipts:**
-  - The labels give 98 pass and 2 flag. v1 gives 87 pass, 8 flag and 5 review, and it finds both real flags.
-  - False flags: 6 / 98 (95% CI 2.8–12.7%). False reviews: 5 / 98.
-  - Flag precision: 2 / 8 (7–59%).
-- **The six false flags** (CORD-V008 has two of these causes):
-  - Four packaging lines read as `household_goods`: two plastic bags, a paper bag, and a plastic clamshell box.
-  - A free birthday candle read as `household_goods`.
-  - "*Rhum", an option on a bakery item, read as a spirit (ALC-01).
-  - "TALAM UNGU", a purple steamed cake. It was glossed literally as "PURPLE TRAY" and called kitchenware at confidence 0.99.
-- **How much rests on unsure labels.** Only the cake has a sure label. Suppose every unsure label were replaced by v1's answer (an after-the-fact check). Flag precision would then be 8 / 8. So the headline number turns on whether packaging is `household_goods`, and neither the taxonomy nor HOUSE-01 says.
-- **The five reviews.** All come from EXC-03, on lines below 0.5: three unreadable codes ("TT", "SB 1 OR", "KENTHIR 2") and packaging on two receipts. That is EXC-03 doing its job. But the labels can never send a receipt to review, so these count against v1.
-- **Confidence ranks well but is not calibrated.**
-  - The 225 lines at 0.999 or above are 99% right; the 45 below are 64% right.
-  - The confident errors are the boundary cases: plastic bags at 0.96–0.98, the cake at 0.99, and the clamshell box at 1.0.
-- **Threshold rule, as an illustration.** At all three weights it picks 0.995. That cuts false flags from 6 to 1, but sends 30 of 100 receipts to review. It is not adopted: v1 stays at 0.5.
-
-**Decision (2026-10-30): CORD is not tuned on.** It stays a stress test.
-- **What was dropped.** A v2 built from the pilot's errors was started: packaging guidance, skipping $0 lines, and dish-name glosses. It was dropped before any v2 code was written.
-- **Why.** It would fit a distribution the brief isn't about. The brief also fixes the taxonomy on this track ("ignore the file's own invitation to add categories").
-- **The test split** was downloaded, but never committed or run.
-- **What remains of the pilot.** The crash fix, and the open $0-line question.
+To get more data than the 32 receipts, v1 was run unchanged on 100 real receipts from CORD v2. The method was fixed here before any label or model call (commit 97a62c6) and now lives in `cord/README.md`, with the results. The pilot changed one thing, the crash fix in the last table, and left one open question, on free ($0) lines.
 
 ## What was checked by hand
 
-- **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
-- **Recipients (M4).** The three lines in `review/item_attributes.csv` that name a recipient were annotated from the line text: one client, two lines for a government official.
+- **Translations (M8, 2026-10-30).** The assistant drafted the 11 English glosses in `review/translations.csv` with DeepSeek at temperature 0. I signed all 11 off as `ok`, and none was changed.
+- **Recipients (M4).** The three lines in `review/item_attributes.csv` that name a recipient were annotated from the line text: one client, and two lines for a government official.
+- **CORD labels.** `review/cord_labels.csv` is ready for my check, which hasn't been done yet.
+
+## Calls I made
+
+The questions and decisions that changed what got built, in order.
+
+| Stage | What I asked or decided | What it changed |
+|---|---|---|
+| Research | Look widely at how expense systems are built in 2026, and recommend the option that is proven practice and not over-engineered. I named Jev as one to look at. | Every system looked at lets AI read the receipt and keeps limits and lists as configuration, so this one does too (DECISIONS.md). A head-to-head ruled Jev out on many categories and non-English text, and DeepSeek V4.1 Flash was picked instead. |
+| Planning | Build in milestones that can each be tested, so a failure can be traced to its stage. | The engine was built first, on gold categories (oracle mode, M4), then the blame report (M10). Every model call is cached, so reruns are identical. |
+| Planning | What do we test against, if the 32 labelled receipts are all we have? | A hand-written dev set for prompt work, the `v1-frozen` tag, and v1's first run committed before scoring. |
+| Planning | Added the organisers' data to the project. | The plan was checked against the real fields and label counts ("Facts from the data" in IMPLEMENTATION_PLAN.md). It is also why v1 isn't fully blind. |
+| After v1 | Get more real data to check v1 on, starting with 100 receipts rather than a full set. | The CORD pilot. Its 49th receipt exposed a crash none of the 32 had hit. |
+| After the pilot | Were the false flags really the system's fault? | Four of the six rest only on $0 lines, which became an open question, not a fix. |
+| After the pilot | Stopped the v2 I had said yes to: why fit the system to Indonesian receipts? | Nothing is tuned on CORD, and the brief's fixed taxonomy stands. |
+| Before submitting | Has anything overfit? | An audit. Labels never reach the system, and the real risks (a prompt written with the receipts in view, an engine that isn't blind, a small n) are stated in the README and evaluation. |
+
+Standing rules throughout: the assistant never reads or commits the API key, labels are used only for scoring, and downloaded files are treated as untrusted.
 
 ## AI collaboration log
 
@@ -151,9 +120,9 @@ What an assistant got wrong, and the check that caught it.
 | M9 | Two of the assistant's classifier tests were wrong. The "misaligned confidence" case wasn't misaligned, because `json.dumps` escaped the decoy quotes. The prompt-leak check flagged "Service charge" and "Greeting card", which the taxonomy table itself lists as typical examples, so they belong in the definitions. | Test failures, read before changing anything |
 | M9 | The first offline-rerun test compared parsed rows. `read_jsonl` reads floats as Decimal, so equal confidences looked different. It now compares the written bytes, which is also what the gate asks for. | Test failure, diffed by hand |
 | M10 | The first blame draft compared each extracted recipient with all three annotation fields (name, type and item kind). It would have listed every line as a recipient error. | Code review before the first test run |
+| M11 | The Wilson interval at 0 / 9 came back with a lower bound of 2.8e-17, not 0. The assistant's first fix clamped it to 0 or above, which changed nothing, because the error is positive. It is now rounded to 10 places. | `test_wilson_interval_for_one_in_nine`, run after each fix |
 | M13 | In the viewer, picking a row on the receipt list with the baseline selected opened the detail page showing the system's results. `st.switch_page` reruns without the sidebar widget's state, so the radio fell back to its default. The choice now lives in a plain session key. `AppTest.switch_page` keeps widget state and passes either way, so no test guards this; the fix was checked by hand in the browser. | Clicking through the app, not the tests |
 | CORD pilot | `category_confidences` promised confidence 0 whenever the category tokens couldn't be lined up, but only one of its two failure paths did that. The other raised, and on the 49th real receipt it stopped the whole run. No v1 receipt had triggered it. | The first run on real receipts |
-| M11 | The Wilson interval at 0 / 9 came back with a lower bound of 2.8e-17, not 0. The assistant's first fix clamped it to 0 or above, which changed nothing, because the error is positive. It is now rounded to 10 places. | `test_wilson_interval_for_one_in_nine`, run after each fix |
 
 ## Changes after the v1 freeze
 

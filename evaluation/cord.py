@@ -2,8 +2,8 @@
 
 `python -m evaluation.cord --run` runs the pipeline on cord/receipts.jsonl (from the cache when it
 can) and writes outputs/cord/v1/. Without --run it scores the committed outputs, offline, and
-writes outputs/cord/v1/metrics.json. The method was fixed before any model call (NOTES.md, "Real
-receipts: the CORD pilot").
+writes outputs/cord/v1/metrics.json. The method was fixed before any model call (cord/README.md,
+"Method").
 
 The correct decisions are the engine run on the labels, under the same declared context, so they
 inherit the engine's rule logic and the synthetic context. The labels are read only here.
@@ -191,7 +191,7 @@ def build() -> dict:
 
 
 def write_label_review(receipts: list[ReceiptInput], labels: dict[str, dict], path: Path = REVIEW_PATH) -> None:
-    """The hand check fixed in NOTES: every restricted and unsure label, and a random 30 of the rest.
+    """The hand check fixed in the method: every restricted and unsure label, and a random 30 of the rest.
     It shows no system output. `ok` marks are kept while the label they approved is unchanged."""
     kept = {}
     if path.exists():
