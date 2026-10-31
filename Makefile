@@ -30,9 +30,9 @@ eval:
 	uv run python -m evaluation.blame > /dev/null
 	uv run python -m evaluation.evaluate
 
-# Keyword baseline through the same engine (M12).
+# Keyword baseline through the same engine (M12): outputs/baseline.jsonl. No model calls.
 baseline:
-	@echo "Not built yet (M12)"; exit 1
+	uv run python -m validator.baseline
 
 # Results viewer (M13).
 app:

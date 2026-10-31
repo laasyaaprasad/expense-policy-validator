@@ -66,6 +66,19 @@ The config was frozen at tag `v1-frozen` (`outputs/v1/frozen_config.json`). The 
 
 **Evaluated (M11, `make eval`).** False positives are 0 / 9 (95% Wilson interval 0–30%) and missed violations are 0 / 16 (0–19%). All 26 gold exceptions are found, none extra, and each cites exactly the gold line IDs. The intervals are the honest part: with 9 should-pass receipts, a perfect score is consistent with a false-positive rate as high as 30%. The after-the-fact threshold sweep changes nothing up to 0.95. At 0.98 the iPad line becomes uncertain and one receipt goes wrong; at 0.999 five lines do and four receipts go wrong. On this data the threshold could sit anywhere below 0.95 without changing a result.
 
+## Keyword baseline (M12)
+
+The word list (`rules/keywords.yaml`) was committed in f3ea89b, before the baseline's first run on the receipts. It has no brand names. The assistant that wrote it had seen the receipt lines (printed for the M9 leakage check), and two entries may owe something to that: `ipa`, and the German compound `weißwein`, the only compound in the list. So its score is, if anything, optimistic.
+
+Through the same retriever and engine, the baseline gets 49 / 65 items and 20 / 28 receipts exactly right (system: 65 and 28). Restricted F1 is 0.791 and macro F1 0.738. False positives are 2 / 9 and missed violations 2 / 16 (system: 0 and 0). Its 16 item errors are the ones DECISIONS.md section 8 predicted:
+- **Names that lie:** beer-battered cod, rum cake and the alcohol-free mojito read as alcohol. RCP-004, which should pass, is flagged.
+- **Brand names:** Chianti, Barolo, Marlboro and the iPad are not found. RCP-024 drops from flag to review.
+- **No translation:** the French and German food lines, and a Portuguese laundry line, become `other` or clothing ("camisas").
+- **Category vs purpose:** "Dry cleaning - 3 shirts" is clothing, so a laundry receipt that should pass is flagged.
+- **No recipients:** with no recipient, the gift to a public official on RCP-022 falls under GIFT-01's cap instead of GIFT-04. A receipt that should be flagged passes.
+
+Where it does better: it costs nothing, runs in milliseconds, gives the same answer every time with no cache, and sends no receipt data to any outside service. On this data it is not more accurate on any measure.
+
 ## What was checked by hand
 
 - **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
