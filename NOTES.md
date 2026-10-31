@@ -64,6 +64,8 @@ The config was frozen at tag `v1-frozen` (`outputs/v1/frozen_config.json`). The 
 
 **Integrated (M10).** The full pipeline (`make run`) matches the answer key on 28 / 28 in-scope receipts, the same as oracle mode. Over all 32 it gives 18 flag, 3 review and 11 pass. The four out-of-scope receipts differ only where TIME rules apply. So the blame report has nothing to blame on v1. Its tests plant one fault per stage in the v1 classifications and check that the right stage is named, including a case it must call "unknown".
 
+**Evaluated (M11, `make eval`).** False positives are 0 / 9 (95% Wilson interval 0–30%) and missed violations are 0 / 16 (0–19%). All 26 gold exceptions are found, none extra, and each cites exactly the gold line IDs. The intervals are the honest part: with 9 should-pass receipts, a perfect score is consistent with a false-positive rate as high as 30%. The after-the-fact threshold sweep changes nothing up to 0.95. At 0.98 the iPad line becomes uncertain and one receipt goes wrong; at 0.999 five lines do and four receipts go wrong. On this data the threshold could sit anywhere below 0.95 without changing a result.
+
 ## What was checked by hand
 
 - **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
@@ -88,6 +90,7 @@ What an assistant got wrong, and the check that caught it.
 | M9 | Two of the assistant's classifier tests were wrong. The "misaligned confidence" case wasn't misaligned, because `json.dumps` escaped the decoy quotes. The prompt-leak check flagged "Service charge" and "Greeting card", which the taxonomy table itself lists as typical examples, so they belong in the definitions. | Test failures, read before changing anything |
 | M9 | The first offline-rerun test compared parsed rows. `read_jsonl` reads floats as Decimal, so equal confidences looked different. It now compares the written bytes, which is also what the gate asks for. | Test failure, diffed by hand |
 | M10 | The first blame draft compared each extracted recipient with all three annotation fields (name, type and item kind). It would have listed every line as a recipient error. | Code review before the first test run |
+| M11 | The Wilson interval at 0 / 9 came back with a lower bound of 2.8e-17, not 0. The assistant's first fix clamped it to 0 or above, which changed nothing, because the error is positive. It is now rounded to 10 places. | `test_wilson_interval_for_one_in_nine`, run after each fix |
 
 ## Changes after the v1 freeze
 

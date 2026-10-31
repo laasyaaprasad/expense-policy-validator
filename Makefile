@@ -24,9 +24,11 @@ smoke:
 run:
 	uv run python -m validator.pipeline
 
-# Metrics and blame report (M11).
+# Part 3 evaluation from committed outputs, offline (M11): items.json, blame.json, metrics.json.
 eval:
-	@echo "Not built yet (M11)"; exit 1
+	uv run python -m evaluation.items > /dev/null
+	uv run python -m evaluation.blame > /dev/null
+	uv run python -m evaluation.evaluate
 
 # Keyword baseline through the same engine (M12).
 baseline:

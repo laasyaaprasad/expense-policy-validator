@@ -2,7 +2,8 @@
 
 import pytest
 
-from evaluation.metrics import binary_f1, macro_f1, per_category, recipient_matches
+from evaluation.metrics import (binary_f1, confusion, false_positives, macro_f1, missed_violations, per_category,
+                                recipient_matches, rule_scores, wilson)
 
 # a: 1 of 2 found, nothing wrongly put in it    → P 1,   R 1/2, F1 2/3
 # b: its 1 item found, plus 1 wrongly put in it  → P 1/2, R 1,   F1 2/3
@@ -45,3 +46,39 @@ def test_restricted_f1_counts_restricted_as_positive():
 ])
 def test_recipient_matching(got, want, ok):
     assert recipient_matches(*got, *want) is ok
+
+
+def test_a_gold_category_never_predicted_scores_zero_and_a_predicted_only_one_is_ignored():
+    # Two answer categories; "b" is never predicted, "z" is only predicted.
+    assert macro_f1(["a", "b"], ["a", "z"]) == pytest.approx((1.0 + 0.0) / 2)
+
+
+def test_confusion_rows_are_gold_and_columns_ours():
+    gold, ours = ["flag", "flag", "pass", "review"], ["flag", "review", "flag", "review"]
+    assert confusion(gold, ours) == [[1, 1, 0], [0, 1, 0], [1, 0, 0]]
+
+
+def test_false_positives_and_missed_violations():
+    gold, ours = ["pass", "pass", "pass", "flag", "flag", "review"], ["pass", "review", "flag", "review", "flag", "pass"]
+    assert false_positives(gold, ours) == (2, 3)
+    assert missed_violations(gold, ours) == (1, 2)
+
+
+def test_wilson_interval_for_one_in_nine():
+    low, high = wilson(1, 9)
+    assert low == pytest.approx(0.020, abs=0.001) and high == pytest.approx(0.435, abs=0.001)
+    assert wilson(0, 9)[0] == 0.0 and wilson(0, 9)[1] > 0.25  # zero errors is not zero uncertainty
+
+
+def test_rule_matching_follows_the_data_dictionary():
+    gold = {"R1": {"ALC-01": ("L1",), "MEAL-01": ()}, "R2": {"TECH-01": ("L2",)}}
+    ours = {"R1": {"ALC-01": ("L1", "L3"), "MEAL-01": ()}, "R2": {"GIFT-02": ("L2",)}}
+    scores = {s.rule_id: s for s in rule_scores(gold, ours)}
+    # right rule, wrong lines: matched, but its evidence is not correct
+    assert (scores["ALC-01"].matched, scores["ALC-01"].evidence_correct) == (1, 0)
+    # whole-receipt rule: both empty counts as correct evidence
+    assert (scores["MEAL-01"].matched, scores["MEAL-01"].evidence_correct) == (1, 1)
+    # a gold rule we never raise: recall 0, precision n/a
+    assert (scores["TECH-01"].recall, scores["TECH-01"].precision) == (0.0, None)
+    # a rule we raise that gold never does: precision 0, recall n/a
+    assert (scores["GIFT-02"].precision, scores["GIFT-02"].recall) == (0.0, None)

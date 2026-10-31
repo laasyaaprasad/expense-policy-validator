@@ -53,3 +53,60 @@ def recipient_matches(got_name: str | None, got_type: str | None, want_name: str
     if want_name is None:
         return got_name is None
     return got_name is not None and (_recipient_key(want_name) in _recipient_key(got_name) or _recipient_key(got_name) in _recipient_key(want_name))
+
+
+# --- receipts -------------------------------------------------------------------------------------
+
+DISPOSITIONS = ("flag", "review", "pass")
+
+
+def confusion(gold: list[str], ours: list[str]) -> list[list[int]]:
+    """Rows are the correct disposition, columns ours, both in DISPOSITIONS order."""
+    return [[sum(g == row and o == col for g, o in zip(gold, ours)) for col in DISPOSITIONS] for row in DISPOSITIONS]
+
+
+def wilson(k: int, n: int) -> tuple[float, float]:
+    """95% Wilson score interval for k successes in n. Behaves sensibly at 0/n and n/n, where the
+    normal approximation gives a zero-width interval."""
+    from statsmodels.stats.proportion import proportion_confint
+    low, high = proportion_confint(k, n, alpha=0.05, method="wilson")
+    return round(float(low), 10), round(float(high), 10)  # float error leaves e.g. 2.8e-17 at 0/n
+
+
+def false_positives(gold: list[str], ours: list[str]) -> tuple[int, int]:
+    """Of the receipts that should pass, how many we flagged or sent to review."""
+    return sum(g == "pass" and o != "pass" for g, o in zip(gold, ours)), gold.count("pass")
+
+
+def missed_violations(gold: list[str], ours: list[str]) -> tuple[int, int]:
+    """Of the receipts that should be flagged, how many we passed or downgraded to review."""
+    return sum(g == "flag" and o != "flag" for g, o in zip(gold, ours)), gold.count("flag")
+
+
+@dataclass(frozen=True)
+class RuleScore:
+    rule_id: str
+    gold: int  # receipts where the answer key raises it
+    raised: int  # receipts where we raise it
+    matched: int  # receipts where both do (receipt + rule_id)
+    evidence_correct: int  # matched, with exactly the same line IDs
+    precision: float | None  # None ("n/a") when we never raise it
+    recall: float | None  # None when the answer key never raises it
+
+
+def rule_scores(gold: dict[str, dict[str, tuple[str, ...]]], ours: dict[str, dict[str, tuple[str, ...]]]) -> list[RuleScore]:
+    """Per-rule matching, as the data dictionary defines it. Both arguments map receipt ID → rule ID →
+    the line IDs cited (empty for whole-receipt rules and signals)."""
+    rules = sorted({rule for rid in gold for rule in gold[rid]} | {rule for rid in ours for rule in ours[rid]})
+    scores = []
+    for rule in rules:
+        in_gold = {rid for rid in gold if rule in gold[rid]}
+        raised = {rid for rid in ours if rule in ours[rid]}
+        matched = in_gold & raised
+        scores.append(RuleScore(
+            rule_id=rule, gold=len(in_gold), raised=len(raised), matched=len(matched),
+            evidence_correct=sum(sorted(gold[rid][rule]) == sorted(ours[rid][rule]) for rid in matched),
+            precision=len(matched) / len(raised) if raised else None,
+            recall=len(matched) / len(in_gold) if in_gold else None,
+        ))
+    return scores
