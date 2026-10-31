@@ -13,9 +13,9 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from evaluation.metrics import recipient_matches
 from validator.classifier import Classification, classify
 from validator.data import ROOT, LineItem, ReceiptInput, read_jsonl
-from validator.engine.rules import _recipient_key
 from validator.llm import LLM
 from validator.translate import translate_all
 
@@ -46,15 +46,6 @@ def load_dev() -> tuple[list[ReceiptInput], dict[str, dict]]:
             pre_approval_ref=None, itemized=True, line_items=tuple(lines),
         ))
     return receipts, expected
-
-
-def recipient_matches(got_name, got_type, want_name, want_type) -> bool:
-    """Types must agree; names match when one contains the other once punctuation and titles are set aside."""
-    if got_type != want_type:
-        return False
-    if want_name is None:
-        return got_name is None
-    return got_name is not None and (_recipient_key(want_name) in _recipient_key(got_name) or _recipient_key(got_name) in _recipient_key(want_name))
 
 
 @dataclass
