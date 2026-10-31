@@ -46,6 +46,12 @@ Oracle mode matched the answer key on 28 / 28 on its first run (M4), so no rule 
 | DOC-04 | DOC-04 | A missing currency also raises DOC-04, because the receipt cannot be shown to be in USD. | "must record the transaction currency and the conversion rate used" |
 | RCP-020, RCP-021 | MEAL-01 | MEAL-01 is raised on the split pair. TIME-03 is out of scope; gold has TIME-03, which replaces the cap. These receipts are not scored. | "It replaces the threshold rule being split around" |
 
+## EXC-03 threshold rule (written before the dev set was first run)
+
+The rule is fixed here before any classification output has been seen, on the dev set or the receipts. Each candidate threshold t in {0.3, 0.4, …, 0.9} scores the number of wrong dev items with confidence below t, minus the number of right dev items below t. The best score wins, and a tie goes to the lower t (fewer signals). If no candidate scores above zero, the threshold stays at 0.5, the default argued in DECISIONS.md section 3. The real receipts are never used to choose or adjust it. Their threshold sweep is reported only as analysis after the v1 freeze.
+
+**Result (M9).** The 43 dev items came back right on category, item kind and recipient in all three runs (as configured, a fresh repeat, and without merchant context). None flipped, and the lowest confidence was 0.96, so every candidate scored 0 and the threshold stayed at 0.5 (`outputs/dev/threshold.json`). The dev set is too easy to tell thresholds apart. That says nothing about whether 0.5 is a good threshold.
+
 ## What was checked by hand
 
 - **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
@@ -58,6 +64,7 @@ What an assistant got wrong, and the check that caught it.
 | Milestone | What went wrong | Caught by |
 |---|---|---|
 | M3 | `rules/rules.yaml` was drafted by the assistant. The EXC-01 and EXC-02 evidence quotes each closed with a period where the policy continues with a colon, so the quote was not verbatim. | `test_evidence_is_verbatim_policy_text` |
+| M3 | The gate itself was mutation-tested: a wrong cap (75→76), a wrong MCC code, a wrong severity and a reworded quote each fail it. A truncated quote passes, as intended, since it is still verbatim. | Manual mutation run |
 | M3 | The first draft put an `mccs` condition on ALC-01/02 `applies_to`. The schema has no such field, and the "any condition matches" rule would have retrieved them for any on-premises meal. On-premises scope moved to the engine. | Review against the `AppliesTo` schema (`extra="forbid"`) |
 | M4 | The first draft of `build_context` wrapped the meal, OTC and baggage totals in one `try`. A receipt with no meal spend would then have dropped out of its trip's OTC total. Split into three. | Code review before the first test run |
 | M4 | The engine matched the answer key on the first oracle run. So the tests were checked by sabotage instead: each of the 31 rule checks was disabled in turn, and every one fails at least one gate. Seven (ALC-01, DOC-01, GIFT-02, HOUSE-01, MCC-01, PERS-03, TECH-01) are caught only by the oracle, which is why it runs under pytest and not only as `make oracle`. | Mutation sweep |
@@ -66,7 +73,7 @@ What an assistant got wrong, and the check that caught it.
 | M6 | Two of the assistant's own gate tests were wrong, not the reporter. One expected REG-03's per-person amount in EUR, though it is USD against a EUR cap. The other compared Decimal facts with their JSON strings after a round trip. | Test failures, checked against the facts by hand |
 | M7 | The smoke gate as planned ("logprobs give a probability between 0 and 1") passed on useless data. At temperature 0, DeepSeek returns logprob 0.0 for every chosen token and -9999 for every alternative, so every item, the trap included, scored 1.0. The classifier now runs at temperature 1, and the gate asserts that logprobs are informative there and degenerate at 0. | Reading the raw logprobs after a too-clean pass |
 | M7 | The plan assumed OpenRouter's strict `json_schema`; DeepSeek's own API offers only `json_object`. The enum is now enforced by validation and a retry instead of during decoding. | DeepSeek API reference, read before writing the client |
-| M3 | The gate itself was mutation-tested: a wrong cap (75→76), a wrong MCC code, a wrong severity and a reworded quote each fail it. A truncated quote passes, as intended, since it is still verbatim. | Manual mutation run |
+| M9 | Two of the assistant's classifier tests were wrong. The "misaligned confidence" case wasn't misaligned, because `json.dumps` escaped the decoy quotes. The prompt-leak check flagged "Service charge" and "Greeting card", which the taxonomy table itself lists as typical examples, so they belong in the definitions. | Test failures, read before changing anything |
 
 ## Changes after the v1 freeze
 

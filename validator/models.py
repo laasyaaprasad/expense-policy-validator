@@ -23,6 +23,7 @@ class ClassifiedItem(BaseModel):
     recipient_name: str | None = None
     recipient_type: RecipientType | None = None
     item_kind: ItemKind | None = None
+    reason: str | None = None  # the classifier's one-line justification; `other` items must explain themselves
 
 
 class ClassifiedReceipt(BaseModel):

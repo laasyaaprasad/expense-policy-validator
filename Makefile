@@ -1,4 +1,4 @@
-.PHONY: test oracle smoke run eval baseline app
+.PHONY: test oracle dev smoke run eval baseline app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -7,6 +7,10 @@ test:
 # Engine on the gold categories (M4).
 oracle:
 	uv run python -m evaluation.oracle
+
+# Classify the hand-written dev set and apply the threshold rule (M9). Needs a key on a cache miss.
+dev:
+	uv run python -m evaluation.dev
 
 # Live model capability checks (M7). Needs a key in .env.
 smoke:

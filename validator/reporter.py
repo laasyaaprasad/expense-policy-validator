@@ -32,6 +32,7 @@ class ResultLine(BaseModel):
     recipient_name: str | None = None
     recipient_type: str | None = None
     item_kind: str | None = None
+    reason: str | None = None
 
 
 class ResultException(BaseModel):

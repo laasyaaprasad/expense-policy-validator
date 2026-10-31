@@ -14,8 +14,10 @@ from validator.engine.rules import CHECKS
 from validator.models import ClassifiedReceipt, Decision, Finding, NotEvaluated, Signal, Waiver
 from validator.rules_config import RuleSpec, RulesConfig, load_rules
 
-# Items below this confidence raise EXC-03 instead of being judged. Placeholder: M9 chooses it on the dev set.
-CONFIDENCE_THRESHOLD = 0.7
+# Items below this confidence raise EXC-03 instead of being judged. Chosen on the dev set by the rule
+# pre-registered in NOTES.md (outputs/dev/threshold.json): every dev item scored 0.96 or above and
+# all were right, so no candidate did better than the 0.5 default. Never tuned on the receipts.
+CONFIDENCE_THRESHOLD = 0.5
 
 
 def evaluate(
