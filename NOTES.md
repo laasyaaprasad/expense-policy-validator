@@ -29,6 +29,23 @@ Each time the engine is changed to agree with the answer key, the policy sentenc
 | Receipt | Rule | Decision | Policy sentence |
 |---|---|---|---|
 
+Oracle mode matched the answer key on 28 / 28 on its first run (M4), so no rule was changed to agree with a label. The choices below were made before that run, where the policy text leaves room. Each is covered by a test.
+
+| Where | Rule | Decision | Policy sentence |
+|---|---|---|---|
+| all | EXC-03 | Uncertain lines are left out of receipt totals too (MEAL-02, REG-04), not only out of category tests. | "leave that item out of every other rule's calculation for the receipt" |
+| all | EXC-04 | A rule that cannot be applied (no conversion rate, date or total) is reported under `not_evaluated`. It does not pass silently, and no exception is raised. | "An exception that cannot name its evidence must not be raised." |
+| all | thresholds | Caps are inclusive: exactly $75, $200, $30 per attendee, $150 or EUR 50 does not breach. | "Spend above the cap", "up to $200 per item", "above $150", "above EUR 50" |
+| ALC-01 | ALC-01 | Client Entertainment with an attendee count of 1 still breaks ALC-01. | "records an attendee count of two or more" |
+| GIFT-01 | GIFT-01 | Applies to gifts for clients, for unnamed recipients, and for named recipients of unknown type. Gifts for employees go to GIFT-03; gifts for officials go to GIFT-04. | "Gifts to clients and prospects are capped at $50 per recipient per occasion." |
+| GIFT-01 | GIFT-01 | A recipient is read only from the line's own text. No other field on the record could name one. | "in the line description or elsewhere on the expense" |
+| GIFT-01, GIFT-03 | gifts | Gift cards are left out of both. Food and drink on a meal receipt, and service fees, are never gifts. | "Gift cards and other cash equivalents fall under GIFT-02 alone"; "Food, drink and gratuities consumed at a meal are not gifts" |
+| HEALTH-01 | HEALTH-01 | Every `health_otc` line counts as OTC medication, lozenges and first aid included. When OTC and prescription lines both break the rule on one receipt, one medium exception cites all of them. | "Each rule appears at most once per receipt." |
+| PERS-01 | PERS-01 | The baggage-delay carve-out covers every `personal_care` line, and the 24-hour delay is taken as given by the reference. No field records either. | "essential toiletries are reimbursable up to $150, provided the delay reference is recorded" |
+| REG-03, REG-04 | regional | A non-euro receipt is converted at a euro rate taken from a euro receipt on the same date. If there is none, the rule is `not_evaluated`. All EMEA receipts in the data are in euros. | "converted at the euro rate on the transaction date" |
+| DOC-04 | DOC-04 | A missing currency also raises DOC-04, because the receipt cannot be shown to be in USD. | "must record the transaction currency and the conversion rate used" |
+| RCP-020, RCP-021 | MEAL-01 | MEAL-01 is raised on the split pair. TIME-03 is out of scope; gold has TIME-03, which replaces the cap. These receipts are not scored. | "It replaces the threshold rule being split around" |
+
 ## AI collaboration log
 
 What an assistant got wrong, and the check that caught it.
@@ -37,6 +54,8 @@ What an assistant got wrong, and the check that caught it.
 |---|---|---|
 | M3 | `rules/rules.yaml` was drafted by the assistant. The EXC-01 and EXC-02 evidence quotes each closed with a period where the policy continues with a colon, so the quote was not verbatim. | `test_evidence_is_verbatim_policy_text` |
 | M3 | The first draft put an `mccs` condition on ALC-01/02 `applies_to`. The schema has no such field, and the "any condition matches" rule would have retrieved them for any on-premises meal. On-premises scope moved to the engine. | Review against the `AppliesTo` schema (`extra="forbid"`) |
+| M4 | The first draft of `build_context` wrapped the meal, OTC and baggage totals in one `try`. A receipt with no meal spend would then have dropped out of its trip's OTC total. Split into three. | Code review before the first test run |
+| M4 | The engine matched the answer key on the first oracle run. So the tests were checked by sabotage instead: each of the 31 rule checks was disabled in turn, and every one fails at least one gate. Seven (ALC-01, DOC-01, GIFT-02, HOUSE-01, MCC-01, PERS-03, TECH-01) are caught only by the oracle, which is why it runs under pytest and not only as `make oracle`. | Mutation sweep |
 | M3 | The gate itself was mutation-tested: a wrong cap (75→76), a wrong MCC code, a wrong severity and a reworded quote each fail it. A truncated quote passes, as intended, since it is still verbatim. | Manual mutation run |
 
 ## Changes after the v1 freeze

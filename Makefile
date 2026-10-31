@@ -6,7 +6,7 @@ test:
 
 # Engine on the gold categories (M4).
 oracle:
-	@echo "Not built yet (M4)"; exit 1
+	uv run python -m evaluation.oracle
 
 # Live model capability checks (M7). Needs a key in .env.
 smoke:

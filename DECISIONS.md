@@ -33,6 +33,7 @@ Researched 2026-10-30. Options and recommendations for the decisions the brief l
   - Use the plain OpenAI SDK pointed at OpenRouter, with `response_format` set to a strict `json_schema` and `category` as an enum of the 21 labels. Set `provider.require_parameters: true` and validate the result with Pydantic.
   - Set `restricted` by looking the category up in the taxonomy in code, so the model can never contradict itself.
   - Also extract a `recipient` per line: a name, and a type of client, employee, government official, or none. The gift rules need it, and it exists only in the line text.
+  - And an `item_kind` (entertainment venue, mobile phone, prescription medication, or none). The taxonomy classes these as `other`, but ENT-01, TECH-03 and HEALTH-01 need to tell them apart.
   - A non-itemized line is `other` by rule. Set it in code, with no call and no EXC-03.
   - Make one call per receipt (about 2.5 items each). Include the merchant and MCC, but tell the model they're weak evidence: "classify what the item *is*."
   - Give short category definitions with include/exclude rules, plus a few hard examples you write yourself, such as "dish named after a drink → food." Don't paraphrase them from the answer key.

@@ -290,6 +290,7 @@ Rules, engine, retriever and reporter are now proven against the answer key, wit
 
 **Build:** `classifier.py`: one call per receipt, strict schema, `category` before any reason field, confidence from logprobs (or the fallback), and `restricted` looked up from the taxonomy in code.
 - It also returns a `recipient` per line: a name, and a type of client or prospect, employee, government official, or none.
+- And an `item_kind` for the three things the policies name that have no category, which the taxonomy says to class as `other`: `entertainment_venue` (ENT-01), `mobile_phone` (TECH-03), `prescription_medication` (HEALTH-01), or none. The engine's input model (`validator/models.py`) already has the field.
 - Non-itemized lines are set to `other` in code, with no call.
 - The `category` enum is exactly the 21 taxonomy categories. The taxonomy file invites new ones; the brief says not to.
 
@@ -306,6 +307,7 @@ Rules, engine, retriever and reporter are now proven against the answer key, wit
 - [ ] All 79 items classified and schema-valid.
 - [ ] `restricted == taxonomy[category].restricted` for every item.
 - [ ] Extracted recipients match `review/item_attributes.csv` on every line. Both lines on RCP-022 must come back as a government official.
+- [ ] Every dev-set item with an item kind gets it back, and no gold item gets one (the data contains none).
 - [ ] A rerun gives identical output with zero API calls.
 - [ ] Optional: one rerun with the cache off measures the answer-flip rate. Report it; it costs pennies.
 - [ ] Item-level macro F1 and restricted F1 against gold on the 65 in-scope items, plus a list of every misclassified item. **Look at every restricted-flag error before integrating.** Those are the errors that create false flags or missed violations.
