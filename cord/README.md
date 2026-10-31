@@ -70,7 +70,7 @@ The 32 receipts are 57% violations, and nothing in them is unseen or messy. This
 | Restricted lines | 1 / 1 found; 7 wrongly restricted (1 on a sure label) |
 | False flags | 6 / 98 (95% CI 2.8–12.7%) |
 | False reviews (EXC-03) | 5 / 98 |
-| Flag precision | 2 / 8 (7–59%) |
+| Flag precision | 2 / 8 (7–59%); 8 / 8 if the unsure labels go the system's way |
 | Missed flags | 0 / 2 |
 
 The labels give 98 pass and 2 flag. The system gives 87 pass, 8 flag and 5 review, and its 8 flags include both real ones. The one restricted line it found is a rice soap.

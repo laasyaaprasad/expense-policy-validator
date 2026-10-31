@@ -22,7 +22,7 @@ from validator.translate import translate_all
 DEV_PATH = ROOT / "dev" / "trap_items.jsonl"
 OUT_DIR = ROOT / "outputs" / "dev"
 CANDIDATE_THRESHOLDS = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
-DEFAULT_THRESHOLD = 0.5  # DECISIONS.md section 3, used when no candidate does better
+DEFAULT_THRESHOLD = 0.5  # DECISIONS.md section 4, used when no candidate does better
 
 
 def load_dev() -> tuple[list[ReceiptInput], dict[str, dict]]:

@@ -1,247 +1,136 @@
-# Design decisions — Expense Policy Validator
+# Design decisions
 
-Researched 2026-10-30. Options and recommendations for the decisions the brief leaves to us. Model prices and capabilities were checked against OpenRouter's live `/api/v1/models/{id}/endpoints` data on that date; everything else is cited below.
+The research done before building, on 2026-10-30. For each decision the brief leaves open: the options considered, the one picked, and the finding behind it. Where the build departed from the research, an **As built** line says so. Sources are at the end.
 
-**Overall:** the brief matches how the industry works. Expense tools like Expensify, Navan, SAP Concur and even Ramp's AI policy agent use AI to read and classify receipts. Dollar limits, category lists and MCC rules stay as deterministic configuration. Almost every recommendation below follows from that split.
+| Decision | Picked | Main reason |
+|---|---|---|
+| Where AI sits | AI reads the receipt; code applies the policy | Every expense tool looked at draws this line |
+| Rule encoding | `rules.yaml` for data, a small Python check per rule | A hand-written engine fits ~30 rules; chained rules are the known trap |
+| Classifier | One structured call per receipt, validated in code | Batching items barely costs accuracy |
+| Confidence | Logprobs of the category tokens | Self-reported LLM confidence is near-constant |
+| Translation | A separate English gloss, shown beside the original | Direct inference beats pre-translation for major languages |
+| Retrieval | A structured index over each rule's `applies_to` | A missed rule is a missed violation, so it can't be fuzzy |
+| Evidence | The policy text stored word for word, explanations from templates | A stored quote can't be invented |
+| Model | DeepSeek V4.1 Flash | Strong with reasoning off, logprobs, low cost |
+| Evaluation | A plain script with Wilson intervals | Exact labels need no LLM-eval framework |
 
----
+## 1. Where AI sits
 
-## 1. Policy engine: how the rules are encoded
+- **Options:** an LLM that reads the policies and judges each receipt; or AI that only reads the receipt, with the policy applied by deterministic code.
+- **Picked:** the split.
+- **Why:** Expensify, Navan and SAP Concur all keep dollar limits, category lists and MCC rules as configuration. Even Ramp's policy agent, which is LLM-led, layers deterministic rules (dollar limits, blocklists, category restrictions) on top. Almost every decision below follows from this split.
 
-- **Options:** a Python function per rule; a YAML rule table read by a generic evaluator; a rules library (GoRules `zen-engine`, `rule-engine`, Cedar, OPA); or a mix.
-- **Recommendation: the mix.**
-  - `rules.yaml` holds the data for each rule: `id`, `doc`, `severity`, thresholds, categories and MCCs, `overrides`, `requires_evidence`, `applies_to`, and the policy text word for word.
-  - Each rule has a small Python check function, keyed by its ID, that reads its numbers from the YAML.
-  - The engine runs in this order:
-    1. Build cross-receipt totals first (meal spend per employee per date, OTC spend per trip), then apply regional overrides, so a regional rule replaces the global one.
-    2. Evaluate every rule independently. No rule triggers another.
-    3. Record each carve-out explicitly, e.g. `waived_by: baggage_delay_ref`.
-    4. Compute EXC-01 (disposition) as a pure function over the list of exceptions.
-    5. EXC-03 adds review signals, never exceptions.
-  - Use `Decimal` for money, one `to_usd()` function, and sorted output so results are always in the same order.
+## 2. How the rules are encoded
+
+- **Options:** a Python function per rule; a YAML table read by a generic evaluator; a rules library (GoRules `zen-engine`, `rule-engine`, Cedar, OPA); a mix.
+- **Picked:** the mix. `rules.yaml` holds each rule's data (severity, thresholds, `applies_to`, carve-outs and the policy text word for word), and each rule has a small Python check that reads its numbers from it. Rules are evaluated independently, and the disposition (EXC-01) is computed over their results.
 - **Why:**
-  - Martin Fowler supports a small hand-written engine for a narrow domain. The main risk he names is rules triggering each other, which step 2 avoids.
-  - A library is overkill for about 30 rules. `zen-engine` is the path if it ever has to scale. `business-rules` and `durable_rules` haven't been updated since 2022 and 2020.
-  - Cedar's "forbid … unless" is a useful mental model for carve-outs.
-- **Rule drafting:** an LLM can draft `rules.yaml` once, offline, from the 9 documents; you review it and commit it. AWS Bedrock Automated Reasoning and Concur's AI rule authoring work this way. Never do it at runtime. Keep the drafting prompt in the repo.
-- **Test:** every rule ID in the Markdown appears in the YAML.
+  - **Martin Fowler** notes that a simple rules engine is easy to build yourself, and that chaining, where one rule's action changes another's condition, is what makes rule systems hard to reason about and debug. So no rule triggers another.
+  - A library is overkill for about 30 rules, and the older Python ones (`business-rules`, `durable_rules`) haven't been updated since 2022 and 2020. `zen-engine` is the path if it ever has to scale.
+  - Cedar's "forbid … unless" is the model for carve-outs such as a pre-approval waiving a cap.
+- **Drafting the rules:** an LLM drafted `rules.yaml` once, offline, and a person reviewed it, as AWS Bedrock Automated Reasoning and Concur's AI rule authoring do. Never at runtime. A test checks every quote against the policy text.
 
-## 2. Classifier design
+## 3. Classifier
 
-- **Options:** strict JSON schema output; tool calling; Instructor or Pydantic AI; embeddings or fine-tuning.
-- **Recommendation: strict JSON schema output.**
-  - Use the plain OpenAI SDK pointed at OpenRouter, with `response_format` set to a strict `json_schema` and `category` as an enum of the 21 labels. Set `provider.require_parameters: true` and validate the result with Pydantic.
-  - **As built: DeepSeek's own API, which offers `json_object` output but not `json_schema`.** The enum can't be enforced during decoding. The prompt lists the categories and gives the JSON format; the response is validated with Pydantic; an unknown category or a missing line is retried once with the error quoted, then the line is marked `other` with confidence 0, which raises EXC-03. `llm.py` sends a strict schema automatically if the provider is switched to OpenRouter.
-  - Set `restricted` by looking the category up in the taxonomy in code, so the model can never contradict itself.
-  - Also extract a `recipient` per line: a name, and a type of client, employee, government official, or none. The gift rules need it, and it exists only in the line text.
-  - And an `item_kind` (entertainment venue, mobile phone, prescription medication, or none). The taxonomy classes these as `other`, but ENT-01, TECH-03 and HEALTH-01 need to tell them apart.
-  - A non-itemized line is `other` by rule. Set it in code, with no call and no EXC-03.
-  - Make one call per receipt (about 2.5 items each). Include the merchant and MCC, but tell the model they're weak evidence: "classify what the item *is*."
-  - Give short category definitions with include/exclude rules, plus a few hard examples you write yourself, such as "dish named after a drink → food." Don't paraphrase them from the answer key.
-  - **Don't send the policy documents to the classifier.** The engine is code, so the classifier never needs them. Each call is about 6k tokens instead of 190k.
+- **Options:** strict JSON-schema output; tool calling; a framework (Instructor, Pydantic AI); embeddings or fine-tuning.
+- **Picked:** one structured-output call per receipt, validated in code, returning a category, item kind and recipient for each line. `restricted` is looked up in the taxonomy, so the model can't contradict itself. The policies are not sent.
 - **Why:**
-  - Schema-constrained calls are the standard for a fixed taxonomy.
-  - Fine-tuning or nearest-neighbour classifiers need labelled data we aren't allowed to use.
-  - A 2026 study found most models lose little accuracy with small batches of items per call.
-- **Cheap check:** re-run the misleading items without the merchant name and compare.
+  - **Pipal et al. (2026)** tested eight production models on 3,962 expert-coded texts. Six of the eight stayed within 2 points of one-item-per-call accuracy at batches of up to 100, and asking for up to 10 fields per item did no harm. A receipt is about 2.5 lines and three fields, so one call per receipt costs nothing in accuracy.
+  - Fine-tuning and nearest-neighbour classifiers need labelled data, and the brief forbids using the labels as input.
+  - The engine is code, so the classifier only needs the taxonomy: about 1,000 tokens a call instead of the whole policy set, and accuracy falls as input grows ("context rot").
+- **As built:** DeepSeek's own API offers `json_object` output but not `json_schema`, so the category list is enforced by validation and one retry, not during decoding.
 
-## 3. Confidence and the EXC-03 threshold
+## 4. Confidence and the EXC-03 threshold
 
-- **Options:**
-  - A confidence number the model writes itself
-  - Token logprobs on the category
-  - Sampling several times and measuring agreement
-  - A second verifier call
-  - Jev's built-in probabilities
-- **Recommendation: logprobs**, if the pinned endpoint supports them; the DeepSeek endpoints on Google, Fireworks and Together do.
-  - Put `category` *before* any reasoning field and turn the model's reasoning off. Otherwise the model has already decided, and the probability comes out near 1.0.
-  - Confidence is the probability of the category's tokens.
-  - If logprobs aren't available, fall back to a self-reported number with an anchored scale (0.95 = unambiguous, 0.75 = a plausible alternative exists, ≤0.5 = can't tell).
-- **Threshold:** keep it low, around 0.5, because every EXC-03 signal is scored as wrong.
-  - Choose it **before** looking at results, for example on about 20 items we write ourselves.
-  - Report a threshold sweep in the README as analysis after the fact.
-  - Picking the threshold from the answer key would mean using the labels as input.
-- **Result of the smoke test (2026-10-30, DeepSeek's own API, `deepseek-flash`): logprobs work, but only at temperature 1.**
-  - At temperature 0 every chosen token comes back with logprob 0.0 and every alternative with -9999. The API reports logprobs after greedy decoding, so they say nothing about confidence. The first version of the smoke test only checked 0 < p ≤ 1, which passed. Reading the raw values caught it, and the gate now asserts the opposite (`test_logprobs_are_degenerate_at_temperature_zero`).
-  - At temperature 1 the logprobs are the model's own distribution. "Moscow Mule mug" comes back as `household_goods` at 0.99954, with `other`, `g(ift)` and `al(cohol)` as the next tokens.
-  - **Decision: the classifier makes one call per receipt at temperature 1 with logprobs.** Confidence is the probability of the category's tokens.
-    - Reruns are identical because of the cache.
-    - The category is sampled rather than greedy. That changes nothing for a confident item. For an uncertain one, whatever is sampled carries its own low probability, so it raises EXC-03 instead of an exception, which is the failure EXC-03 prefers.
-    - The dev-set run measures stability: two fresh runs over the dev set, with category agreement reported.
-  - **Rejected:**
-    - Verbalised confidence: poorly calibrated, as below.
-    - A second call at temperature 0 for the answer: the two calls can disagree, and reconciling them is complex.
-    - OpenRouter's pinned endpoint: no key yet. Worth a check if one arrives, since the Google endpoint might return pre-sampling logprobs at temperature 0.
-- **Why:** Ramp's engineering team found self-reported LLM confidence clusters around 70–80% whatever the real certainty. Research agrees those numbers are sparse and overconfident. Sampling several times multiplies cost and needs a temperature above 0, which conflicts with reproducibility.
+- **Options:** a confidence number the model writes; token logprobs on the category; sampling several times and measuring agreement; a second verifier call; Jev's built-in probabilities.
+- **Picked:** the probability of the category's tokens, with `category` before `reason` in the reply and reasoning turned off, so the probability measures the answer rather than a justification. The threshold is 0.5, set by a rule fixed before the dev set ran (NOTES.md).
+- **Why:**
+  - **Ramp's engineering team** found LLMs give a confidence of 70–80% almost whatever the case, and research on verbalised confidence agrees it is sparse and overconfident.
+  - Sampling multiplies cost, and a verifier call can disagree with the first and needs reconciling.
+  - The threshold stays low because every EXC-03 signal is scored as wrong, and choosing it from the answer key would be using labels as input.
+- **As built:** at temperature 0, DeepSeek returns logprob 0.0 for every chosen token and −9999 for every alternative, so the probabilities say nothing. At temperature 1 they are the model's own distribution: "Moscow Mule mug" comes back `household_goods` at 0.99954, with `other`, gift and alcohol as the next tokens. The classifier runs at temperature 1, and the cache keeps reruns identical.
 
-## 4. Translation (the normaliser)
+## 5. Translation
 
-- **Options:** translate first and then classify; classify directly in the original language; a translation API (DeepL, NLLB).
-- **Recommendation: two parts.**
-  - The normaliser does deterministic cleanup: Unicode normalisation (NFKC), whitespace, and stripping SKU and quantity noise. The language comes from the data's `language` field.
-  - A **separate, cached LLM call** returns an English version of each item.
-  - The classifier sees both the original and the English version.
-- **Why keep it separate:** Part 3 asks us to blame each failure on translation, classification, retrieval or rule logic. That's only possible if the translation output is saved on its own.
-  - Google's research found classifying directly in the original language often beats translating first, which is why the classifier gets the original as well.
-  - DeepL would add another service that receives the data, for no gain on six widely spoken languages.
+- **Options:** translate to English, then classify; classify the original directly; a translation API (DeepL, NLLB).
+- **Picked:** a separate, cached call writes a short English gloss of each non-English line, and the classifier reads the original and the gloss together.
+- **Why:**
+  - **Google Research (NAACL '24)** found that classifying directly in the source language beat translating to English first in 94 of 108 languages for PaLM2-L. Translating first won only in seven low-resource languages. All six languages here are high-resource, so the classifier reads the original, and the gloss is extra context.
+  - A KDD '25 study of classification prompts found that the translation strategy measurably changes accuracy, so it is a design choice, not a default.
+  - The brief's Part 3 asks for each failure to be blamed on a stage, translation included. That needs the gloss saved on its own.
+  - DeepL or NLLB would add another service that sees the data, for no gain on six widely spoken languages.
 
-## 5. Retriever
+## 6. Retrieval
 
-- **Options:** a structured index; BM25 keyword search (`bm25s`); small embeddings in numpy; passing whole documents.
-- **Recommendation: the structured index.**
-  - Build it from the YAML `applies_to` field, which maps category, MCC, expense type and region to rule IDs.
-  - Follow cross-references by matching rule IDs with a regex.
-  - Keep some rules always on, such as documentation and approval rules.
-  - Make it deterministic and log what it returns.
-- **Interview framing:** because the engine is code, retrieval means "which checks run, plus fetching the citation text." A rule that retrieval misses is a violation the engine misses, so it can't be fuzzy.
-- **Optional:** run BM25 in a test as a sanity check that the index isn't missing rules.
+- **Options:** a structured index; BM25 keyword search; small embeddings; passing whole documents.
+- **Picked:** a structured index built from each rule's `applies_to` (category, MCC, expense type, region), plus cross-references and the rules that always apply. It is deterministic and logged.
+- **Why:** the engine is code, so retrieval decides which checks run. A rule it misses is a violation the engine misses, so it can't be fuzzy. It keeps 7.1 of 31 rules per receipt and missed none.
 
-## 6. Exception reporter
+## 7. Evidence and explanations
 
-- **Recommendation:**
-  - `evidence` is the policy text stored word for word when the YAML is built.
-  - A unit test checks that every evidence string appears exactly in its source document, ignoring whitespace differences.
-  - Explanations come from templates using the computed numbers, e.g. "$142.00 alcohol ÷ 2 attendees = $71.00 > $50.00 cap (ALC-01)."
-  - An LLM rewording pass is optional and must never change the rule ID, the evidence or the numbers.
-- **Why:** it can't invent a citation, and evidence is one of the things they grade.
+- **Options:** an LLM-written explanation with a citation; the policy text stored word for word, with an explanation built from the computed numbers.
+- **Picked:** the stored quote and a template, such as "Meal spend on 2026-04-27 is $145.50 per person across RCP-020, RCP-021, over the $75.00 daily cap."
+- **Why:** a stored quote can't be invented, and evidence is graded. Ramp's policy agent likewise links each decision to the policy sections it relies on, and Instructor's citation pattern validates a quote against its source the same way.
 
-## 7. Model choice
-
-Live OpenRouter data, 2026-10-30:
+## 8. Model
 
 | | Claude Haiku 5.5 | DeepSeek V4.1 Flash | Jev 1.13 |
 |---|---|---|---|
-| Model ID | `anthropic/claude-haiku-5.5` | `deepseek/deepseek-v4.1-flash` | `typesafe/jev-1.13` |
-| Price per M tokens (in / out) | $0.10 / $0.50 | $0.02–0.60 / $0.18–2.40, depending on endpoint | $0.042 / $0 |
-| Context | 1M | 1M | 262K |
-| Strict JSON output | Yes on Anthropic, Google, Azure (not Bedrock) | Most endpoints | — |
-| Temperature setting | **Not supported** | Yes | — |
-| Logprobs | No | About 15 endpoints | Returns probabilities itself |
+| Price per M tokens (in / out) | $0.10 / $0.50 | $0.30 / $1.20 | $0.042 / $0 |
+| Temperature setting | Not supported | Yes | — |
+| Logprobs | No | Yes | Returns probabilities itself |
 | Quality signal | Vals index 54.3 | Vals index 61.3; 76% vs Jev's 72.5% in one study | Weak with many classes and non-English text |
 
-**Recommendation: DeepSeek V4.1 Flash, pinned to a single endpoint** that supports temperature, strict JSON and logprobs and isn't listed as quantised. Google Vertex, at $0.30 / $1.20, fits.
-- Use `provider: {order: ["google-vertex"], allow_fallbacks: false}`, temperature 0, and reasoning turned off or low.
-- Log the `provider` field from every response.
-- A full run costs roughly $0.10–0.20.
-- Pinning is needed because about 40 providers serve this model, many of them quantised (fp4/fp8), and their outputs differ.
+- **Picked:** DeepSeek V4.1 Flash, which I pushed for. DeepSeek's API serves it as `deepseek-flash`, now the DeepSeek-V4.1-Flash-1017 release.
+- **Why:**
+  - **Artificial Analysis (September 2026, the release before 1017):** with reasoning off it scored 24.7 on the Intelligence Index, the highest of the 187 open-weights non-reasoning models listed, on 44.5M output tokens against 253M with reasoning at max effort. It lists no multilingual or instruction-following score for it, so those were left to the dev set.
+  - It returns logprobs and takes a temperature, which the confidence method needs. Haiku 5.5 does neither.
+  - Jev returns probabilities for free, but independent reviews put 21 categories, six languages and misleading names that need world knowledge squarely in its weak spots. It had launched six weeks earlier.
+  - OpenRouter's Classifiers feature tags whole requests after they complete and returns no confidence, so it can't classify lines or drive EXC-03.
+- **As built:** DeepSeek's own API, the only key available, with reasoning off at temperature 1. It averaged 156 output tokens and $0.00025 a receipt. The OpenRouter path is built but has never run.
 
-**Fallback and one-run comparison: Haiku 5.5.** It's simpler because it's first-party, but it can't run at temperature 0 (say so in the README; reproducibility then comes from the cache plus the recorded model ID) and has no logprobs.
+## 9. Keyword baseline
 
-**On large context:** both models have a 1M window, but context isn't what limits this project. The classifier only needs the taxonomy and one receipt, about 6k tokens. Large context helps with the one-time rule-drafting step, where all 9 documents fit in one prompt. What actually separates the models here is temperature, logprobs and consistent outputs from one endpoint.
+- **Picked:** a word list per category, with restricted terms in all six languages and no brand names, frozen before its first run. Its labels go through the same retriever and engine.
+- **Why:** the same engine means the comparison isolates the classifier. Its failures were predicted before it ran: it would misfire on beer-battered cod and rum cake, and miss brand names. `docs/evaluation.md` section 5 has the result.
 
-**Jev: not the main classifier.**
-- Independent reviews say 21 categories, six languages, and misleading names that need world knowledge are exactly its weak spots.
-- It launched on 2026-09-15: popular, but not proven.
-- OpenRouter lists no supported parameters for it, so how to send it a choice question through the OpenRouter key isn't documented.
-- If there's spare time, run it on the English versions of the items and compare macro F1 and calibration. It costs a fraction of a cent and makes a good interview talking point.
+## 10. Evaluation
 
-**OpenRouter Classifiers: not used in the pipeline.** It's a beta feature, announced 2026-07-24, that tags each request *after* it completes, for cost attribution and governance.
-- Tags go to logs and the Analytics API (management key needed), not the API response, so the engine can't consume them.
-- It classifies whole requests, not line items, and returns no confidence, so it can't drive EXC-03.
-- Only a workspace admin can set it up.
-- It could tag production traffic in the AWS design, e.g. translate vs classify calls for cost attribution.
+- **Options:** an LLM-eval framework (promptfoo, DeepEval, Inspect); a plain script.
+- **Picked:** a plain `evaluate.py` that scores the committed outputs and writes `metrics.json`, with Wilson 95% intervals, plus a hand-written dev set of trap items for all prompt work.
+- **Why:**
+  - The frameworks are built for open-ended output. Exact labels need only F1 and counts.
+  - **HateCheck (ACL 2021)** showed that held-out accuracy hides specific failures that targeted functional tests expose. The dev set applies that to the traps in this kind of data: dishes named after drinks, misleading merchants, named recipients, laundry that reads like clothing.
+  - With 9 clean receipts, intervals are wide: 1 false positive in 9 is anywhere from 2% to 43%.
+  - The base rate changes everything. With recall 0.9 and a false-positive rate of 1 in 9, flag precision is 0.92 at this dataset's 57% violation rate, but 0.20 at a real stream's 3%.
 
-**README data-handling line:** OpenRouter, the pinned upstream provider, and our coding assistants.
+## 11. AWS and the viewer
 
-## 8. Keyword baseline
-
-- **Recommendation:**
-  - A word list per category of restricted terms, matched on whole words after lowercasing, NFKC and stripping accents. Japanese text needs substring matching, because word boundaries don't apply.
-  - Add translations of the restricted terms.
-  - **Freeze the list before looking at results**, and say so.
-  - Run the baseline's labels through the *same* engine, so the disposition comparison isolates the classifier. Matched items get confidence 1.0, so the baseline can never trigger EXC-03 review.
-- **Expect** it to catch the obvious terms, misfire on "beer-battered cod" and "rum cake", and miss brand names. Be honest about where it wins: speed, cost, determinism, and maybe precision on the obvious cases.
-
-## 9. Evaluation
-
-- **Recommendation: a plain `evaluate.py`** using pandas, sklearn and statsmodels. It reads the cached JSONL and writes `metrics.json` for the viewer. Frameworks like promptfoo, DeepEval and Inspect are built for open-ended LLM output, and we don't need one for exact labels.
-- **Macro F1:** `f1_score(y_true, y_pred, average="macro", labels=sorted(set(y_true)), zero_division=0)`. The `labels=` argument is what makes it match the brief's definition; never use `zero_division=np.nan`, which drops categories.
-- **Restricted F1:** plain binary `f1_score`, positive = restricted.
-- **Parse failures:** map them to `"__invalid__"` rather than dropping them. Show `classification_report` so the small per-category counts are visible.
-- **Small sample:** 28 receipts is tiny. Report Wilson 95% intervals with `statsmodels.stats.proportion.proportion_confint(k, n, method="wilson")`. For example, 1 false positive out of 9 gives an interval of 2–43%.
-- **Base rate:** precision = recall × p / (recall × p + FPR × (1 − p)), where p is the share of receipts with a violation.
-  - With recall 0.9 and a false-positive rate of 1/9, precision is 0.92 at this dataset's 57%. It's 0.30 at 5%, 0.20 at 3% and 0.14 at 2%.
-  - At 50k receipts a day and 3%, that's about 1,350 real flags and 5,400 false alarms, so roughly 80% of reviewer time goes on false alarms.
-  - Before production we'd need a shadow-mode test on real traffic, measured reviewer time, and a sample enriched with rare violation types.
-
-## 10. AWS design (on paper)
-
-- **Architecture:**
-  1. API Gateway **HTTP API** with a JWT authorizer (Cognito, machine-to-machine client-credentials flow).
-  2. An ingest Lambda.
-  3. SQS with a dead-letter queue. Its maximum-concurrency setting caps load to OpenRouter's rate limit.
-  4. A worker Lambda that runs normalise → classify → engine.
-  5. Results in S3, with DynamoDB optional for status lookups.
-  6. CloudWatch with structured JSON logs, no personal data, and 30-day retention.
-- AWS says not to use API keys for authentication, which rules out the simplest option.
-- **Policies:** keep the YAML in git. CI validates it against a set of test receipts with known results, and it deploys with the code. Record the policy version, model ID and prompt version on every decision for audit. AppConfig is the upgrade path if policy owners need to ship changes without a deploy.
-- **Secrets:** keep the OpenRouter key in Secrets Manager ($0.40 per secret per month plus $0.05 per 10k calls) and cache it in the Lambda. For production, mention Bedrock as an option so data stays inside AWS.
-- **Cost:** 50,000 × 30.4 = **1.52M receipts a month**. Model cost per receipt = (input tokens × input price + output tokens × output price) / 1M.
-
-| Line | Arithmetic | $/month |
-|---|---|---|
-| Haiku 5.5 ($0.10 / $0.50) | 3–6k in + 500 out → $0.00055–0.00085 per receipt × 1.52M | ~840–1,290 |
-| DeepSeek V4.1 Flash on Vertex ($0.30 / $1.20) | 3–6k in + 500 out → $0.0015–0.0024 per receipt × 1.52M | ~2,300–3,700 |
-| API Gateway HTTP API | 1.52M × $1.00/M | ~1.5 |
-| Lambda | 1.52M × 5 s × 0.5 GB = 3.8M GB-s × $0.0000166667 + requests | ~51–63 |
-| SQS | 3 requests per receipt × $0.40/M | ~1.8 |
-| CloudWatch Logs | about 2 KB per receipt ≈ 3 GB × $0.50/GB | ~1.5 |
-| S3 | PUTs + storage | ~8 |
-
-  - Infrastructure is about $80–100 a month, and the model calls dominate.
-  - The model that's best for the project isn't the cheapest at scale. That's an honest trade-off to state on the page. Prompt caching and batch pricing (50% off) reduce both.
-- **Before production:**
-  1. Monitoring: alarms on dead-letter queue depth, error rate, p95 latency, tokens and cost per receipt, and drift in the flag/review rate.
-  2. Model outage: retry with backoff and jitter, let SQS buffer, redrive from the dead-letter queue, and fall back to a second model or Bedrock. A receipt that fails goes to **review, never pass**.
-  3. Personal data: redact names and card numbers before the LLM call, use CloudWatch Logs data protection, encrypt S3 with KMS, and keep data only briefly.
-
-## 11. Viewer
-
-**Streamlit** (v1.66): one `app.py` with three pages via `st.navigation([st.Page(...), ...])`, or a `pages/` folder. Load the JSONL with `@st.cache_data`, highlight mismatches with `df.style.apply(...)`, and show headline numbers with `st.metric`. Launch it with `streamlit run app.py`. Gradio is aimed more at model input/output demos than at browsing data.
-
----
-
-## Still unverified (test before building on it)
-
-Checked on DeepSeek's own API (`make smoke`, 2026-10-30, $0.0006):
-- JSON output parses and the categories are in the taxonomy. Only `json_object` is offered, not `json_schema`; see section 2.
-- Logprobs come back and line up with the content token for token. They are informative only at temperature 1; see section 3.
-- `thinking: {type: disabled}` is honoured: no reasoning tokens and no reasoning content.
-- The reported model is `deepseek-flash`. There is no upstream routing to pin on the first-party API.
-- A repeated call is a cache hit, with no new ledger entry.
-
-Still open:
-- Whether logprobs come back usable under strict `json_schema` output on the pinned OpenRouter endpoint. There's no OpenRouter key yet.
-- Whether `reasoning.effort` none/low works on Haiku 5.5.
-- How to call Jev through OpenRouter (its listing shows no supported parameters).
-- The Bedrock Haiku 5.5 price came from aggregators; the official table didn't render.
+- **AWS:** API Gateway HTTP API with a Cognito JWT authorizer, SQS between two Lambdas, and DynamoDB for the cross-receipt totals. HTTP APIs are cheaper and simpler than REST APIs, and AWS advises against API keys for authentication. The full design and costs are in `docs/aws-design.md`.
+- **Viewer:** Streamlit, whose multipage navigation gives the brief's three views in one small app. Gradio is aimed at model input/output demos rather than browsing results.
 
 ## Sources
 
-**Industry practice and engine**
+**Industry practice and the engine**
 - [Ramp: how to build agents users can trust](https://builders.ramp.com/post/how-to-build-agents-users-can-trust) · [Ramp Policy Agent](https://support.ramp.com/policy-agent-overview)
 - [Expensify workspace rules](https://help.expensify.com/articles/new-expensify/workspaces/Workspace-Rules) · [Navan Audit Engine](https://navan.com/blog/audit-engine) · [SAP Concur audit rules](https://www.sap.com/products/spend-management/concur-expense-configuration-for-audit-rules.html)
 - [Martin Fowler: Rules Engine](https://martinfowler.com/bliki/RulesEngine.html) · [Cedar authorization](https://docs.cedarpolicy.com/auth/authorization.html) · [GoRules decision tables](https://docs.gorules.io/learn/authoring/decision-tables)
 - [Bedrock Automated Reasoning checks](https://aws.amazon.com/about-aws/whats-new/2025/08/automated-reasoning-checks-amazon-bedrock-guardrails) · [P2T policy-to-DSL (arXiv 2512.04408)](https://arxiv.org/abs/2512.04408)
-- [Anthropic: contextual retrieval](https://www.anthropic.com/news/contextual-retrieval) · [Context rot summary](https://www.zenml.io/llmops-database/context-rot-evaluating-llm-performance-degradation-with-increasing-input-tokens)
 - [Instructor: validating citations](https://python.useinstructor.com/blog/2023/11/18/validate-citations/)
 
-**Classifier, confidence, translation, models**
-- [OpenRouter structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs) · [OpenRouter reasoning tokens](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens) · [OpenRouter prompt caching](https://openrouter.ai/docs/guides/best-practices/prompt-caching) · [OpenRouter provider logging](https://openrouter.ai/docs/guides/privacy/provider-logging) · [OpenRouter models API](https://openrouter.ai/api/v1/models)
-- [Pipal et al. 2026: batching](https://arxiv.org/abs/2604.03684) · [Verbalized confidence study](https://arxiv.org/abs/2608.04899) · [Confidence protocol sensitivity](https://arxiv.org/abs/2605.27752) · [Self-consistency audit](https://arxiv.org/pdf/2607.08065)
-- [Google: pre-translation vs direct inference](https://research.google/blog/pre-translation-vs-direct-inference-in-multilingual-llm-applications/) · [How and where to translate (KDD'25)](https://arxiv.org/abs/2507.22923)
-- [Vals: DeepSeek V4.1 Flash](https://www.vals.ai/models/deepseek_deepseek-v4.1-flash-1017) · [Vals: Claude Haiku 5.5](https://www.vals.ai/models/anthropic_claude-haiku-5-5)
+**Classifier, confidence and translation**
+- [Pipal et al. 2026: batching LLM annotation](https://arxiv.org/abs/2604.03684) · [Context rot summary](https://www.zenml.io/llmops-database/context-rot-evaluating-llm-performance-degradation-with-increasing-input-tokens)
+- [Verbalized confidence study](https://arxiv.org/abs/2608.04899) · [Confidence protocol sensitivity](https://arxiv.org/abs/2605.27752) · [Self-consistency audit](https://arxiv.org/pdf/2607.08065)
+- [Google Research: pre-translation vs direct inference](https://research.google/blog/pre-translation-vs-direct-inference-in-multilingual-llm-applications/) · [How and where to translate (KDD '25)](https://arxiv.org/abs/2507.22923)
+- [OpenRouter structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs)
 
-**Jev**
-- [Jev after eight days of independent tests (DEV)](https://dev.to/gde/jev-after-eight-days-of-independent-tests-level-with-mid-price-llms-behind-the-frontier-1kln) · [Vals: independent evaluation of Jev](https://www.vals.ai/blogs/independent-evaluation-of-jev)
-- [Jev engineering guide](https://www.aibuilderclub.com/blog/jev-engineering-guide) · [TypeSafe Choice docs](https://docs.typesafe.ai/primitives/choice.md) · [TypeSafe confidence docs](https://docs.typesafe.ai/confidence.md)
+**Models**
+- [Artificial Analysis: DeepSeek V4.1 Flash, non-reasoning (archived 2026-09-25)](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning) · [Vals: DeepSeek V4.1 Flash](https://www.vals.ai/models/deepseek_deepseek-v4.1-flash-1017) · [Vals: Claude Haiku 5.5](https://www.vals.ai/models/anthropic_claude-haiku-5-5)
+- [Jev after eight days of independent tests (DEV)](https://dev.to/gde/jev-after-eight-days-of-independent-tests-level-with-mid-price-llms-behind-the-frontier-1kln) · [Vals: independent evaluation of Jev](https://www.vals.ai/blogs/independent-evaluation-of-jev) · [TypeSafe confidence docs](https://docs.typesafe.ai/confidence.md)
 
 **Evaluation**
-- [sklearn f1_score](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html) · [statsmodels proportion_confint](https://www.statsmodels.org/stable/generated/statsmodels.stats.proportion.proportion_confint.html) · [HateCheck (ACL 2021)](https://arxiv.org/abs/2012.15606)
+- [HateCheck (ACL 2021)](https://arxiv.org/abs/2012.15606) · [statsmodels proportion_confint](https://www.statsmodels.org/stable/generated/statsmodels.stats.proportion.proportion_confint.html)
 
-**AWS**
-- [API Gateway pricing](https://aws.amazon.com/api-gateway/pricing/) · [Lambda pricing](https://aws.amazon.com/lambda/pricing/) · [CloudWatch pricing](https://aws.amazon.com/cloudwatch/pricing/) · [Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) · [DynamoDB on-demand pricing](https://aws.amazon.com/dynamodb/pricing/on-demand/)
-- [API Gateway: API keys guidance](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-usage-plans.html) · [HTTP vs REST APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html) · [Lambda SQS scaling](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-scaling.html) · [AppConfig](https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html) · [Bedrock data protection](https://docs.aws.amazon.com/bedrock/latest/userguide/data-protection.html)
-
-**Viewer**
-- [Streamlit st.navigation](https://docs.streamlit.io/develop/api-reference/navigation/st.navigation) · [Streamlit multipage apps](https://docs.streamlit.io/develop/concepts/multipage-apps/overview)
+**AWS and the viewer**
+- [API Gateway: API keys guidance](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-usage-plans.html) · [HTTP vs REST APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html) · [Lambda SQS scaling](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-scaling.html) · [Bedrock data protection](https://docs.aws.amazon.com/bedrock/latest/userguide/data-protection.html)
+- [Streamlit st.navigation](https://docs.streamlit.io/develop/api-reference/navigation/st.navigation)

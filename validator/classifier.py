@@ -3,7 +3,7 @@
 The model returns, for each line, a category from the 21 in the taxonomy, an item kind for the three
 things the policies name that have no category, the recipient the line names (if any), and a short
 reason. Code then sets `restricted` from the taxonomy, so the two can never disagree, and takes the
-confidence from the logprobs of the category's tokens (DECISIONS.md, section 3). A non-itemized line
+confidence from the logprobs of the category's tokens (DECISIONS.md, section 4). A non-itemized line
 is `other` by definition: set in code, with no call and full confidence (EXC-03).
 
 The prompt's examples are written for this project. None is taken from the receipts, and the
