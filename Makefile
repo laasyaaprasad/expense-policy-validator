@@ -34,6 +34,6 @@ eval:
 baseline:
 	uv run python -m validator.baseline
 
-# Results viewer (M13).
+# Results viewer (M13): receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:
-	@echo "Not built yet (M13)"; exit 1
+	uv run streamlit run app.py

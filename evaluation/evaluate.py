@@ -44,6 +44,14 @@ def _rate(k: int, n: int) -> dict:
     return {"k": k, "n": n, "rate": k / n, "ci95": [low, high]}
 
 
+def receipt_matches(record: dict, gold: GoldReceipt) -> bool:
+    """Exactly right: the disposition, every exception with exactly its line IDs, and the signals."""
+    ours = {e["rule_id"]: sorted(e["line_ids"]) for e in record["exceptions"]}
+    theirs = {e.rule_id: sorted(e.line_ids) for e in gold.exceptions}
+    return (record["disposition"] == gold.disposition and ours == theirs
+            and {s["rule_id"] for s in record["review_signals"]} == {s.rule_id for s in gold.review_signals})
+
+
 def score_items(records: dict[str, dict], gold: dict[str, GoldReceipt]) -> dict:
     """Per line item, on the in-scope receipts."""
     pairs = [(line, gold[rid].items[line["line_id"]]) for rid in _scored(gold) for line in records[rid]["line_items"]]
@@ -69,9 +77,7 @@ def score_receipts(records: dict[str, dict], gold: dict[str, GoldReceipt]) -> di
     our_ex = {rid: {e["rule_id"]: tuple(e["line_ids"]) for e in records[rid]["exceptions"]} for rid in ids}
     gold_sig = {rid: {s.rule_id: () for s in gold[rid].review_signals} for rid in ids}
     our_sig = {rid: {s["rule_id"]: () for s in records[rid]["review_signals"]} for rid in ids}
-    exact = [rid for rid in ids if records[rid]["disposition"] == gold[rid].disposition
-             and {r: sorted(l) for r, l in our_ex[rid].items()} == {r: sorted(l) for r, l in gold_ex[rid].items()}
-             and our_sig[rid].keys() == gold_sig[rid].keys()]
+    exact = [rid for rid in ids if receipt_matches(records[rid], gold[rid])]
     rules, signals = rule_scores(gold_ex, our_ex), rule_scores(gold_sig, our_sig)
     matched = sum(s.matched for s in rules)
     return {
