@@ -144,3 +144,48 @@ def test_missing_key_is_a_clear_error(monkeypatch):
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     with pytest.raises(LLMError, match="DEEPSEEK_API_KEY"):
         Settings.from_env()
+
+
+# --- complete_json and offline replay -----------------------------------------------------------------
+
+from pydantic import BaseModel  # noqa: E402
+
+from validator.llm import complete_json  # noqa: E402
+
+
+class Reply(BaseModel):
+    items: list[str]
+
+
+def test_complete_json_retries_once_with_the_problem_quoted(paths):
+    client = FakeClient(response('{"items": "not a list"}'), response('{"items": ["a"]}'))
+    parsed, _ = complete_json(LLM(DEEPSEEK, client=client, **paths), MESSAGES, Reply, purpose="test", prompt_version="v1")
+    assert parsed.items == ["a"]
+    retry_messages = client.requests[1]["messages"]
+    assert retry_messages[-2]["role"] == "assistant" and "problems" in retry_messages[-1]["content"]
+
+
+def test_complete_json_applies_the_callers_check(paths):
+    client = FakeClient(response('{"items": []}'), response('{"items": ["L1"]}'))
+    check = lambda parsed: [] if parsed.items else ["line L1 is missing"]
+    parsed, _ = complete_json(LLM(DEEPSEEK, client=client, **paths), MESSAGES, Reply, purpose="test", prompt_version="v1", check=check)
+    assert parsed.items == ["L1"]
+    assert "line L1 is missing" in client.requests[1]["messages"][-1]["content"]
+
+
+def test_complete_json_gives_up_after_one_retry(paths):
+    client = FakeClient(response('{"items": 1}'), response('{"items": 2}'))
+    with pytest.raises(LLMError, match="after a retry"):
+        complete_json(LLM(DEEPSEEK, client=client, **paths), MESSAGES, Reply, purpose="test", prompt_version="v1")
+
+
+def test_offline_mode_replays_the_cache_and_refuses_misses(paths, monkeypatch):
+    monkeypatch.setattr("validator.llm.load_dotenv", lambda *args, **kwargs: None)
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-flash")
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    LLM(DEEPSEEK, client=FakeClient(response('{"a": 1}')), **paths).complete(MESSAGES, purpose="test", prompt_version="v1")
+    offline = LLM.offline(**paths)
+    assert offline.complete(MESSAGES, purpose="test", prompt_version="v1").content == '{"a": 1}'
+    with pytest.raises(LLMError, match="offline"):
+        offline.complete(MESSAGES, purpose="test", prompt_version="v2")

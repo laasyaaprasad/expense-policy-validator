@@ -46,6 +46,11 @@ Oracle mode matched the answer key on 28 / 28 on its first run (M4), so no rule 
 | DOC-04 | DOC-04 | A missing currency also raises DOC-04, because the receipt cannot be shown to be in USD. | "must record the transaction currency and the conversion rate used" |
 | RCP-020, RCP-021 | MEAL-01 | MEAL-01 is raised on the split pair. TIME-03 is out of scope; gold has TIME-03, which replaces the cap. These receipts are not scored. | "It replaces the threshold rule being split around" |
 
+## What was checked by hand
+
+- **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
+- **Recipients (M4).** The three lines in `review/item_attributes.csv` that name a recipient were annotated from the line text: one client, two lines for a government official.
+
 ## AI collaboration log
 
 What an assistant got wrong, and the check that caught it.

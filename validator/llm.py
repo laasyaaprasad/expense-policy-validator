@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+from pydantic import BaseModel, ValidationError
 
 from validator.data import ROOT
 
@@ -54,14 +55,14 @@ class Settings:
     pinned: tuple[str, ...] = ()  # OpenRouter upstream providers, in order
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls, require_key: bool = True) -> "Settings":
         load_dotenv(ROOT / ".env", override=False)
         provider = os.environ.get("LLM_PROVIDER", "deepseek")
         if provider not in PROVIDERS:
             raise LLMError(f"LLM_PROVIDER must be one of {sorted(PROVIDERS)}, not {provider!r}")
         spec = PROVIDERS[provider]
         key = os.environ.get(spec["key"], "")
-        if not key:
+        if not key and require_key:
             raise LLMError(f"{spec['key']} is not set; put it in .env")
         pinned = tuple(p.strip() for p in os.environ.get("OPENROUTER_PROVIDER", "").split(",") if p.strip())
         return cls(
@@ -117,7 +118,22 @@ def cost_usd(provider: str, model: str, usage: dict[str, Any]) -> float | None:
     return (hit * prices["cache_hit"] + miss * prices["cache_miss"] + output * prices["output"]) / 1_000_000
 
 
+class _OfflineClient:
+    """Stands in for the provider when there is no API access: any cache miss is an error."""
+
+    def __init__(self):
+        self.chat = self.completions = self
+
+    def create(self, **params):
+        raise LLMError("cache miss in offline mode: this request was never run and recorded")
+
+
 class LLM:
+    @classmethod
+    def offline(cls, **paths) -> "LLM":
+        """Replays the committed cache with no key and no network. Reviewers rerun the pipeline this way."""
+        return cls(Settings.from_env(require_key=False), client=_OfflineClient(), **paths)
+
     def __init__(self, settings: Settings | None = None, *, cache_dir: Path = CACHE_DIR,
                  ledger_path: Path = LEDGER_PATH, client=None):
         self.settings = settings or Settings.from_env()
@@ -222,6 +238,31 @@ class LLM:
         self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
         with self.ledger_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
+
+
+def complete_json(llm: LLM, messages: list[dict], model: type[BaseModel], *, purpose: str, prompt_version: str,
+                  check=None, **options) -> tuple[BaseModel, Completion]:
+    """A completion parsed into `model`. `check(parsed)` returns a list of problems, such as a line
+    that is missing. On a parse error or a problem the request is retried once with the problem
+    quoted back, which is a different request and so a different cache entry."""
+    completion = llm.complete(messages, purpose=purpose, prompt_version=prompt_version, **options)
+    problems = _problems(completion, model, check)
+    if not problems:
+        return model.model_validate_json(completion.content), completion
+    retry = [*messages, {"role": "assistant", "content": completion.content},
+             {"role": "user", "content": "That reply had problems: " + "; ".join(problems) + ". Reply again in json, fixing them."}]
+    completion = llm.complete(retry, purpose=purpose, prompt_version=prompt_version, **options)
+    if problems := _problems(completion, model, check):
+        raise LLMError(f"{purpose} reply still invalid after a retry: {'; '.join(problems)}")
+    return model.model_validate_json(completion.content), completion
+
+
+def _problems(completion: Completion, model: type[BaseModel], check) -> list[str]:
+    try:
+        parsed = model.model_validate_json(completion.content)
+    except ValidationError as error:
+        return [f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in error.errors()]
+    return list(check(parsed)) if check else []
 
 
 def ledger_total(path: Path = LEDGER_PATH, purpose: str | None = None) -> float:
