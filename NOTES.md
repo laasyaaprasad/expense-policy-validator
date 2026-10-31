@@ -47,17 +47,17 @@ The rule is fixed here before any classification output has been seen, on the de
 
 ## The final run
 
-The config was frozen at tag `frozen` (`outputs/frozen_config.json`), and the first classification of the real receipts was committed untouched (commit 8f9cc38) before anything was scored. It took 31 calls, all valid first time, for $0.0074. A fresh repeat and a run without the merchant and expense type cost $0.0150 more (`outputs/classifications_{repeat,no_context}.jsonl`). The scores are in `docs/evaluation.md`.
+The config was frozen at tag `frozen` (`outputs/frozen_config.json`), and the first classification of the real receipts was committed untouched (commit e6e8d34) before anything was scored. It took 31 calls, all valid first time, for $0.0074. A fresh repeat and a run without the merchant and expense type cost $0.0150 more (`outputs/classifications_{repeat,no_context}.jsonl`). The scores are in `docs/evaluation.md`.
 
-Nothing was changed after seeing a gold error. The code has changed since the freeze (the crash fix the CORD pilot found, the per-receipt trace, tidying), but `outputs/classifications.jsonl` and `outputs/results.jsonl` are byte-identical to the files first committed in 8f9cc38 and 1bcb558.
+Nothing was changed after seeing a gold error. The code has changed since the freeze (the crash fix the CORD pilot found, the per-receipt trace, tidying), but `outputs/classifications.jsonl` and `outputs/results.jsonl` are byte-identical to the files first committed in e6e8d34 and 2723f6b.
 
 ## Keyword baseline
 
-The word list (`rules/keywords.yaml`) was committed in f3ea89b, before its first run on the receipts, and has no brand names. The assistant that wrote it had already seen the receipt lines (printed for the prompt-leakage check), and two entries may owe something to that: `ipa`, and the German compound `weißwein`, the only compound in the list. If anything, its score is flattering. Its 16 item errors are the kinds DECISIONS.md section 9 predicted (`docs/evaluation.md`, section 5).
+The word list (`rules/keywords.yaml`) was committed in 2ce89b0, before its first run on the receipts, and has no brand names. The assistant that wrote it had already seen the receipt lines (printed for the prompt-leakage check), and two entries may owe something to that: `ipa`, and the German compound `weißwein`, the only compound in the list. If anything, its score is flattering. Its 16 item errors are the kinds DECISIONS.md section 9 predicted (`docs/evaluation.md`, section 5).
 
 ## Real receipts (CORD)
 
-To get more data than the 32 receipts, the system was run unchanged on 100 real receipts from CORD v2. The method was fixed before any label or model call (commit 97a62c6) and is in `cord/README.md`, with the results. The pilot found one crash (last row of "What the checks caught") and left one open question: whether a free ($0) line should raise an item exception.
+To get more data than the 32 receipts, the system was run unchanged on 100 real receipts from CORD v2. The method was fixed before any label or model call (commit 9fc0708) and is in `cord/README.md`, with the results. The pilot found one crash (last row of "What the checks caught") and left one open question: whether a free ($0) line should raise an item exception.
 
 ## What was checked by hand
 

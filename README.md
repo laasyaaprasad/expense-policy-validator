@@ -6,7 +6,7 @@ A language model says what each receipt line is; plain code checks it against th
 
 ## Architecture
 
-I first asked how real expense tools do this: Expensify, Navan, Concur and Ramp let AI read the receipt and keep limits as configuration, and so does this. All 32 receipts run together, because some caps add up spend across receipts.
+I first asked how real expense tools do this: Expensify, Navan, Concur and Ramp let AI read the receipt and keep limits as configuration, and so does this. All 32 receipts run together, as some caps span receipts.
 
 ```mermaid
 flowchart LR
@@ -56,7 +56,7 @@ Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the
 
 ## Spend
 
-**$0.0759 over 350 calls** at peak prices (`outputs/spend.jsonl`); a full run costs $0.0081. I pushed for DeepSeek V4.1 Flash (`deepseek-flash`, 1017 release) since, with reasoning off, it was the top open-weights model on Artificial Analysis's Intelligence Index in September 2026 ([archived page](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)): it scores well on few tokens (156 output a receipt) and returns the logprobs behind the confidence. With only a DeepSeek key, the OpenRouter path has never run.
+**$0.0759 over 350 calls** at peak prices (`outputs/spend.jsonl`); a full run costs $0.0081. I pushed for DeepSeek V4.1 Flash (`deepseek-flash`, 1017 release) since, with reasoning off, it was the top open-weights model on Artificial Analysis's Intelligence Index in September 2026 ([archived page](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)): it scores well on few tokens (156 a receipt) and returns the logprobs behind the confidence. Reasoning stays off: the data gives it nothing to fix (every item right, dev confidence ≥ 0.96), and it would use 3.4 times the output tokens on a call now taking about 1.4 s ([why](DECISIONS.md#8-model)). With only a DeepSeek key, the OpenRouter path has never run.
 
 ## What I would do next
 

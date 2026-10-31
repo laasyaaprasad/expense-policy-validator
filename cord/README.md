@@ -39,7 +39,7 @@ One row per line: `category`, `restricted` (from the taxonomy) and `sure`. The l
 
 ## Method
 
-Fixed in NOTES.md on 2026-10-30, before any label was written or any model call made (commit 97a62c6), and moved here. The only edits since are to how the system is named.
+Fixed in NOTES.md on 2026-10-30, before any label was written or any model call made (commit 9fc0708), and moved here. The only edits since are to how the system is named.
 
 The 32 receipts are 57% violations, and nothing in them is unseen or messy. This pilot asks what the system does on real receipt text, at the rate restricted items actually occur.
 
