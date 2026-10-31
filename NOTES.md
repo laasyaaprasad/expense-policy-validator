@@ -79,6 +79,27 @@ Through the same retriever and engine, the baseline gets 49 / 65 items and 20 / 
 
 Where it does better: it costs nothing, runs in milliseconds, gives the same answer every time with no cache, and sends no receipt data to any outside service. On this data it is not more accurate on any measure.
 
+## Real receipts: the CORD pilot (method fixed 2026-10-30, before any label or model call)
+
+The 32 receipts are 57% violations, and nothing in them is unseen or messy. This pilot asks what v1 does on real receipt text, at the rate restricted items actually occur.
+
+- **Data.** The 100 receipts in CORD v2's validation split (CC-BY-4.0): real receipts from Indonesian restaurants, cafés, bakeries and shops, 270 lines after conversion. Text only (`cord/README.md`).
+  - The train split is too large for the API that serves the text.
+  - The test split stays unseen for a later held-out check.
+- **Context.** CORD has none, so every receipt gets the same declared, synthetic context: a US employee, "Meals - Individual", MCC 5812, one attendee, IDR at 16,000 per USD, one employee per receipt. Under it, the only rule that can fire without an item cause is the $100 international meal cap (MEAL-01), on CORD-V041.
+- **Labels.** The assistant labels every line, sure or unsure, following the guide in `cord/README.md`. The labels are committed before the first model call and never reach a prompt. The user then checks every restricted and every unsure label, plus a random 30 of the rest.
+- **What runs.** v1 exactly as frozen: same prompts, model, rules, and threshold 0.5. Nothing is tuned on the pilot. The correct decisions come from the engine run on the labels (oracle mode), under the same context.
+- **Metrics.**
+  1. **Items:** accuracy and macro F1 on all lines and on sure lines, plus restricted precision and recall.
+  2. **Receipts:** false alarms are receipts the labels pass but v1 flags, or sends to review; each count gets a Wilson interval. Flag precision is the share of v1's flags that the labels also flag.
+  3. **Confidence:** accuracy by confidence band, and how many lines and receipts each threshold in the `SWEEP` grid would send to review.
+  4. **Disagreements:** each one is listed with its raw text, gloss, v1 category and label.
+- **Threshold rule, fixed now for a full run.** For each t in the `SWEEP` grid:
+  - cost(t) = 10 × (lines at or above t whose restricted flag is wrong) + 1 × (receipts with any line below t).
+  - The lowest cost wins, and ties go to the lower t. The result is also shown at weights of 5 and 20.
+  - **On the pilot,** this is computed for illustration only.
+  - **To be adopted,** a threshold must be chosen on the train split, checked on the unseen test split, and released as v2.
+
 ## What was checked by hand
 
 - **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
