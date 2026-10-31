@@ -100,6 +100,27 @@ The 32 receipts are 57% violations, and nothing in them is unseen or messy. This
   - **On the pilot,** this is computed for illustration only.
   - **To be adopted,** a threshold must be chosen on the train split, checked on the unseen test split, and released as v2.
 
+**Results** (`make cord`, `outputs/cord/v1/metrics.json`). The run took 200 calls and cost $0.0394, or $0.00039 per receipt; translation adds a third, because every line is glossed. The first attempt crashed on CORD-V048 (see the changes table).
+- **Items:**
+  - 252 / 270 lines right (93%), and 239 / 244 on sure labels (98%).
+  - The one restricted line, the rice soap, was found.
+  - Seven lines were wrongly called restricted, and only one of those has a sure label.
+- **Receipts:**
+  - The labels give 98 pass and 2 flag. v1 gives 87 pass, 8 flag and 5 review, and it finds both real flags.
+  - False flags: 6 / 98 (95% CI 2.8–12.7%). False reviews: 5 / 98.
+  - Flag precision: 2 / 8 (7–59%).
+- **The six false flags** (CORD-V008 has two of these causes):
+  - Four packaging lines read as `household_goods`: two plastic bags, a paper bag, and a plastic clamshell box.
+  - A free birthday candle read as `household_goods`.
+  - "*Rhum", an option on a bakery item, read as a spirit (ALC-01).
+  - "TALAM UNGU", a purple steamed cake. It was glossed literally as "PURPLE TRAY" and called kitchenware at confidence 0.99.
+- **How much rests on unsure labels.** Only the cake has a sure label. Suppose every unsure label were replaced by v1's answer (an after-the-fact check). Flag precision would then be 8 / 8. So the headline number turns on whether packaging is `household_goods`, and neither the taxonomy nor HOUSE-01 says.
+- **The five reviews.** All come from EXC-03, on lines below 0.5: three unreadable codes ("TT", "SB 1 OR", "KENTHIR 2") and packaging on two receipts. That is EXC-03 doing its job. But the labels can never send a receipt to review, so these count against v1.
+- **Confidence ranks well but is not calibrated.**
+  - The 225 lines at 0.999 or above are 99% right; the 45 below are 64% right.
+  - The confident errors are the boundary cases: plastic bags at 0.96–0.98, the cake at 0.99, and the clamshell box at 1.0.
+- **Threshold rule, as an illustration.** At all three weights it picks 0.995. That cuts false flags from 6 to 1, but sends 30 of 100 receipts to review. It is not adopted: v1 stays at 0.5.
+
 ## What was checked by hand
 
 - **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
@@ -125,10 +146,12 @@ What an assistant got wrong, and the check that caught it.
 | M9 | The first offline-rerun test compared parsed rows. `read_jsonl` reads floats as Decimal, so equal confidences looked different. It now compares the written bytes, which is also what the gate asks for. | Test failure, diffed by hand |
 | M10 | The first blame draft compared each extracted recipient with all three annotation fields (name, type and item kind). It would have listed every line as a recipient error. | Code review before the first test run |
 | M13 | In the viewer, picking a row on the receipt list with the baseline selected opened the detail page showing the system's results. `st.switch_page` reruns without the sidebar widget's state, so the radio fell back to its default. The choice now lives in a plain session key. `AppTest.switch_page` keeps widget state and passes either way, so no test guards this; the fix was checked by hand in the browser. | Clicking through the app, not the tests |
+| CORD pilot | `category_confidences` promised confidence 0 whenever the category tokens couldn't be lined up, but only one of its two failure paths did that. The other raised, and on the 49th real receipt it stopped the whole run. No v1 receipt had triggered it. | The first run on real receipts |
 | M11 | The Wilson interval at 0 / 9 came back with a lower bound of 2.8e-17, not 0. The assistant's first fix clamped it to 0 or above, which changed nothing, because the error is positive. It is now rounded to 10 places. | `test_wilson_interval_for_one_in_nine`, run after each fix |
 
 ## Changes after the v1 freeze
 
 | Version | Gold error that prompted it | What changed | Why |
 |---|---|---|---|
-| — | none | Nothing was changed after the v1 run was scored, so v1 is also the final version. | — |
+| — | none | No change was made after seeing a gold error, so v1 is also the final version. | — |
+| v1, crash fix (2026-10-30) | None. It was a crash on real data, not a gold error. On CORD-V048, the 49th pilot receipt, DeepSeek's logprob tokens ended with a newline that its reply text lacked. | `span_probability` now accepts trailing whitespace in the tokens. If the tokens still don't match, `category_confidences` gives every line confidence 0 (so EXC-03), as its docstring already said, instead of raising. | v1 stopped the whole batch on one receipt. The 32 receipts' outputs are byte-identical after the fix, so v1's results stand. |

@@ -38,7 +38,8 @@ The config was tagged `v1-frozen`, and its first real run was committed before i
 - **Why so clean.** The traps are the taxonomy's own examples, and a fresh repeat flipped none of the 79 answers. But the prompt's authors had seen the receipts, and with only nine clean receipts a 30% false-positive rate is still possible.
 - **The baseline** falls for beer-battered cod and misses brand names, untranslated lines, and the public official on RCP-022.
 - **Failures.** None in scope. Both failure cases come from the out-of-scope timing receipts: RCP-020/021 split a lunch and a dinner around the meal cap (TIME-03), and RCP-029 is an overnight charge (TIME-01). Both are rule logic, because the TIME rules aren't built.
-- **Base rate.** This set is 57% violations, while a real stream has a few percent, so false flags would dominate. Measure false positives and flag precision on real traffic before trusting the system.
+- **Base rate.** This set is 57% violations, while a real stream has a few percent, so false flags would dominate.
+- **Real receipts (CORD pilot).** On 100 real receipts with hand labels, 2% of them violations, v1 got 93% of lines right. It found both violations, but only 2 of its 8 flags were right, and 5 clean receipts went to review. Five of the six false flags turn on labels marked unsure, mostly packaging read as household goods, which the taxonomy doesn't cover ([evaluation, section 8](docs/evaluation.md)). The run also exposed a crash, now fixed, that changes no v1 output.
 
 ## Walkthrough: RCP-011
 
@@ -56,8 +57,8 @@ Claude Code (Claude Opus 5.5) researched, planned and drafted the code, tests an
 
 ## Spend
 
-**$0.0365 over 150 calls** at peak prices (`outputs/spend.jsonl`), of which the v1 run was $0.0074. The model is `deepseek-flash` (DeepSeek V4.1 Flash) on DeepSeek's API. It returns the logprobs the confidence method needs, handles all six languages and costs about $0.00025 per receipt. Only a DeepSeek key was available, so the OpenRouter path is built but has not been run.
+**$0.0759 over 350 calls** at peak prices (`outputs/spend.jsonl`), of which the v1 run was $0.0074 and the CORD pilot $0.0394. The model is `deepseek-flash` (DeepSeek V4.1 Flash) on DeepSeek's API. It returns the logprobs the confidence method needs, handles all six languages and costs about $0.00025 per receipt. Only a DeepSeek key was available, so the OpenRouter path is built but has not been run.
 
 ## What I would do next
 
-Build the TIME rules. Label harder, real receipts at the real base rate, and use them to calibrate the threshold and measure flag precision. Rerun the gates through OpenRouter. Send names to the model only as placeholders.
+Build the TIME rules. Decide where packaging belongs in the taxonomy, then label CORD's 800 train receipts to calibrate the threshold, and check it once on its unseen test split. Rerun the gates through OpenRouter. Send names to the model only as placeholders.

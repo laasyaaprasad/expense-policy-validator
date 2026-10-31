@@ -19,7 +19,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from validator.data import ReceiptInput
-from validator.llm import LLM, Completion, complete_json
+from validator.llm import LLM, Completion, LLMError, complete_json
 from validator.models import ClassifiedItem, ClassifiedReceipt
 from validator.normaliser import normalise
 from validator.taxonomy import load_taxonomy
@@ -139,7 +139,10 @@ def category_confidences(completion: Completion, reply: Reply) -> list[float]:
     spans = [(m[1], m.start(1), m.end(1)) for m in re.finditer(r'"category"\s*:\s*"([^"]*)"', completion.content)]
     if [value for value, _, _ in spans] != [item.category for item in reply.items]:
         return [0.0] * len(reply.items)
-    return [completion.span_probability(start, end) for _, start, end in spans]
+    try:
+        return [completion.span_probability(start, end) for _, start, end in spans]
+    except LLMError:  # the tokens themselves do not match the text
+        return [0.0] * len(reply.items)
 
 
 def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, context: bool = True, run: str = "") -> Classification:

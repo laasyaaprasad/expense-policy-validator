@@ -88,6 +88,13 @@ def test_unalignable_categories_get_zero_confidence(llm_with):
     assert c.receipt.items["RCP-032-L1"].confidence == 0.0
 
 
+def test_tokens_that_do_not_match_the_text_give_zero_confidence_not_a_crash(llm_with):
+    content = json.dumps({"items": [line("RCP-032-L1", "software_subscription")]})
+    llm, _ = llm_with(response(content, [(content[:-1], -0.01), ("x", 0.0)]))
+    c = classify(RECEIPTS["RCP-032"], {}, llm)
+    assert c.receipt.items["RCP-032-L1"].confidence == 0.0
+
+
 def test_glosses_and_context_go_into_the_request(llm_with):
     llm, client = llm_with(reply([line(f"RCP-008-L{n}", "food_beverage") for n in (1, 2, 3)]),
                            reply([line(f"RCP-008-L{n}", "food_beverage") for n in (1, 2, 3)]))

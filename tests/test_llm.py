@@ -123,6 +123,14 @@ def test_span_probability_lines_tokens_up_with_the_content(paths):
     assert completion.span_probability(start, start + len("office_supplies")) == pytest.approx(math.exp(-0.3))
 
 
+def test_span_probability_allows_a_final_newline_the_content_lacks(paths):
+    # Seen on CORD-V048: the logprobs end with "\n", the content does not.
+    tokens = [('{"', -0.0), ("a", -0.4), ('": 1}', -0.0), ("\n", -0.0)]
+    completion = LLM(DEEPSEEK, client=FakeClient(response('{"a": 1}', tokens)), **paths).complete(
+        MESSAGES, purpose="test", prompt_version="v1", logprobs=True)
+    assert completion.span_probability(2, 3) == pytest.approx(math.exp(-0.4))
+
+
 def test_span_probability_refuses_tokens_that_do_not_line_up(paths):
     completion = LLM(DEEPSEEK, client=FakeClient(response('{"a": 1}', [("{", -0.1)])), **paths).complete(
         MESSAGES, purpose="test", prompt_version="v1", logprobs=True)

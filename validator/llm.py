@@ -101,7 +101,10 @@ class Completion:
                 total += token.logprob
                 covered = True
             offset = token_end
-        if not covered or offset != len(self.content):
+        # DeepSeek can leave a final newline out of the content that its logprobs still include
+        # (found on a real CORD receipt after the v1 freeze), so trailing whitespace is allowed.
+        joined = "".join(token.token for token in self.tokens)
+        if not covered or not joined.startswith(self.content) or joined[len(self.content):].strip():
             raise LLMError("tokens do not line up with the content")
         return math.exp(total)
 

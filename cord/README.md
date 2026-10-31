@@ -19,6 +19,11 @@ python -I evaluation/cord_convert.py rows.json cord/receipts.jsonl
 - **Language.** Every line is marked `id`.
 - **Totals.** Two receipts have no total, so their line sum is used.
 
+**Run and score.** `make cord` scores the committed outputs offline. `uv run python -m evaluation.cord --run` reruns the pipeline first.
+- **Outputs:** `outputs/cord/v1/`, including `metrics.json`.
+- **Hand check:** `review/cord_labels.csv` holds every restricted and unsure label, plus a random 30 of the rest, and shows no system output.
+- **Results:** in `docs/evaluation.md`, section 8.
+
 ## Labels (`labels.jsonl`)
 
 One row per line: `category`, `restricted` (from the taxonomy) and `sure`. The labels were written from the line text and the receipt's other lines, before the system was run on any CORD receipt. They are used only to score the system, never as input to it.

@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline app
+.PHONY: test oracle dev items smoke run eval baseline cord app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -33,6 +33,11 @@ eval:
 # Keyword baseline through the same engine (M12): outputs/baseline.jsonl. No model calls.
 baseline:
 	uv run python -m validator.baseline
+
+# CORD pilot: v1 on 100 real receipts, scored against hand labels (cord/README.md). Offline;
+# `uv run python -m evaluation.cord --run` reruns the pipeline first.
+cord:
+	uv run python -m evaluation.cord
 
 # Results viewer (M13): receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:

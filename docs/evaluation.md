@@ -76,6 +76,36 @@ The system gets none of the 28 in-scope receipts wrong, so the blame report (`ou
 
 In this set 16 of 28 receipts (57%) should be flagged, so a false positive is rare simply because few receipts are clean. In a real stream with a 3% violation rate, a 2% false-positive rate means about 20 false flags per 1,000 receipts against 30 true ones. Two in five flags would be wrong, and reviewers would learn to ignore them. Our 0/9 is consistent with anything from 0% to 30%, so it says almost nothing about that regime. Before trusting the system, I would measure the false-positive rate and flag precision on a few thousand randomly sampled real receipts (tight enough to tell 1% from 3%). I would also check that confidence is calibrated on genuinely ambiguous items, which this data barely contains.
 
+## 8. Real receipts: the CORD pilot
+
+The 32 receipts can't answer section 7, so v1, exactly as frozen, was run on 100 real receipts. They are CORD v2's validation split (CC-BY-4.0), from Indonesian restaurants, cafés, bakeries and shops, with 270 lines. They have real abbreviations, a seventh language, and nothing anyone on the project had seen.
+- **Context.** CORD has none, so every receipt gets the same declared context: a US employee, "Meals - Individual", MCC 5812, one attendee, IDR.
+- **Labels.** Every line was labelled sure or unsure, and the labels were committed before the first model call. The method was fixed in NOTES before any of this ran.
+- **Correct decisions.** They come from the engine run on the labels, so this measures the classifier, at the rate violations really occur: 2 of 100 receipts.
+
+| | v1 on 100 CORD receipts |
+|---|---|
+| Lines right | 252 / 270 (93%); 239 / 244 on sure labels (98%) |
+| Restricted lines | 1 / 1 found; 7 wrongly restricted (1 on a sure label) |
+| False flags | 6 / 98 (CI 2.8–12.7%) |
+| False reviews (EXC-03) | 5 / 98 |
+| Flag precision | **2 / 8** (CI 7–59%) |
+| Missed flags | 0 / 2 |
+
+**The false flags:**
+- **Five rest only on unsure labels.** Three are flagged for bags (two plastic, one paper) that v1 calls `household_goods`. One is a free birthday candle, also `household_goods`. One is "*Rhum" on a bakery item, read as a spirit.
+- **What if those labels went v1's way?** Then every one of the 8 flags would be right. So the flag precision rests on a gap in the taxonomy, which has no rule for packaging sold with food.
+- **The sixth, CORD-V008, holds the one clear error.** "TALAM UNGU" (a purple steamed cake) was glossed literally as "PURPLE TRAY" and classified as kitchenware at 0.99. Its plastic clamshell box also went to `household_goods`.
+
+**The reviews** are unreadable codes ("TT", "KENTHIR 2") and packaging below 0.5. That is EXC-03 behaving as designed.
+
+**Confidence ranks errors but isn't calibrated.** The 225 lines at 0.999 or above are 99% right; the 45 below are 64% right. The fixed rule for choosing a threshold, applied here for illustration only, picks 0.995. That cuts false flags to 1 but sends 30% of receipts to review. v1 stays at 0.5.
+
+**What it says.**
+- Section 7's worry is real. At a 2% violation rate, a 6% false-flag rate means most flags are wrong.
+- The bigger lever is the taxonomy, not the threshold: say where packaging goes.
+- Then calibrate the threshold on the 800-receipt train split, and check it once on the untouched test split. Those receipts are fetched through the dataset's Parquet files, because the API that served this split can't serve them.
+
 ## Stretch items
 
 - **Per-rule precision and recall:** 1.00 / 1.00 for every rule in the answers (`metrics.json`, `exceptions.per_rule`).
