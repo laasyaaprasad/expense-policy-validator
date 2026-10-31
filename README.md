@@ -39,7 +39,10 @@ The config was tagged `v1-frozen`, and its first real run was committed before i
 - **The baseline** falls for beer-battered cod and misses brand names, untranslated lines, and the public official on RCP-022.
 - **Failures.** None in scope. Both failure cases come from the out-of-scope timing receipts: RCP-020/021 split a lunch and a dinner around the meal cap (TIME-03), and RCP-029 is an overnight charge (TIME-01). Both are rule logic, because the TIME rules aren't built.
 - **Base rate.** This set is 57% violations, while a real stream has a few percent, so false flags would dominate.
-- **Real receipts (CORD pilot).** On 100 real receipts with hand labels, 2% of them violations, v1 got 93% of lines right. It found both violations, but only 2 of its 8 flags were right, and 5 clean receipts went to review. Five of the six false flags turn on labels marked unsure, mostly packaging read as household goods, which the taxonomy doesn't cover ([evaluation, section 8](docs/evaluation.md)). The run also exposed a crash, now fixed, that changes no v1 output.
+- **Stress test on real receipts (CORD).** To see how v1 behaves outside the curated set, it was run unchanged on 100 public Indonesian receipts, hand-labelled, 2% of them violations. This was a check, not a target, and nothing was tuned on it.
+  - v1 got 93% of lines right and found both violations.
+  - Only 2 of its 8 flags were right, mostly because packaging was read as household goods, which the taxonomy doesn't settle.
+  - It exposed a crash, now fixed; the fix changes no v1 output ([evaluation, section 8](docs/evaluation.md)).
 
 ## Walkthrough: RCP-011
 
@@ -61,4 +64,4 @@ Claude Code (Claude Opus 5.5) researched, planned and drafted the code, tests an
 
 ## What I would do next
 
-Build the TIME rules. Decide where packaging belongs in the taxonomy, then label CORD's 800 train receipts to calibrate the threshold, and check it once on its unseen test split. Rerun the gates through OpenRouter. Send names to the model only as placeholders.
+Build the TIME rules. Calibrate the confidence threshold and measure flag precision on a labelled sample of the company's own receipts. CORD showed confident errors (0.96–1.0) that 0.5 lets through. Ask whether a free ($0) line should raise an item exception, as it does now. Rerun the gates through OpenRouter. Send names to the model only as placeholders.

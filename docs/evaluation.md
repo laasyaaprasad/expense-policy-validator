@@ -101,10 +101,10 @@ The 32 receipts can't answer section 7, so v1, exactly as frozen, was run on 100
 
 **Confidence ranks errors but isn't calibrated.** The 225 lines at 0.999 or above are 99% right; the 45 below are 64% right. The fixed rule for choosing a threshold, applied here for illustration only, picks 0.995. That cuts false flags to 1 but sends 30% of receipts to review. v1 stays at 0.5.
 
-**What it says.**
-- Section 7's worry is real. At a 2% violation rate, a 6% false-flag rate means most flags are wrong.
-- The bigger lever is the taxonomy, not the threshold: say where packaging goes.
-- Then calibrate the threshold on the 800-receipt train split, and check it once on the untouched test split. Those receipts are fetched through the dataset's Parquet files, because the API that served this split can't serve them.
+**What it says.** This is a stress test, not a target. CORD's merchants, language and packaging lines aren't what this brief is about, so nothing was tuned on it.
+- **Section 7's worry is real.** At a 2% violation rate, a 6% false-flag rate means most flags are wrong.
+- **The confident errors sit at 0.96–1.0.** A threshold would catch them only by sending a third of all receipts to review. So the threshold should be calibrated on the company's own labelled receipts, not here.
+- **It raises one open engine question.** Should a free ($0) line raise an item exception? Four of the six false flags were on such lines.
 
 ## Stretch items
 

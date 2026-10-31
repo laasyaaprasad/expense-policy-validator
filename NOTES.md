@@ -121,6 +121,12 @@ The 32 receipts are 57% violations, and nothing in them is unseen or messy. This
   - The confident errors are the boundary cases: plastic bags at 0.96–0.98, the cake at 0.99, and the clamshell box at 1.0.
 - **Threshold rule, as an illustration.** At all three weights it picks 0.995. That cuts false flags from 6 to 1, but sends 30 of 100 receipts to review. It is not adopted: v1 stays at 0.5.
 
+**Decision (2026-10-30): CORD is not tuned on.** It stays a stress test.
+- **What was dropped.** A v2 built from the pilot's errors was started: packaging guidance, skipping $0 lines, and dish-name glosses. It was dropped before any v2 code was written.
+- **Why.** It would fit a distribution the brief isn't about. The brief also fixes the taxonomy on this track ("ignore the file's own invitation to add categories").
+- **The test split** was downloaded, but never committed or run.
+- **What remains of the pilot.** The crash fix, and the open $0-line question.
+
 ## What was checked by hand
 
 - **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
