@@ -10,7 +10,7 @@ from validator.pipeline import OUTPUT_DIR, run, write_run
 from validator.reporter import ReceiptResult
 from validator.rules_config import policy_version
 
-OUTPUTS = ("classifications.jsonl", "retrieval.jsonl", "results.jsonl")
+OUTPUTS = ("classifications.jsonl", "retrieval.jsonl", "results.jsonl", "traces.jsonl")
 
 
 @pytest.fixture(scope="module")

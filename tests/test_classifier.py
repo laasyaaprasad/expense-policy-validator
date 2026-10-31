@@ -59,6 +59,7 @@ def test_an_unknown_category_is_retried_with_the_problem_quoted(llm_with):
     c = classify(RECEIPTS["RCP-032"], {}, llm)
     assert c.receipt.items["RCP-032-L1"].category == "software_subscription"
     assert "'saas' is not one of the categories" in client.requests[1]["messages"][-1]["content"]
+    assert c.retried_after == ("RCP-032-L1: 'saas' is not one of the categories",)  # kept for the trace
 
 
 @pytest.mark.parametrize("bad, problem", [
@@ -86,6 +87,7 @@ def test_unalignable_categories_get_zero_confidence(llm_with):
     llm, _ = llm_with(response(content, [(content, -0.01)]))
     c = classify(RECEIPTS["RCP-032"], {}, llm)
     assert c.receipt.items["RCP-032-L1"].confidence == 0.0
+    assert c.confidence_fallback == "the category values in the reply do not line up with its parsed items"
 
 
 def test_tokens_that_do_not_match_the_text_give_zero_confidence_not_a_crash(llm_with):
@@ -93,6 +95,7 @@ def test_tokens_that_do_not_match_the_text_give_zero_confidence_not_a_crash(llm_
     llm, _ = llm_with(response(content, [(content[:-1], -0.01), ("x", 0.0)]))
     c = classify(RECEIPTS["RCP-032"], {}, llm)
     assert c.receipt.items["RCP-032-L1"].confidence == 0.0
+    assert c.confidence_fallback == "the logprob tokens do not match the reply text"
 
 
 def test_glosses_and_context_go_into_the_request(llm_with):

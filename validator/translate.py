@@ -38,8 +38,9 @@ class Glosses(BaseModel):
     items: list[Gloss]
 
 
-def translate_receipt(receipt: ReceiptInput, llm: LLM) -> dict[str, str]:
-    """Line ID → English gloss, for the receipt's non-English lines only."""
+def translate_receipt(receipt: ReceiptInput, llm: LLM, trace: dict | None = None) -> dict[str, str]:
+    """Line ID → English gloss, for the receipt's non-English lines only. If `trace` is given, the
+    call behind the glosses is recorded in it under the receipt ID."""
     foreign = [line for line in receipt.line_items if line.language != "en"]
     if not foreign:
         return {}
@@ -52,14 +53,17 @@ def translate_receipt(receipt: ReceiptInput, llm: LLM) -> dict[str, str]:
         returned = [gloss.line_id for gloss in parsed.items if gloss.english.strip()]
         return [f"missing or empty line_id {line_id}" for line_id in wanted if line_id not in returned]
 
-    parsed, _ = complete_json(llm, messages, Glosses, purpose="translate", prompt_version=PROMPT_VERSION,
-                              check=check, max_tokens=1000)
+    parsed, completion = complete_json(llm, messages, Glosses, purpose="translate", prompt_version=PROMPT_VERSION,
+                                       check=check, max_tokens=1000)
+    if trace is not None:
+        trace[receipt.receipt_id] = {"call": completion.cache_key[:24], "cached": completion.cached,
+                                     "retried_after": list(completion.retried_after)}
     glosses = {gloss.line_id: gloss.english.strip() for gloss in parsed.items}
     return {line_id: glosses[line_id] for line_id in wanted}
 
 
-def translate_all(receipts: list[ReceiptInput], llm: LLM) -> dict[str, str]:
-    return {line_id: gloss for receipt in receipts for line_id, gloss in translate_receipt(receipt, llm).items()}
+def translate_all(receipts: list[ReceiptInput], llm: LLM, trace: dict | None = None) -> dict[str, str]:
+    return {line_id: gloss for receipt in receipts for line_id, gloss in translate_receipt(receipt, llm, trace).items()}
 
 
 def write_review(receipts: list[ReceiptInput], glosses: dict[str, str], path: Path = REVIEW_PATH) -> None:

@@ -25,14 +25,16 @@ def evaluate(
     config: RulesConfig | None = None,
     retrieved: Mapping[str, Collection[str]] | None = None,
     threshold: float = CONFIDENCE_THRESHOLD,
+    trace: dict | None = None,
 ) -> list[Decision]:
     """Decide every receipt. `retrieved` maps a receipt ID to the rule IDs the retriever chose;
-    without it every rule is considered. Decisions come back in receipt-ID order."""
+    without it every rule is considered. Decisions come back in receipt-ID order. If `trace` is
+    given, how each receipt was decided is recorded in it under the receipt ID."""
     config = config or load_rules()
     views = [ReceiptView(receipt, config, threshold) for receipt in receipts]
     ctx = build_context(views)
     return [
-        decide(view, ctx, None if retrieved is None else retrieved[view.receipt_id])
+        decide(view, ctx, None if retrieved is None else retrieved[view.receipt_id], trace)
         for view in sorted(views, key=lambda view: view.receipt_id)
     ]
 
@@ -41,15 +43,15 @@ def _region_applies(rule: RuleSpec, r: ReceiptView) -> bool:
     return not rule.applies_to.regions or r.region in rule.applies_to.regions
 
 
-def _active_rules(r: ReceiptView, selected: Collection[str] | None) -> list[RuleSpec]:
+def _active_rules(r: ReceiptView, selected: Collection[str] | None) -> tuple[list[RuleSpec], set[str]]:
     """Regional rules override the global rules they name, for employees of that region.
     Overrides are resolved over every rule, so a retriever that misses the regional rule
-    cannot bring the global one back."""
+    cannot bring the global one back. Returns the rules to run and the rules overridden."""
     applicable = [rule for rule in r.config.rules if rule.kind != "mechanic" and _region_applies(rule, r)]
     overridden = {target for rule in applicable for target in rule.overrides}
     active = [rule for rule in applicable if rule.id not in overridden and (selected is None or rule.id in selected)]
     # A rule that replaces another on the lines it cites (GIFT-04 over GIFT-01) runs first.
-    return sorted(active, key=lambda rule: not rule.line_overrides)
+    return sorted(active, key=lambda rule: not rule.line_overrides), overridden
 
 
 def _check_evidence(rule: RuleSpec, line_ids: tuple[str, ...]) -> None:
@@ -60,12 +62,13 @@ def _check_evidence(rule: RuleSpec, line_ids: tuple[str, ...]) -> None:
         raise ValueError(f"{rule.id} is about items but cited none")
 
 
-def decide(r: ReceiptView, ctx: Context, selected: Collection[str] | None = None) -> Decision:
+def decide(r: ReceiptView, ctx: Context, selected: Collection[str] | None = None, trace: dict | None = None) -> Decision:
     config = r.config
     order = {rule.id: index for index, rule in enumerate(config.rules)}
     hidden: dict[str, set[str]] = defaultdict(set)  # rule ID → lines another rule has taken over
     exceptions, signals, waived, not_evaluated = [], [], [], []
-    active = _active_rules(r, selected)
+    steps: dict[str, dict] = {}  # rule ID → what its check found, for the trace
+    active, overridden = _active_rules(r, selected)
 
     for rule in active:
         view = r.without(hidden[rule.id]) if hidden[rule.id] else r
@@ -73,26 +76,41 @@ def decide(r: ReceiptView, ctx: Context, selected: Collection[str] | None = None
             outcome = CHECKS[rule.id](rule, view, ctx)
         except NotEvaluable as reason:
             not_evaluated.append(NotEvaluated(rule_id=rule.id, reason=str(reason)))
+            steps[rule.id] = {"result": "not_evaluated", "reason": str(reason)}
             continue
         if outcome is None:
+            steps[rule.id] = {"result": "passed"}
             continue
         line_ids = tuple(sorted(outcome.line_ids, key=line_order))
         for target in rule.line_overrides:
             hidden[target] |= set(line_ids)
         if outcome.waived_by is not None:
             waived.append(Waiver(rule_id=rule.id, policy_doc=rule.doc, line_ids=line_ids, reference=outcome.waived_by))
+            steps[rule.id] = {"result": "waived", "line_ids": list(line_ids), "reference": outcome.waived_by}
         elif rule.kind == "review_signal":
             signals.append(Signal(rule_id=rule.id, policy_doc=rule.doc, facts=outcome.facts))
+            steps[rule.id] = {"result": "signal", "facts": outcome.facts}
         else:
             _check_evidence(rule, line_ids)
             severity = outcome.severity or rule.severity
             if not isinstance(severity, str):
                 raise ValueError(f"{rule.id} has several severities and the check chose none")
             exceptions.append(Finding(rule_id=rule.id, policy_doc=rule.doc, severity=severity, line_ids=line_ids, facts=outcome.facts))
+            steps[rule.id] = {"result": "raised", "severity": severity, "line_ids": list(line_ids), "facts": outcome.facts}
+
+    if trace is not None:
+        trace[r.receipt_id] = {
+            "rules": steps,
+            "overridden_by_region": sorted(overridden, key=lambda rule_id: order.get(rule_id, len(order))),
+            "lines_taken_over": {rule_id: sorted(lines, key=line_order) for rule_id, lines in hidden.items() if lines},
+            "uncertain_lines": list(r.uncertain),
+            "totals": ctx.totals_for(r),
+        }
 
     if r.uncertain:
         # EXC-03: a review signal, not an exception; the items were already left out of every rule above.
         confidences = {line_id: r.items[line_id].confidence for line_id in r.uncertain}
+        steps["EXC-03"] = {"result": "signal", "line_ids": list(r.uncertain)}
         signals.append(Signal(rule_id="EXC-03", policy_doc=config.rule("EXC-03").doc, line_ids=r.uncertain,
                               facts={"confidence": confidences, "threshold": r.threshold,
                                      "categories": {i: r.items[i].category for i in r.uncertain}}))

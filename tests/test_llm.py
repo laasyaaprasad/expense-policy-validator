@@ -176,9 +176,10 @@ def test_complete_json_retries_once_with_the_problem_quoted(paths):
 def test_complete_json_applies_the_callers_check(paths):
     client = FakeClient(response('{"items": []}'), response('{"items": ["L1"]}'))
     check = lambda parsed: [] if parsed.items else ["line L1 is missing"]
-    parsed, _ = complete_json(LLM(DEEPSEEK, client=client, **paths), MESSAGES, Reply, purpose="test", prompt_version="v1", check=check)
+    parsed, completion = complete_json(LLM(DEEPSEEK, client=client, **paths), MESSAGES, Reply, purpose="test", prompt_version="v1", check=check)
     assert parsed.items == ["L1"]
     assert "line L1 is missing" in client.requests[1]["messages"][-1]["content"]
+    assert completion.retried_after == ("line L1 is missing",)  # the returned reply says it is a retry, and why
 
 
 def test_complete_json_gives_up_after_one_retry(paths):

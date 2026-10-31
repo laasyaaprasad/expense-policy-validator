@@ -15,7 +15,7 @@ import hashlib
 import json
 import math
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -89,6 +89,7 @@ class Completion:
     usage: dict[str, Any]
     cache_key: str
     cached: bool
+    retried_after: tuple[str, ...] = ()  # the first reply's problems, when this is the retry that fixed them
 
     def span_probability(self, start: int, end: int) -> float:
         """Probability of the tokens covering content[start:end]: exp of their summed logprobs."""
@@ -255,9 +256,9 @@ def complete_json(llm: LLM, messages: list[dict], model: type[BaseModel], *, pur
     retry = [*messages, {"role": "assistant", "content": completion.content},
              {"role": "user", "content": "That reply had problems: " + "; ".join(problems) + ". Reply again in json, fixing them."}]
     completion = llm.complete(retry, purpose=purpose, prompt_version=prompt_version, **options)
-    if problems := _problems(completion, model, check):
-        raise LLMError(f"{purpose} reply still invalid after a retry: {'; '.join(problems)}")
-    return model.model_validate_json(completion.content), completion
+    if still := _problems(completion, model, check):
+        raise LLMError(f"{purpose} reply still invalid after a retry: {'; '.join(still)}")
+    return model.model_validate_json(completion.content), replace(completion, retried_after=tuple(problems))
 
 
 def _problems(completion: Completion, model: type[BaseModel], check) -> list[str]:

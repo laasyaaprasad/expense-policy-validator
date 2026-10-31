@@ -11,7 +11,7 @@ from datetime import date
 from decimal import Decimal
 
 from validator.data import LineItem
-from validator.engine.money import to_usd
+from validator.engine.money import cents, to_usd
 from validator.models import ClassifiedItem, ClassifiedReceipt
 from validator.rules_config import RulesConfig
 
@@ -175,6 +175,22 @@ class Context:
         if not any(entry.receipt_id == r.receipt_id for entry in entries):
             raise NotEvaluable("meal spend could not be computed")
         return entries
+
+    def totals_for(self, r: ReceiptView) -> dict:
+        """The cross-receipt totals this receipt is part of, with the receipts behind each, for the trace."""
+        totals = {}
+        try:
+            entries = self.meal_days.get((r.receipt.employee_id, r.date), [])
+        except NotEvaluable:
+            entries = []
+        if any(entry.receipt_id == r.receipt_id for entry in entries):
+            totals["meal_day"] = {"date": r.date.isoformat(), "per_person_usd": cents(sum(entry.per_person_usd for entry in entries)),
+                                  "receipts": sorted(entry.receipt_id for entry in entries)}
+        if r.receipt.trip_id in self.otc_by_trip:
+            totals["otc_trip"] = {"trip_id": r.receipt.trip_id, "usd": cents(self.otc_by_trip[r.receipt.trip_id])}
+        if r.reference_kind == "baggage_delay" and r.reference in self.baggage_by_reference:
+            totals["baggage_delay"] = {"reference": r.reference, "used_usd": cents(self.baggage_by_reference[r.reference])}
+        return totals
 
     def euro_rate(self, r: ReceiptView) -> Decimal:
         """The euro rate on the transaction date: a euro receipt's own rate, else one seen on that date."""

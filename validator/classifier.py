@@ -12,8 +12,9 @@ on those items is a real test.
 """
 
 import json
+import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from pydantic import BaseModel
@@ -96,6 +97,11 @@ class Classification:
     prompt_version: str
     cache_key: str | None  # None when no call was made (non-itemized)
     model: str | None
+    # How the answer was reached, for the trace (validator/trace.py). None of it changes the answer.
+    cached: bool | None = None
+    retried_after: tuple[str, ...] = ()
+    confidence_fallback: str | None = None  # why every line got confidence 0, when they did
+    alternatives: dict[str, list[dict]] = field(default_factory=dict)  # line ID → the next most likely categories
 
 
 def _messages(receipt: ReceiptInput, glosses: dict[str, str], context: bool) -> list[dict]:
@@ -133,16 +139,43 @@ def _problems(receipt: ReceiptInput):
     return check
 
 
-def category_confidences(completion: Completion, reply: Reply) -> list[float]:
-    """Probability of each line's category tokens, in reply order. If the category values cannot be
-    lined up with the reply, every line gets 0, so each raises EXC-03 rather than being trusted."""
-    spans = [(m[1], m.start(1), m.end(1)) for m in re.finditer(r'"category"\s*:\s*"([^"]*)"', completion.content)]
+def _category_spans(completion: Completion) -> list[tuple[str, int, int]]:
+    return [(m[1], m.start(1), m.end(1)) for m in re.finditer(r'"category"\s*:\s*"([^"]*)"', completion.content)]
+
+
+def category_confidences(completion: Completion, reply: Reply) -> tuple[list[float], str | None]:
+    """Probability of each line's category tokens, in reply order, and None. If the category values
+    cannot be lined up with the reply, every line gets 0, so each raises EXC-03 rather than being
+    trusted, and the second value says why."""
+    spans = _category_spans(completion)
     if [value for value, _, _ in spans] != [item.category for item in reply.items]:
-        return [0.0] * len(reply.items)
+        return [0.0] * len(reply.items), "the category values in the reply do not line up with its parsed items"
     try:
-        return [completion.span_probability(start, end) for _, start, end in spans]
-    except LLMError:  # the tokens themselves do not match the text
-        return [0.0] * len(reply.items)
+        return [completion.span_probability(start, end) for _, start, end in spans], None
+    except LLMError:
+        return [0.0] * len(reply.items), "the logprob tokens do not match the reply text"
+
+
+def category_alternatives(completion: Completion, start: int, chosen: str) -> list[dict]:
+    """The two likeliest other categories at the category's first token. `p` is that first token's
+    probability, an upper bound on its category's; a token several categories start with ("g") is
+    reported with category None."""
+    offset = 0
+    for token in completion.tokens or ():
+        if offset + len(token.token) > start:
+            lead = token.token[: start - offset]  # any text before the category in this token, such as a quote
+            found = []
+            for text, logprob in token.top:
+                if text == token.token or not text.startswith(lead):
+                    continue
+                stem = text[len(lead):].split('"')[0]
+                names = [name for name in TAXONOMY if stem and name.startswith(stem)]
+                if not names or names == [chosen]:  # not a category, or the same one tokenized differently
+                    continue
+                found.append({"category": names[0] if len(names) == 1 else None, "token": stem, "p": float(f"{math.exp(logprob):.3g}")})
+            return found[:2]
+        offset += len(token.token)
+    return []
 
 
 def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, context: bool = True, run: str = "") -> Classification:
@@ -159,7 +192,9 @@ def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, contex
 
     reply, completion = complete_json(llm, _messages(receipt, glosses, context), Reply, purpose="classify",
                                       prompt_version=prompt_version, check=_problems(receipt), **CALL)
-    confidences = category_confidences(completion, reply)
+    confidences, fallback = category_confidences(completion, reply)
+    starts = [start for _, start, _ in _category_spans(completion)] if fallback is None else []
+    alternatives = {line.line_id: category_alternatives(completion, start, line.category) for line, start in zip(reply.items, starts)}
     items = {
         line.line_id: ClassifiedItem(
             line_id=line.line_id,
@@ -173,4 +208,6 @@ def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, contex
         )
         for line, confidence in zip(reply.items, confidences)
     }
-    return Classification(ClassifiedReceipt(receipt=receipt, items=items), prompt_version, completion.cache_key[:24], completion.model)
+    return Classification(ClassifiedReceipt(receipt=receipt, items=items), prompt_version, completion.cache_key[:24], completion.model,
+                          cached=completion.cached, retried_after=completion.retried_after,
+                          confidence_fallback=fallback, alternatives=alternatives)
