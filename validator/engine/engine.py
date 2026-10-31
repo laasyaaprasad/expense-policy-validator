@@ -92,7 +92,8 @@ def decide(r: ReceiptView, ctx: Context, selected: Collection[str] | None = None
         # EXC-03: a review signal, not an exception; the items were already left out of every rule above.
         confidences = {line_id: r.items[line_id].confidence for line_id in r.uncertain}
         signals.append(Signal(rule_id="EXC-03", policy_doc=config.rule("EXC-03").doc, line_ids=r.uncertain,
-                              facts={"confidence": confidences, "categories": {i: r.items[i].category for i in r.uncertain}}))
+                              facts={"confidence": confidences, "threshold": r.threshold,
+                                     "categories": {i: r.items[i].category for i in r.uncertain}}))
 
     by_rule = lambda finding: order.get(finding.rule_id, len(order))
     exceptions.sort(key=by_rule)

@@ -36,7 +36,7 @@ class ReceiptView:
 
     def __init__(self, classified: ClassifiedReceipt, config: RulesConfig, threshold: float,
                  hidden: frozenset[str] = frozenset()):
-        self._classified, self._threshold = classified, threshold
+        self._classified, self.threshold = classified, threshold
         self.receipt = classified.receipt
         self.items = classified.items
         self.config = config
@@ -49,7 +49,7 @@ class ReceiptView:
 
     def without(self, line_ids: set[str]) -> "ReceiptView":
         """The same receipt with some lines removed, for a rule another rule replaces on those lines."""
-        return ReceiptView(self._classified, self.config, self._threshold, frozenset(line_ids))
+        return ReceiptView(self._classified, self.config, self.threshold, frozenset(line_ids))
 
     # --- identity and context -------------------------------------------------------------------
 

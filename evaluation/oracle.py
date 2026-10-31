@@ -8,7 +8,6 @@ Run with `make oracle`. Exits non-zero if any in-scope receipt differs from the 
 """
 
 import csv
-import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +16,8 @@ from evaluation.gold import GoldReceipt, in_scope, load_gold
 from validator.data import ROOT, ReceiptInput, load_receipts
 from validator.engine import evaluate
 from validator.models import ClassifiedItem, ClassifiedReceipt, Decision
+from validator.reporter import ReceiptResult, report, to_json_line
+from validator.rules_config import load_rules, policy_version
 
 ATTRIBUTES_PATH = ROOT / "review" / "item_attributes.csv"
 ORACLE_PATH = ROOT / "outputs" / "oracle.jsonl"
@@ -54,6 +55,13 @@ def run_oracle() -> list[Decision]:
     return evaluate(oracle_receipts(load_receipts(), load_gold(), load_attributes()))
 
 
+def oracle_results() -> list[ReceiptResult]:
+    """The oracle decisions as output records, in the same shape as the pipeline's results."""
+    classified = {c.receipt.receipt_id: c for c in oracle_receipts(load_receipts(), load_gold(), load_attributes())}
+    config, version = load_rules(), policy_version()
+    return [report(classified[d.receipt_id], d, config, version) for d in evaluate(list(classified.values()), config)]
+
+
 @dataclass
 class Comparison:
     receipt_id: str
@@ -88,16 +96,16 @@ def compare(decision: Decision, gold: GoldReceipt) -> Comparison:
     )
 
 
-def write_jsonl(decisions: list[Decision], path: Path) -> None:
+def write_jsonl(results: list[ReceiptResult], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
-        for decision in decisions:
-            f.write(json.dumps(decision.model_dump(mode="json"), ensure_ascii=False) + "\n")
+        for result in results:
+            f.write(to_json_line(result) + "\n")
 
 
 def main() -> int:
     decisions = run_oracle()
-    write_jsonl(decisions, ORACLE_PATH)
+    write_jsonl(oracle_results(), ORACLE_PATH)
     gold = load_gold()
     comparisons = [compare(d, gold[d.receipt_id]) for d in decisions if in_scope(d.receipt_id)]
     for c in comparisons:

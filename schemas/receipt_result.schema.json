@@ -1,0 +1,273 @@
+{
+  "$defs": {
+    "ResultException": {
+      "properties": {
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "policy_doc": {
+          "title": "Policy Doc",
+          "type": "string"
+        },
+        "severity": {
+          "title": "Severity",
+          "type": "string"
+        },
+        "line_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Line Ids",
+          "type": "array"
+        },
+        "evidence": {
+          "title": "Evidence",
+          "type": "string"
+        },
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        },
+        "facts": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Facts",
+          "type": "object"
+        }
+      },
+      "required": [
+        "rule_id",
+        "policy_doc",
+        "severity",
+        "line_ids",
+        "evidence",
+        "explanation"
+      ],
+      "title": "ResultException",
+      "type": "object"
+    },
+    "ResultLine": {
+      "properties": {
+        "line_id": {
+          "title": "Line Id",
+          "type": "string"
+        },
+        "description_raw": {
+          "title": "Description Raw",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "restricted": {
+          "title": "Restricted",
+          "type": "boolean"
+        },
+        "confidence": {
+          "title": "Confidence",
+          "type": "number"
+        },
+        "recipient_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recipient Name"
+        },
+        "recipient_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recipient Type"
+        },
+        "item_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item Kind"
+        }
+      },
+      "required": [
+        "line_id",
+        "description_raw",
+        "category",
+        "restricted",
+        "confidence"
+      ],
+      "title": "ResultLine",
+      "type": "object"
+    },
+    "ResultSignal": {
+      "properties": {
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "policy_doc": {
+          "title": "Policy Doc",
+          "type": "string"
+        },
+        "line_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Line Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rule_id",
+        "reason",
+        "policy_doc"
+      ],
+      "title": "ResultSignal",
+      "type": "object"
+    },
+    "ResultWaiver": {
+      "properties": {
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "policy_doc": {
+          "title": "Policy Doc",
+          "type": "string"
+        },
+        "line_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Line Ids",
+          "type": "array"
+        },
+        "reference": {
+          "title": "Reference",
+          "type": "string"
+        },
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id",
+        "policy_doc",
+        "line_ids",
+        "reference",
+        "explanation"
+      ],
+      "title": "ResultWaiver",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "One receipt's result. Extra fields are allowed on read; the brief's fields are required.",
+  "properties": {
+    "receipt_id": {
+      "title": "Receipt Id",
+      "type": "string"
+    },
+    "disposition": {
+      "enum": [
+        "flag",
+        "review",
+        "pass"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "line_items": {
+      "items": {
+        "$ref": "#/$defs/ResultLine"
+      },
+      "title": "Line Items",
+      "type": "array"
+    },
+    "exceptions": {
+      "items": {
+        "$ref": "#/$defs/ResultException"
+      },
+      "title": "Exceptions",
+      "type": "array"
+    },
+    "review_signals": {
+      "items": {
+        "$ref": "#/$defs/ResultSignal"
+      },
+      "title": "Review Signals",
+      "type": "array"
+    },
+    "waived": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ResultWaiver"
+      },
+      "title": "Waived",
+      "type": "array"
+    },
+    "not_evaluated": {
+      "default": [],
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Not Evaluated",
+      "type": "array"
+    },
+    "rules_evaluated": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Rules Evaluated",
+      "type": "array"
+    },
+    "policy_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Policy Version"
+    }
+  },
+  "required": [
+    "receipt_id",
+    "disposition",
+    "line_items",
+    "exceptions",
+    "review_signals"
+  ],
+  "title": "ReceiptResult",
+  "type": "object"
+}

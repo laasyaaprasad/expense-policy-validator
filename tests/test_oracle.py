@@ -5,12 +5,11 @@ outputs/oracle.jsonl is committed; any change to engine behaviour on the real da
 snapshot test until the snapshot is regenerated on purpose (`make oracle`).
 """
 
-import json
-
 import pytest
 
 from evaluation.gold import in_scope, load_gold
-from evaluation.oracle import ORACLE_PATH, compare, run_oracle
+from evaluation.oracle import ORACLE_PATH, compare, oracle_results, run_oracle
+from validator.reporter import to_json_line
 
 
 @pytest.fixture(scope="module")
@@ -41,6 +40,6 @@ def test_out_of_scope_differences_are_only_the_timing_rules(decisions, gold):
         assert c.extra in ([], ["MEAL-01"]), d.receipt_id
 
 
-def test_output_matches_the_committed_snapshot(decisions):
-    current = [json.dumps(d.model_dump(mode="json"), ensure_ascii=False) for d in decisions]
+def test_output_matches_the_committed_snapshot():
+    current = [to_json_line(result) for result in oracle_results()]
     assert current == ORACLE_PATH.read_text(encoding="utf-8").splitlines()
