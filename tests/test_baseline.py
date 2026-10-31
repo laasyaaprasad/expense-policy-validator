@@ -1,4 +1,4 @@
-"""M12 gate: the keyword matcher on synthetic strings (never receipt text), and determinism."""
+"""The keyword matcher on synthetic strings (never receipt text), and determinism."""
 
 import pytest
 

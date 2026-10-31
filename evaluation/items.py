@@ -1,8 +1,8 @@
-"""M9 gate on the real receipts: the v1 classifications against the answer key, item by item.
+"""The committed classifications of the real receipts against the answer key, item by item.
 
-Reads outputs/v1/classifications.jsonl and never reclassifies. Checks that the output is well formed
+Reads outputs/classifications.jsonl and never reclassifies. Checks that the output is well formed
 (79 valid items, restricted from the taxonomy, no item kind, recipients as annotated by hand), then
-scores categories on the 65 in-scope items and lists every miss. Writes outputs/v1/items.json.
+scores categories on the 65 in-scope items and lists every miss. Writes outputs/items.json.
 
 `--variants` also classifies all 32 receipts twice more: a fresh repeat of the same requests (how
 many answers flip) and a run without the merchant and expense type (the merchant ablation). Their
@@ -87,7 +87,7 @@ VARIANTS = {"repeat": {"run": "repeat"}, "no_context": {"context": False}}
 
 
 def run_variants(offline: bool) -> None:
-    """A fresh repeat and a no-context run of all 32 receipts, written beside the v1 output."""
+    """A fresh repeat and a no-context run of all 32 receipts, written beside the committed output."""
     from validator.llm import LLM
     llm = LLM.offline() if offline else LLM()
     receipts = load_receipts()
@@ -96,7 +96,7 @@ def run_variants(offline: bool) -> None:
 
 
 def variant_stats(rows: dict[str, dict]) -> dict:
-    """For each variant run on disk: the answers that differ from v1, and how many in-scope items it gets right."""
+    """For each variant run on disk: the answers that differ from the committed run, and how many in-scope items it gets right."""
     gold = load_gold()
     want = {line_id: item.category for receipt_id, g in gold.items() if in_scope(receipt_id) for line_id, item in g.items.items()}
     out = {}
@@ -139,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {m['line_id']} {m['text']!r}: got {m['got']}, want {m['want']} (confidence {m['confidence']:.3f}){flag}")
         print(f"      reason: {m['reason']}")
     for name, v in report["variants"].items():
-        print(f"\n{name}: {v['correct']}/{n} correct; {len(v['flipped'])}/{len(rows)} answers differ from v1 {v['flipped']}")
+        print(f"\n{name}: {v['correct']}/{n} correct; {len(v['flipped'])}/{len(rows)} answers differ from the committed run {v['flipped']}")
 
     ITEMS_PATH.write_text(json.dumps(report, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"\nwrote {ITEMS_PATH.relative_to(ROOT)}")

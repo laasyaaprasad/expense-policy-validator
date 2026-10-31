@@ -13,8 +13,8 @@ from evaluation.gold import GoldReceipt, in_scope, load_gold
 from validator.data import ReceiptInput, load_receipts
 from validator.pipeline import OUTPUT_DIR
 
-SOURCES = {"System (v1)": OUTPUT_DIR / "results.jsonl", "Keyword baseline": BASELINE_PATH}
-DEFAULT_SOURCE = "System (v1)"
+SOURCES = {"System": OUTPUT_DIR / "results.jsonl", "Keyword baseline": BASELINE_PATH}
+DEFAULT_SOURCE = "System"
 MISMATCH = "rgba(255, 80, 80, 0.22)"  # row tint that reads on light and dark themes
 
 

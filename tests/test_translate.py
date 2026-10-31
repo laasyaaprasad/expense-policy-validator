@@ -1,4 +1,4 @@
-"""M8 gate: deterministic cleanup, a gloss for every non-English line, and a signed-off hand review.
+"""Deterministic cleanup, a gloss for every non-English line, and a signed-off hand review.
 
 The translation tests replay the committed cache offline: no key, and any cache miss fails.
 """

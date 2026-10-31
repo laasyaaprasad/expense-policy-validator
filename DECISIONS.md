@@ -31,7 +31,7 @@ Researched 2026-10-30. Options and recommendations for the decisions the brief l
 - **Options:** strict JSON schema output; tool calling; Instructor or Pydantic AI; embeddings or fine-tuning.
 - **Recommendation: strict JSON schema output.**
   - Use the plain OpenAI SDK pointed at OpenRouter, with `response_format` set to a strict `json_schema` and `category` as an enum of the 21 labels. Set `provider.require_parameters: true` and validate the result with Pydantic.
-  - **As built (M7): DeepSeek's own API, which offers `json_object` output but not `json_schema`.** The enum can't be enforced during decoding. The prompt lists the categories and gives the JSON format; the response is validated with Pydantic; an unknown category or a missing line is retried once with the error quoted, then the line is marked `other` with confidence 0, which raises EXC-03. `llm.py` sends a strict schema automatically if the provider is switched to OpenRouter.
+  - **As built: DeepSeek's own API, which offers `json_object` output but not `json_schema`.** The enum can't be enforced during decoding. The prompt lists the categories and gives the JSON format; the response is validated with Pydantic; an unknown category or a missing line is retried once with the error quoted, then the line is marked `other` with confidence 0, which raises EXC-03. `llm.py` sends a strict schema automatically if the provider is switched to OpenRouter.
   - Set `restricted` by looking the category up in the taxonomy in code, so the model can never contradict itself.
   - Also extract a `recipient` per line: a name, and a type of client, employee, government official, or none. The gift rules need it, and it exists only in the line text.
   - And an `item_kind` (entertainment venue, mobile phone, prescription medication, or none). The taxonomy classes these as `other`, but ENT-01, TECH-03 and HEALTH-01 need to tell them apart.
@@ -61,13 +61,13 @@ Researched 2026-10-30. Options and recommendations for the decisions the brief l
   - Choose it **before** looking at results, for example on about 20 items we write ourselves.
   - Report a threshold sweep in the README as analysis after the fact.
   - Picking the threshold from the answer key would mean using the labels as input.
-- **Result of the M7 smoke test (2026-10-30, DeepSeek's own API, `deepseek-flash`): logprobs work, but only at temperature 1.**
+- **Result of the smoke test (2026-10-30, DeepSeek's own API, `deepseek-flash`): logprobs work, but only at temperature 1.**
   - At temperature 0 every chosen token comes back with logprob 0.0 and every alternative with -9999. The API reports logprobs after greedy decoding, so they say nothing about confidence. The first version of the smoke gate only checked 0 < p ≤ 1, which passed. Reading the raw values caught it, and the gate now asserts the opposite (`test_logprobs_are_degenerate_at_temperature_zero`).
   - At temperature 1 the logprobs are the model's own distribution. "Moscow Mule mug" comes back as `household_goods` at 0.99954, with `other`, `g(ift)` and `al(cohol)` as the next tokens.
   - **Decision: the classifier makes one call per receipt at temperature 1 with logprobs.** Confidence is the probability of the category's tokens.
     - Reruns are identical because of the cache.
     - The category is sampled rather than greedy. That changes nothing for a confident item. For an uncertain one, whatever is sampled carries its own low probability, so it raises EXC-03 instead of an exception, which is the failure EXC-03 prefers.
-    - M9 measures stability: two fresh runs over the dev set, with category agreement reported.
+    - The dev-set run measures stability: two fresh runs over the dev set, with category agreement reported.
   - **Rejected:**
     - Verbalised confidence: poorly calibrated, as below.
     - A second call at temperature 0 for the answer: the two calls can disagree, and reconciling them is complex.
@@ -203,7 +203,7 @@ Live OpenRouter data, 2026-10-30:
 
 ## Still unverified (test before building on it)
 
-Checked in M7 on DeepSeek's own API (`make smoke`, 2026-10-30, $0.0006):
+Checked on DeepSeek's own API (`make smoke`, 2026-10-30, $0.0006):
 - JSON output parses and the categories are in the taxonomy. Only `json_object` is offered, not `json_schema`; see section 2.
 - Logprobs come back and line up with the content token for token. They are informative only at temperature 1; see section 3.
 - `thinking: {type: disabled}` is honoured: no reasoning tokens and no reasoning content.

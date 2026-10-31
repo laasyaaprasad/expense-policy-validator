@@ -20,7 +20,7 @@ The policies and `rules/rules.yaml` live in git with the code. A policy change i
 
 ## Cost at 50,000 receipts a day
 
-That is 50,000 × 30.4 = **1.52M receipts a month**. Model tokens are the averages measured on the v1 run (`outputs/v1/metrics.json`, `usage`): 31 classification calls and 6 translation calls over 32 receipts.
+That is 50,000 × 30.4 = **1.52M receipts a month**. Model tokens are the averages measured on the final run (`outputs/metrics.json`, `usage`): 31 classification calls and 6 translation calls over 32 receipts.
 
 | Line | Arithmetic | $ / month |
 |---|---|---|

@@ -1,4 +1,4 @@
-"""M3 gate: rules.yaml encodes every in-scope rule, and every number, severity, table and quote in it
+"""rules.yaml encodes every in-scope rule, and every number, severity, table and quote in it
 can be found in the policy text. These tests check the YAML against the documents, not against itself."""
 
 import re

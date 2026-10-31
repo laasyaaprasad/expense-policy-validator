@@ -1,4 +1,4 @@
-"""M2 gate: the policy corpus parses into exactly the rules the data dictionary describes."""
+"""The policy corpus parses into exactly the rules the data dictionary describes."""
 
 import re
 from collections import Counter

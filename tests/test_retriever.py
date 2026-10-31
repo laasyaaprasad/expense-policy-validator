@@ -1,4 +1,4 @@
-"""M5 gate: the retriever never drops a rule the engine needs.
+"""The retriever never drops a rule the engine needs.
 
 Run on the correct categories, so a failure is the retriever's alone: a missing category, MCC or
 region in some rule's `applies_to`. Fix the YAML, not the engine.

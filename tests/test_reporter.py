@@ -1,4 +1,4 @@
-"""M6 gate: every result has the brief's shape, quotes its policy verbatim, and explains its numbers.
+"""Every result has the brief's shape, quotes its policy verbatim, and explains its numbers.
 
 Checked on the oracle results for the real receipts and on every synthetic scenario, so each
 explanation template runs at least once.

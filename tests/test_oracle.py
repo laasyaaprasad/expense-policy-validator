@@ -1,4 +1,4 @@
-"""M4 gate B: on the correct categories, with every rule enabled, the engine reproduces the answer key.
+"""On the correct categories, with every rule enabled, the engine reproduces the answer key.
 
 The inputs are perfect here, so a failure is rule logic and nothing else. The snapshot in
 outputs/oracle.jsonl is committed; any change to engine behaviour on the real data fails the

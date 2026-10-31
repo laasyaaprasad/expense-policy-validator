@@ -1,4 +1,4 @@
-"""Blame report (M10): for each in-scope receipt the pipeline gets wrong, the stage that caused it.
+"""Blame report: for each in-scope receipt the pipeline gets wrong, the stage that caused it.
 
 Each check corrects one stage's output and reruns retrieval and the engine on all 32 receipts, so
 cross-receipt totals follow. The first correction that makes the receipt match the answer key names
@@ -11,9 +11,9 @@ the stage. Checks run in this order:
 5. classification (cross-receipt): correcting categories and recipients on every receipt fixes it.
 6. retrieval: running every rule instead of the retrieved ones fixes it.
 7. confidence threshold: turning EXC-03 off (threshold 0) fixes it.
-8. unknown: none of these does. The M10 gate fails until it is explained.
+8. unknown: none of these does. The tests fail until it is explained.
 
-`python -m evaluation.blame` reads outputs/v1/classifications.jsonl and writes outputs/v1/blame.json.
+`python -m evaluation.blame` reads outputs/classifications.jsonl and writes outputs/blame.json.
 """
 
 import csv

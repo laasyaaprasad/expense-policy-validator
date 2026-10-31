@@ -26,7 +26,7 @@ from validator.taxonomy import load_taxonomy
 
 PROMPT_VERSION = "classify-v1"
 TAXONOMY = load_taxonomy()
-# Settings the M7 smoke test established: logprobs carry information only at temperature 1.
+# Settings the live smoke test (tests/test_llm_smoke.py) established: logprobs carry information only at temperature 1.
 CALL = {"logprobs": True, "top_logprobs": 5, "temperature": 1.0, "max_tokens": 3000}
 
 DEFINITIONS = {

@@ -1,4 +1,4 @@
-"""M10 gate: the committed v1 run is valid, traceable, and exactly what an offline rerun produces."""
+"""The committed run is valid, traceable, and exactly what an offline rerun produces."""
 
 import json
 

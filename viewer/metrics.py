@@ -1,4 +1,4 @@
-"""Metrics: the Part 3 numbers in one place, from outputs/v1/metrics.json (`make eval`)."""
+"""Metrics: the Part 3 numbers in one place, from outputs/metrics.json (`make eval`)."""
 
 import pandas as pd
 import streamlit as st
@@ -6,7 +6,7 @@ import streamlit as st
 from viewer import data
 
 m = data.metrics()
-systems = {"System (v1)": m, **({"Keyword baseline": m["baseline"]} if "baseline" in m else {})}
+systems = {"System": m, **({"Keyword baseline": m["baseline"]} if "baseline" in m else {})}
 
 
 def rate(r: dict) -> str:
@@ -14,7 +14,7 @@ def rate(r: dict) -> str:
 
 
 st.title("Metrics")
-st.caption(f"Version {m['version']}, on the 28 in-scope receipts. {m['note']} "
+st.caption(f"On the 28 in-scope receipts. {m['note']} "
            f"Confidence threshold {m['confidence_threshold']}. Intervals are 95% Wilson intervals.")
 
 st.subheader("Classification (65 line items)")
@@ -32,7 +32,7 @@ with st.expander("Per category"):
     per = {name: {c["category"]: c for c in s["items"]["per_category"]} for name, s in systems.items()}
     st.dataframe(pd.DataFrame([{"category": cat, "items": row["support"],
                                 **{f"F1 · {name}": per[name][cat]["f1"] for name in systems}}
-                               for cat, row in per["System (v1)"].items()]).style.format(precision=2),
+                               for cat, row in per["System"].items()]).style.format(precision=2),
                  hide_index=True, width="stretch")
 
 st.subheader("Disposition (28 receipts)")

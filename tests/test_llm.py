@@ -1,4 +1,4 @@
-"""M7, offline half: the client's cache, ledger, request shape and logprob alignment, with a fake
+"""The client's cache, ledger, request shape and logprob alignment, offline, with a fake
 provider that returns real OpenAI SDK response objects. No key and no network."""
 
 import json

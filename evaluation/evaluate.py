@@ -1,10 +1,10 @@
-"""Part 3 evaluation (M11): every number the brief asks for, computed from committed outputs only.
+"""Part 3 evaluation: every number the brief asks for, computed from committed outputs only.
 
-`make eval` scores outputs/v1/results.jsonl on the 28 in-scope receipts, with the data dictionary's
-matching rules, and writes outputs/v1/metrics.json. The same scoring runs on the keyword baseline
-(outputs/baseline.jsonl, once M12 has made it) and on oracle mode, which must come out perfect.
+`make eval` scores outputs/results.jsonl on the 28 in-scope receipts, with the data dictionary's
+matching rules, and writes outputs/metrics.json. The same scoring runs on the keyword baseline
+(outputs/baseline.jsonl) and on oracle mode, which must come out perfect.
 
-The threshold sweep reruns the engine on the v1 classifications at other EXC-03 thresholds. It is
+The threshold sweep reruns the engine on the committed classifications at other EXC-03 thresholds. It is
 after-the-fact analysis on the answer key: the threshold in use was fixed on the dev set (NOTES.md).
 """
 
@@ -23,7 +23,7 @@ from validator.data import ROOT
 from validator.engine.engine import CONFIDENCE_THRESHOLD
 from validator.llm import CACHE_DIR
 from validator.models import Decision
-from validator.pipeline import OUTPUT_DIR, VERSION, decide_all
+from validator.pipeline import OUTPUT_DIR, decide_all
 
 METRICS_PATH = OUTPUT_DIR / "metrics.json"
 BASELINE_PATH = ROOT / "outputs" / "baseline.jsonl"
@@ -162,8 +162,7 @@ def build() -> dict:
     records = load_results(OUTPUT_DIR / "results.jsonl")
     blames = blame(load_classified(), gold, load_attributes(), load_gloss_review(), run_oracle())
     metrics = {
-        "version": VERSION,
-        "note": "v1 is the frozen, blind run. No change was made after it (NOTES.md, 'Changes after the v1 freeze'), so v1 is also final.",
+        "note": "The frozen, blind run. No change was made after it (NOTES.md, 'Changes after the freeze'), so it is also the final one.",
         "confidence_threshold": CONFIDENCE_THRESHOLD,
         "items": score_items(records, gold),
         **score_receipts(records, gold),

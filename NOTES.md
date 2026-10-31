@@ -43,21 +43,21 @@ Where the policy text leaves room, these are the readings the engine takes. All 
 
 ## EXC-03 threshold rule (written before the dev set was first run)
 
-The rule is fixed here before any classification output has been seen, on the dev set or the receipts. Each candidate threshold t in {0.3, 0.4, …, 0.9} scores the number of wrong dev items with confidence below t, minus the number of right dev items below t. The best score wins, and a tie goes to the lower t (fewer signals). If no candidate scores above zero, the threshold stays at 0.5, the default argued in DECISIONS.md section 3. The real receipts are never used to choose or adjust it. Their threshold sweep is reported only as analysis after the v1 freeze.
+The rule is fixed here before any classification output has been seen, on the dev set or the receipts. Each candidate threshold t in {0.3, 0.4, …, 0.9} scores the number of wrong dev items with confidence below t, minus the number of right dev items below t. The best score wins, and a tie goes to the lower t (fewer signals). If no candidate scores above zero, the threshold stays at 0.5, the default argued in DECISIONS.md section 3. The real receipts are never used to choose or adjust it. Their threshold sweep is reported only as analysis after the freeze.
 
 **Result (M9).** All 43 dev items came back right on category, item kind and recipient in all three runs: as configured, a fresh repeat, and without merchant context. None flipped and the lowest confidence was 0.96, so every candidate scored 0 and the threshold stayed at 0.5 (`outputs/dev/threshold.json`). The dev set is too easy to tell thresholds apart, so this says nothing about whether 0.5 is a good threshold.
 
-## The v1 run (M9)
+## The final run (M9)
 
-The config was frozen at tag `v1-frozen` (`outputs/v1/frozen_config.json`), and the first classification of the real receipts was committed untouched (`outputs/v1/classifications.jsonl`, commit 8f9cc38) before anything was scored. It took 31 calls, all valid first time, for $0.0074.
+The config was frozen at tag `frozen` (`outputs/frozen_config.json`), and the first classification of the real receipts was committed untouched (commit 8f9cc38, now `outputs/classifications.jsonl`) before anything was scored. It took 31 calls, all valid first time, for $0.0074.
 
-All 65 in-scope items came back right: macro F1 1.000 over the 19 answer categories and restricted F1 1.000 (`make items`). The three named recipients match `review/item_attributes.csv`, and no line was given an item kind. EXC-03 never fired. The lowest confidence on any of the 79 items was 0.979, on the Japanese iPad line, so at 0.5 confidence played no part in v1's decisions.
+All 65 in-scope items came back right: macro F1 1.000 over the 19 answer categories and restricted F1 1.000 (`make items`). The three named recipients match `review/item_attributes.csv`, and no line was given an item kind. EXC-03 never fired. The lowest confidence on any of the 79 items was 0.979, on the Japanese iPad line, so at 0.5 confidence played no part in the system's decisions.
 
-The answers were also stable. A fresh repeat of all 31 calls at temperature 1 changed none of the 79, and a run without the merchant and expense type still got 65 / 65. The two runs cost $0.0150 (`outputs/v1/classifications_{repeat,no_context}.jsonl`).
+The answers were also stable. A fresh repeat of all 31 calls at temperature 1 changed none of the 79, and a run without the merchant and expense type still got 65 / 65. The two runs cost $0.0150 (`outputs/classifications_{repeat,no_context}.jsonl`).
 
 I don't read much into the perfect score. The traps in the data are the examples the taxonomy and the meals policy give themselves (beer-battered cod, Arnold Palmer, virgin mojito, cooking wine, rum cake, barware). The prompt quotes none of them, but its definitions follow the taxonomy table, and a capable model given those documents should get them right. "Blind" is also narrower than it sounds. Nothing was changed after a look at gold, but the prompt and dev set were written by people who had read the receipt lines and the label counts while planning (IMPLEMENTATION_PLAN.md, "Facts from the data"). With 65 items and seven one-item categories, a perfect score says little about new receipts.
 
-**Integrated (M10).** `make run` matches the answer key on 28 / 28 in-scope receipts, the same as oracle mode. Over all 32 it gives 18 flag, 3 review and 11 pass, and the four out-of-scope receipts differ only where TIME rules apply. That leaves the blame report nothing to blame on v1. So its tests plant one fault per stage in the v1 classifications and check that it names the right stage, including one case where the right answer is "unknown".
+**Integrated (M10).** `make run` matches the answer key on 28 / 28 in-scope receipts, the same as oracle mode. Over all 32 it gives 18 flag, 3 review and 11 pass, and the four out-of-scope receipts differ only where TIME rules apply. That leaves the blame report nothing to blame. So its tests plant one fault per stage in the committed classifications and check that it names the right stage, including one case where the right answer is "unknown".
 
 **Evaluated (M11, `make eval`).** False positives are 0 / 9 (95% Wilson interval 0–30%) and missed violations 0 / 16 (0–19%). All 26 gold exceptions are found, none extra, and each cites exactly the gold line IDs. Nine should-pass receipts can't rule out a false-positive rate as high as 30%, so the zero means less than it looks. The after-the-fact threshold sweep changes nothing up to 0.95. At 0.98 the iPad line becomes uncertain and one receipt goes wrong; at 0.999 five lines do and four receipts go wrong. On this data the threshold could sit anywhere below 0.95.
 
@@ -76,7 +76,7 @@ It does win on cost, speed and privacy: it costs nothing, runs in milliseconds, 
 
 ## Real receipts (CORD)
 
-To get more data than the 32 receipts, v1 was run unchanged on 100 real receipts from CORD v2. The method was fixed here before any label or model call (commit 97a62c6) and now lives in `cord/README.md`, with the results. The pilot changed one thing, the crash fix in the last table, and left one open question, on free ($0) lines.
+To get more data than the 32 receipts, the system was run unchanged on 100 real receipts from CORD v2. The method was fixed here before any label or model call (commit 97a62c6) and now lives in `cord/README.md`, with the results. The pilot changed one thing, the crash fix in the last table, and left one open question, on free ($0) lines.
 
 ## What was checked by hand
 
@@ -92,11 +92,11 @@ The questions and decisions that changed what got built, in order.
 |---|---|---|
 | Research | Look widely at how expense systems are built in 2026, and recommend the option that is proven practice and not over-engineered. I named Jev as one to look at. | Every system looked at lets AI read the receipt and keeps limits and lists as configuration, so this one does too (DECISIONS.md). A head-to-head ruled Jev out on many categories and non-English text, and DeepSeek V4.1 Flash was picked instead. |
 | Planning | Build in milestones that can each be tested, so a failure can be traced to its stage. | The engine was built first, on gold categories (oracle mode, M4), then the blame report (M10). Every model call is cached, so reruns are identical. |
-| Planning | What do we test against, if the 32 labelled receipts are all we have? | A hand-written dev set for prompt work, the `v1-frozen` tag, and v1's first run committed before scoring. |
-| Planning | Added the organisers' data to the project. | The plan was checked against the real fields and label counts ("Facts from the data" in IMPLEMENTATION_PLAN.md). It is also why v1 isn't fully blind. |
-| After v1 | Get more real data to check v1 on, starting with 100 receipts rather than a full set. | The CORD pilot. Its 49th receipt exposed a crash none of the 32 had hit. |
+| Planning | What do we test against, if the 32 labelled receipts are all we have? | A hand-written dev set for prompt work, the `frozen` tag, and the first real run committed before scoring. |
+| Planning | Added the organisers' data to the project. | The plan was checked against the real fields and label counts ("Facts from the data" in IMPLEMENTATION_PLAN.md). It is also why the run isn't fully blind. |
+| After the freeze | Get more real data to check the system on, starting with 100 receipts rather than a full set. | The CORD pilot. Its 49th receipt exposed a crash none of the 32 had hit. |
 | After the pilot | Were the false flags really the system's fault? | Four of the six rest only on $0 lines, which became an open question, not a fix. |
-| After the pilot | Stopped the v2 I had said yes to: why fit the system to Indonesian receipts? | Nothing is tuned on CORD, and the brief's fixed taxonomy stands. |
+| After the pilot | Stopped the follow-up version I had said yes to: why fit the system to Indonesian receipts? | Nothing is tuned on CORD, and the brief's fixed taxonomy stands. |
 | Before submitting | Has anything overfit? | An audit. Labels never reach the system, and the real risks (a prompt written with the receipts in view, an engine that isn't blind, a small n) are stated in the README and evaluation. |
 
 Standing rules throughout: the assistant never reads or commits the API key, labels are used only for scoring, and downloaded files are treated as untrusted.
@@ -122,11 +122,11 @@ What an assistant got wrong, and the check that caught it.
 | M10 | The first blame draft compared each extracted recipient with all three annotation fields (name, type and item kind). It would have listed every line as a recipient error. | Code review before the first test run |
 | M11 | The Wilson interval at 0 / 9 came back with a lower bound of 2.8e-17, not 0. The assistant's first fix clamped it to 0 or above, which changed nothing, because the error is positive. It is now rounded to 10 places. | `test_wilson_interval_for_one_in_nine`, run after each fix |
 | M13 | In the viewer, picking a row on the receipt list with the baseline selected opened the detail page showing the system's results. `st.switch_page` reruns without the sidebar widget's state, so the radio fell back to its default. The choice now lives in a plain session key. `AppTest.switch_page` keeps widget state and passes either way, so no test guards this; the fix was checked by hand in the browser. | Clicking through the app, not the tests |
-| CORD pilot | `category_confidences` promised confidence 0 whenever the category tokens couldn't be lined up, but only one of its two failure paths did that. The other raised, and on the 49th real receipt it stopped the whole run. No v1 receipt had triggered it. | The first run on real receipts |
+| CORD pilot | `category_confidences` promised confidence 0 whenever the category tokens couldn't be lined up, but only one of its two failure paths did that. The other raised, and on the 49th real receipt it stopped the whole run. None of the 32 receipts had triggered it. | The first run on real receipts |
 
-## Changes after the v1 freeze
+## Changes after the freeze
 
-| Version | Gold error that prompted it | What changed | Why |
+| Change | Gold error that prompted it | What changed | Why |
 |---|---|---|---|
-| — | none | No change was made after seeing a gold error, so v1 is also the final version. | — |
-| v1, crash fix (2026-10-30) | None. It was a crash on real data, not a gold error. On CORD-V048, the 49th pilot receipt, DeepSeek's logprob tokens ended with a newline that its reply text lacked. | `span_probability` now accepts trailing whitespace in the tokens. If the tokens still don't match, `category_confidences` gives every line confidence 0 (so EXC-03), as its docstring already said, instead of raising. | v1 stopped the whole batch on one receipt. The 32 receipts' outputs are byte-identical after the fix, so v1's results stand. |
+| — | none | No change was made after seeing a gold error, so the frozen run is also the final one. | — |
+| Crash fix (2026-10-30) | None. It was a crash on real data, not a gold error. On CORD-V048, the 49th pilot receipt, DeepSeek's logprob tokens ended with a newline that its reply text lacked. | `span_probability` now accepts trailing whitespace in the tokens. If the tokens still don't match, `category_confidences` gives every line confidence 0 (so EXC-03), as its docstring already said, instead of raising. | The system stopped the whole batch on one receipt. The 32 receipts' outputs are byte-identical after the fix, so the results stand. |

@@ -1,4 +1,4 @@
-"""M13 gate: every page of the viewer runs, and the list highlights exactly the mismatches metrics.json counts."""
+"""Every page of the viewer runs, and the list highlights exactly the mismatches metrics.json counts."""
 
 import json
 
@@ -10,7 +10,7 @@ from validator.data import ROOT
 from viewer.data import SOURCES
 
 METRICS = json.loads(METRICS_PATH.read_text(encoding="utf-8"))
-EXACT = {"System (v1)": METRICS["exact_match"]["k"], "Keyword baseline": METRICS["baseline"]["exact_match"]["k"]}
+EXACT = {"System": METRICS["exact_match"]["k"], "Keyword baseline": METRICS["baseline"]["exact_match"]["k"]}
 
 
 def page(name: str, **state) -> AppTest:

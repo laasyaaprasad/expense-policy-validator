@@ -4,7 +4,7 @@ import json
 
 from validator.data import ROOT
 
-USAGE = json.loads((ROOT / "outputs" / "v1" / "metrics.json").read_text(encoding="utf-8"))["usage"]["per_receipt"]
+USAGE = json.loads((ROOT / "outputs" / "metrics.json").read_text(encoding="utf-8"))["usage"]["per_receipt"]
 
 
 def test_the_aws_cost_uses_the_measured_tokens_per_receipt():

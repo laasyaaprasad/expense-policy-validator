@@ -1,4 +1,4 @@
-"""M1 gate: the data loads, and its counts and cross-references match the brief and the data dictionary."""
+"""The data loads, and its counts and cross-references match the brief and the data dictionary."""
 
 import re
 from collections import Counter

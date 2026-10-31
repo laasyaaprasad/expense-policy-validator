@@ -1,8 +1,8 @@
 # Evaluation (Part 3)
 
-Every number here comes from `make eval`, which scores the committed outputs on the 28 in-scope receipts and writes [`outputs/v1/metrics.json`](../outputs/v1/metrics.json); the viewer's Metrics page shows the same file. Intervals are 95% Wilson intervals. Matching follows the data dictionary. An exception matches on receipt + `rule_id`, and its evidence is correct when the `line_ids` are exactly equal. A signal matches on receipt + `rule_id`.
+Every number here comes from `make eval`, which scores the committed outputs on the 28 in-scope receipts and writes [`outputs/metrics.json`](../outputs/metrics.json); the viewer's Metrics page shows the same file. Intervals are 95% Wilson intervals. Matching follows the data dictionary. An exception matches on receipt + `rule_id`, and its evidence is correct when the `line_ids` are exactly equal. A signal matches on receipt + `rule_id`.
 
-**v1 is blind and final.** The prompt, threshold, rules and model were committed and tagged `v1-frozen` before any real receipt was classified, and that first run was committed before it was scored. Nothing was changed after seeing a gold error, so the final numbers are the v1 numbers. One caveat: the engine was aligned with the answer key in oracle mode *before* the freeze, so v1 is blind for translation, classification and the threshold, but not for the engine (README, "Policy engine").
+**The run is blind, and final.** The prompt, threshold, rules and model were committed and tagged `frozen` before any real receipt was classified, and that first run was committed before it was scored. Nothing was changed after seeing a gold error, so these are the final numbers. One caveat: the engine was aligned with the answer key in oracle mode *before* the freeze, so the run is blind for translation, classification and the threshold, but not for the engine (README, "Policy engine").
 
 ## 1. Classification (65 items)
 
@@ -65,7 +65,7 @@ The baseline's 16 item errors are the ones a word list must make:
 
 ## 6. Two failure cases
 
-The system gets none of the 28 in-scope receipts wrong, so the blame report (`outputs/v1/blame.json`) is empty. Its tests plant one fault per stage to show it names the right one. The receipts it does get wrong are the four timing receipts, which are out of scope on this track. The blame report runs on them too, and names **rule logic**: oracle mode gets them wrong as well.
+The system gets none of the 28 in-scope receipts wrong, so the blame report (`outputs/blame.json`) is empty. Its tests plant one fault per stage to show it names the right one. The receipts it does get wrong are the four timing receipts, which are out of scope on this track. The blame report runs on them too, and names **rule logic**: oracle mode gets them wrong as well.
 
 - **RCP-020 / RCP-021**: one employee's $74.00 lunch and $71.50 dinner at the same restaurant on the same day. Each is under the $75 meal cap; together they are over it. We raise MEAL-01 on both. The answer is TIME-03 (split transactions), which replaces the cap it splits around. *Change:* build TIME-03 on the per-employee-day meal totals the engine already computes, grouped by merchant name. When every receipt in the group is at or below the cap but the group is above it, raise TIME-03 instead of MEAL-01.
 - **RCP-029**: charged at 02:14 local time, so the answer is review under TIME-01 (overnight window). We pass it. *Change:* add TIME-01 as a check on `transaction_datetime`, which is already local time.
@@ -78,7 +78,7 @@ In this set 16 of 28 receipts (57%) should be flagged, so a false positive is ra
 
 ## 8. Real receipts
 
-The 32 receipts can't answer section 7. To get more data, v1 was run, exactly as frozen, on 100 real receipts from CORD v2: Indonesian cafés, bakeries and shops, CC-BY-4.0, with every line labelled. It got 252 of 270 lines right (93%) and caught both real violations. But it also flagged 6 of the 98 clean receipts, so only 2 of its 8 flags were right, mostly over bags and boxes the taxonomy has no category for. The confident errors sat at 0.96–1.0, which a threshold can only catch by sending about a third of receipts to review. That is why the threshold should be calibrated on the company's own receipts. Nothing was tuned on CORD. The method and full results are in [`cord/README.md`](../cord/README.md).
+The 32 receipts can't answer section 7. To get more data, the system was run, exactly as frozen, on 100 real receipts from CORD v2: Indonesian cafés, bakeries and shops, CC-BY-4.0, with every line labelled. It got 252 of 270 lines right (93%) and caught both real violations. But it also flagged 6 of the 98 clean receipts, so only 2 of its 8 flags were right, mostly over bags and boxes the taxonomy has no category for. The confident errors sat at 0.96–1.0, which a threshold can only catch by sending about a third of receipts to review. That is why the threshold should be calibrated on the company's own receipts. Nothing was tuned on CORD. The method and full results are in [`cord/README.md`](../cord/README.md).
 
 ## Stretch items
 

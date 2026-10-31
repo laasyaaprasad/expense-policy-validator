@@ -1,4 +1,4 @@
-"""Oracle mode (M4 gate B): the engine on the correct categories, with every rule enabled.
+"""Oracle mode: the engine on the correct categories, with every rule enabled.
 
 This isolates the engine from the classifier and the retriever. With perfect inputs, any mismatch
 with the answer key is rule logic and nothing else. It is evaluation, not the pipeline: its output

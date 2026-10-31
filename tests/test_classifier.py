@@ -1,4 +1,4 @@
-"""M9, offline half: the classifier's validation, confidence and code-side rules, with a fake provider."""
+"""The classifier's validation, confidence and code-side rules, offline, with a fake provider."""
 
 import json
 import math

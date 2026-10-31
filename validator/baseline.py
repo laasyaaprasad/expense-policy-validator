@@ -1,4 +1,4 @@
-"""Keyword baseline (M12): a restricted-word filter, the kind of system this project replaces.
+"""Keyword baseline: a restricted-word filter, the kind of system this project replaces.
 
 It swaps the classifier only. Its labels go through the same retriever, engine and reporter, so any
 difference from the pipeline's results is the classifier's. It never calls a model and never reads

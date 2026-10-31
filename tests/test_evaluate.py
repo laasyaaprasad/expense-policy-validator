@@ -1,4 +1,4 @@
-"""M11 gate: the evaluation, checked against answers known in advance."""
+"""The evaluation, checked against answers known in advance."""
 
 import json
 
@@ -13,12 +13,12 @@ GOLD = load_gold()
 
 
 @pytest.fixture(scope="module")
-def v1():
+def committed():
     return load_results(OUTPUT_DIR / "results.jsonl")
 
 
-def test_the_confusion_matrix_covers_the_28_with_the_known_gold_split(v1):
-    matrix = score_receipts(v1, GOLD)["disposition"]["matrix"]
+def test_the_confusion_matrix_covers_the_28_with_the_known_gold_split(committed):
+    matrix = score_receipts(committed, GOLD)["disposition"]["matrix"]
     assert sum(map(sum, matrix)) == 28
     assert [sum(row) for row in matrix] == [16, 3, 9]  # flag, review, pass
 
@@ -31,8 +31,8 @@ def test_oracle_outputs_score_perfectly():
     assert s["exceptions"]["matched"] == s["exceptions"]["gold"] == s["exceptions"]["evidence_correct"]["k"]
 
 
-def test_a_flagged_pass_receipt_is_a_false_positive_and_a_passed_flag_is_a_miss(v1):
-    records = json.loads(json.dumps(v1))
+def test_a_flagged_pass_receipt_is_a_false_positive_and_a_passed_flag_is_a_miss(committed):
+    records = json.loads(json.dumps(committed))
     records["RCP-001"]["disposition"] = "flag"  # gold: pass
     records["RCP-012"]["disposition"] = "pass"  # gold: flag
     d = score_receipts(records, GOLD)["disposition"]

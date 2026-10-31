@@ -1,4 +1,4 @@
-"""M4 gate A: the policy engine on hand-built inputs. Each test names the policy sentence it relies on."""
+"""The policy engine on hand-built inputs. Each test names the policy sentence it relies on."""
 
 import itertools
 from decimal import Decimal

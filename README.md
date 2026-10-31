@@ -1,6 +1,6 @@
 # Expense Policy Validator
 
-A language model says what each receipt line is. Plain code then checks the receipt against the nine policies and quotes the policy for every exception. The results are in [`outputs/v1/results.jsonl`](outputs/v1/results.jsonl). See also the [evaluation](docs/evaluation.md), [AWS design](docs/aws-design.md), [research notes](DECISIONS.md) and [working log](NOTES.md).
+A language model says what each receipt line is. Plain code then checks the receipt against the nine policies and quotes the policy for every exception. The results are in [`outputs/results.jsonl`](outputs/results.jsonl). See also the [evaluation](docs/evaluation.md), [AWS design](docs/aws-design.md), [research notes](DECISIONS.md) and [working log](NOTES.md).
 
 **Setup.** Install Python 3.12 and [uv](https://docs.astral.sh/uv/), copy the organisers' `data/` folder to the repo root, and run `uv sync`. `make test` runs the offline tests. `make run`, `make eval`, `make baseline` and `make app` (the viewer) replay the committed model cache, so none of them needs a key. New model calls need a `.env`, set up as in `.env.example` for DeepSeek or OpenRouter.
 
@@ -12,9 +12,9 @@ The pipeline is normalise → translate → classify → retrieve → engine →
 
 ## Prompts
 
-`classify-v1` ([classifier.py](validator/classifier.py)) defines the 21 categories in its own words, not the receipts' wording. It tells the model to classify what an item is rather than the words in its name, to keep category apart from purpose, and to treat the merchant as context only. `category` comes before `reason` in the reply, so the confidence measures the answer, not a justification.
+The classification prompt ([classifier.py](validator/classifier.py)) defines the 21 categories in its own words, not the receipts' wording. It tells the model to classify what an item is rather than the words in its name, to keep category apart from purpose, and to treat the merchant as context only. `category` comes before `reason` in the reply, so the confidence measures the answer, not a justification.
 
-`translate-v1` asks for a short, literal gloss and tells the model not to classify. All prompt work was done on a hand-written dev set of 43 items in six languages, never on the receipts.
+The translation prompt asks for a short, literal gloss and tells the model not to classify. All prompt work was done on a hand-written dev set of 43 items in six languages, never on the receipts.
 
 ## Policy engine
 
@@ -28,9 +28,9 @@ Oracle mode matched all 28 in-scope receipts on its first run, so no rule was ch
 
 ## Evaluation summary
 
-When I asked what we would test against, the awkward answer was that the 32 labelled receipts are also the only test set. So the prompts were developed on the dev set, the config was tagged `v1-frozen`, and its first real run was committed before it was scored. Nothing changed after that, so v1 is final. The numbers cover the 28 in-scope receipts, with 95% Wilson intervals.
+When I asked what we would test against, the awkward answer was that the 32 labelled receipts are also the only test set. So the prompts were developed on the dev set, the config was tagged `frozen`, and its first real run was committed before it was scored. Nothing changed after that, so that run is the final one. The numbers cover the 28 in-scope receipts, with 95% Wilson intervals.
 
-| | System v1 = final | Keyword baseline |
+| | System | Keyword baseline |
 |---|---|---|
 | Macro F1 / restricted F1 (65 items) | 1.000 / 1.000 | 0.738 / 0.791 |
 | Receipts exactly right | 28 / 28 (88–100%) | 20 / 28 |
@@ -38,7 +38,7 @@ When I asked what we would test against, the awkward answer was that the 32 labe
 
 The clean score mostly says the traps are the taxonomy's own examples, and a fresh repeat flipped none of the 79 answers. It proves less than it looks. The prompt's authors had seen these receipts, and with nine clean receipts a 30% false-positive rate is still inside the interval. The keyword baseline falls for beer-battered cod and misses brand names, untranslated lines and the public official on RCP-022. We only get the out-of-scope timing receipts wrong (a lunch and dinner split around the meal cap, an overnight charge), because the TIME rules aren't built.
 
-The set is also 57% violations, where a real stream has a few percent, so I wanted more data to check v1 on. I ran it unchanged on 100 public receipts from Indonesian cafés and shops (CORD). It got 93% of lines right and caught both real violations, though only 2 of its 8 flags were right, mostly over bags and boxes the taxonomy has no category for. It also exposed a crash none of the 32 had hit, now fixed with v1's outputs unchanged. Nothing was tuned on it ([details](cord/README.md)).
+The set is also 57% violations, where a real stream has a few percent, so I wanted more data to check the system on. I ran it unchanged on 100 public receipts from Indonesian cafés and shops (CORD). It got 93% of lines right and caught both real violations, though only 2 of its 8 flags were right, mostly over bags and boxes the taxonomy has no category for. It also exposed a crash none of the 32 had hit, now fixed without changing any result on the 32. Nothing was tuned on it ([details](cord/README.md)).
 
 ## AI collaboration
 
@@ -50,7 +50,7 @@ Anthropic, through the assistant, saw the brief, policies, receipts and answer k
 
 ## Spend
 
-**$0.0759 over 350 calls** at peak prices (`outputs/spend.jsonl`). The v1 run cost $0.0074 and the CORD pilot $0.0394. The rest went on development and checks.
+**$0.0759 over 350 calls** at peak prices (`outputs/spend.jsonl`). The final run cost $0.0074 and the CORD pilot $0.0394. The rest went on development and checks.
 
 I had half expected to use Jev, the new classification model, because it returns probabilities for free. A head-to-head talked me out of it. Jev is weakest with many categories and with non-English text, and this data has both. In the one comparison I found, it trailed DeepSeek V4.1 Flash, 72.5% to 76%. So the model is `deepseek-flash` (DeepSeek V4.1 Flash) on DeepSeek's API. It gives the logprobs the confidence method needs, handles all six languages, and costs about $0.00025 a receipt. I only had a DeepSeek key, so the OpenRouter path is built but has never run.
 

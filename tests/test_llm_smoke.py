@@ -1,4 +1,4 @@
-"""M7 gate (live): the capabilities the classifier relies on, checked with real calls.
+"""Live checks of the capabilities the classifier relies on, checked with real calls.
 
 Run with `make smoke`; needs the key in .env. Responses are cached under cache/smoke/ and billed
 in outputs/spend.jsonl, so a rerun makes no calls. Items are written here, never taken from receipts.

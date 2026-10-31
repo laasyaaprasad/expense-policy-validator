@@ -10,7 +10,7 @@ st.set_page_config(page_title="Expense Policy Validator", layout="wide")
 st.session_state.setdefault("source", DEFAULT_SOURCE)
 st.sidebar.radio("Results", list(SOURCES), index=list(SOURCES).index(st.session_state["source"]), key="source_choice",
                  on_change=lambda: st.session_state.update(source=st.session_state["source_choice"]),
-                 help="The system's v1 run, or the keyword baseline through the same engine.")
+                 help="The system's results, or the keyword baseline through the same engine.")
 st.navigation([
     st.Page("viewer/receipts.py", title="Receipt list", default=True),
     st.Page("viewer/detail.py", title="Receipt detail"),

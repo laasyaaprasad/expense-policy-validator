@@ -1,8 +1,8 @@
-"""The CORD pilot: v1, exactly as frozen, on 100 real receipts, scored against hand labels.
+"""The CORD pilot: the system, exactly as frozen, on 100 real receipts, scored against hand labels.
 
 `python -m evaluation.cord --run` runs the pipeline on cord/receipts.jsonl (from the cache when it
-can) and writes outputs/cord/v1/. Without --run it scores the committed outputs, offline, and
-writes outputs/cord/v1/metrics.json. The method was fixed before any model call (cord/README.md,
+can) and writes outputs/cord/. Without --run it scores the committed outputs, offline, and
+writes outputs/cord/metrics.json. The method was fixed before any model call (cord/README.md,
 "Method").
 
 The correct decisions are the engine run on the labels, under the same declared context, so they
@@ -23,12 +23,12 @@ from evaluation.metrics import DISPOSITIONS, confusion, macro_f1, per_category, 
 from validator.data import ROOT, ReceiptInput, load_receipts, read_jsonl
 from validator.llm import CACHE_DIR, LLM, LLMError, cost_usd
 from validator.models import ClassifiedItem, ClassifiedReceipt, Decision
-from validator.pipeline import VERSION, decide_all, run, write_run
+from validator.pipeline import decide_all, run, write_run
 
 CORD_DIR = ROOT / "cord"
 RECEIPTS_PATH = CORD_DIR / "receipts.jsonl"
 LABELS_PATH = CORD_DIR / "labels.jsonl"
-OUT_DIR = ROOT / "outputs" / "cord" / VERSION
+OUT_DIR = ROOT / "outputs" / "cord"
 REVIEW_PATH = ROOT / "review" / "cord_labels.csv"
 WEIGHTS = (5, 10, 20)  # a wrong restricted flag left unreviewed costs this many reviews; 10 is the rule
 BANDS = (0.0, 0.5, 0.9, 0.99, 0.999)  # lower edges of the confidence bands
@@ -125,7 +125,7 @@ def confidence_bands(system: dict[str, dict], labels: dict[str, dict]) -> list[d
 
 
 def threshold_costs(classified: list[ClassifiedReceipt], labels: dict[str, dict], want: dict[str, Decision]) -> dict:
-    """The pre-registered rule, for illustration on the pilot only. It is not applied to v1."""
+    """The pre-registered rule, for illustration on the pilot only. It is not applied to the system."""
     rows = []
     for t in SWEEP:
         items = [(c.receipt.receipt_id, item) for c in classified for item in c.items.values()]
@@ -164,8 +164,8 @@ def usage(system: dict[str, dict], receipts: int) -> dict:
     return out
 
 
-def unsure_as_v1(labels: dict[str, dict], system: dict[str, dict]) -> dict[str, dict]:
-    """After the fact, not pre-registered: every unsure label replaced by v1's answer. It bounds how
+def unsure_as_system(labels: dict[str, dict], system: dict[str, dict]) -> dict[str, dict]:
+    """After the fact, not pre-registered: every unsure label replaced by the system's answer. It bounds how
     much of the receipt score rests on the labeller's guesses."""
     return {i: row if row["sure"] else {**row, "category": system[i]["category"], "restricted": bool(system[i]["restricted"])}
             for i, row in labels.items()}
@@ -176,13 +176,13 @@ def build() -> dict:
     classified, system = load_system(receipts)
     want = dispositions(decide_all(labelled(receipts, labels))[1])
     ours = dispositions(decide_all(classified)[1])
-    want_if_unsure_as_v1 = dispositions(decide_all(labelled(receipts, unsure_as_v1(labels, system)))[1])
+    want_if_unsure_as_system = dispositions(decide_all(labelled(receipts, unsure_as_system(labels, system)))[1])
     return {
-        "note": "v1 as frozen, on the 100 CORD validation receipts, scored against cord/labels.jsonl. The correct "
+        "note": "The system as frozen, on the 100 CORD validation receipts, scored against cord/labels.jsonl. The correct "
                 "decisions are the engine on the labels under the same declared context.",
         "items": score_items(system, labels),
         "receipts": score_receipts(ours, want),
-        "receipts_if_unsure_labels_follow_v1": score_receipts(ours, want_if_unsure_as_v1),
+        "receipts_if_unsure_labels_follow_system": score_receipts(ours, want_if_unsure_as_system),
         "confidence_bands": confidence_bands(system, labels),
         "threshold_rule": threshold_costs(classified, labels, want),
         "item_disagreements": disagreements(system, labels),
@@ -243,8 +243,8 @@ def print_summary(m: dict) -> None:
         x = r[key]
         ci = f" (CI {x['ci95'][0]:.1%}–{x['ci95'][1]:.1%})" if x["n"] else ""
         print(f"  {key}: {x['k']}/{x['n']}{ci}")
-    alt = m["receipts_if_unsure_labels_follow_v1"]
-    print(f"  if unsure labels followed v1 (after the fact): false flags {alt['false_flags']['k']}/{alt['false_flags']['n']}, "
+    alt = m["receipts_if_unsure_labels_follow_system"]
+    print(f"  if unsure labels followed the system (after the fact): false flags {alt['false_flags']['k']}/{alt['false_flags']['n']}, "
           f"flag precision {alt['flag_precision']['k']}/{alt['flag_precision']['n']}")
     print(f"threshold rule would pick (illustration only): {m['threshold_rule']['chosen']}")
     print(f"cost: {m['usage']}")

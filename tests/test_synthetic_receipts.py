@@ -1,4 +1,4 @@
-"""M4 gate A: hand-written receipts for edge cases and the 11 rules no gold receipt raises.
+"""Hand-written receipts for edge cases and the 11 rules no gold receipt raises.
 
 Each scenario in fixtures/synthetic_receipts.jsonl gives the expected result for every receipt and
 quotes the policy sentence that decides it. Fields left out of a receipt take the defaults in

@@ -3,7 +3,7 @@
 Every stage reads only the receipt and the stages before it. All 32 receipts go through, because the
 engine's cross-receipt totals need the out-of-scope ones too.
 
-`make run` writes outputs/<VERSION>/: classifications.jsonl, retrieval.jsonl and results.jsonl. With
+`make run` writes outputs/: classifications.jsonl, retrieval.jsonl and results.jsonl. With
 the committed cache it makes no calls; without a key in .env it replays the cache offline, where a
 miss is an error.
 """
@@ -26,8 +26,7 @@ from validator.retriever import Retrieval, retrieve
 from validator.rules_config import load_rules, policy_version
 from validator.translate import translate_all
 
-VERSION = "v1"  # bumped by every change made after seeing a gold error (NOTES.md)
-OUTPUT_DIR = ROOT / "outputs" / VERSION
+OUTPUT_DIR = ROOT / "outputs"
 
 
 @dataclass(frozen=True)
