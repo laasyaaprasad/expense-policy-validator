@@ -110,3 +110,4 @@ What an assistant got wrong, and the check that caught it.
 
 | Version | Gold error that prompted it | What changed | Why |
 |---|---|---|---|
+| — | none | Nothing was changed after the v1 run was scored, so v1 is also the final version. | — |
