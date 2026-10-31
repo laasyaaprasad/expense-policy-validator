@@ -10,7 +10,7 @@ oracle:
 
 # Live model capability checks (M7). Needs a key in .env.
 smoke:
-	@echo "Not built yet (M7)"; exit 1
+	uv run pytest -m llm -s -q tests/test_llm_smoke.py
 
 # Full pipeline; reuses the cache (M10).
 run:

@@ -1,0 +1,231 @@
+"""The only place the pipeline talks to a model: the provider client, a disk cache and a spend ledger.
+
+Every response is cached under cache/<purpose>/, keyed on the full request (model, provider
+settings, prompt version, messages, parameters). A rerun therefore makes no calls and returns the
+same text, so a change in results always has a cause we can name. Every real call appends its
+tokens and dollars to outputs/spend.jsonl. Neither file ever holds the API key.
+
+Providers:
+- deepseek (current): DeepSeek's own API. It offers `json_object` output but not strict
+  `json_schema`, so callers validate what comes back. Thinking is on by default and is switched off.
+- openrouter: the brief's default. Strict `json_schema`, a pinned upstream, reasoning off.
+"""
+
+import hashlib
+import json
+import math
+import os
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from dotenv import load_dotenv
+
+from validator.data import ROOT
+
+CACHE_DIR = ROOT / "cache"
+LEDGER_PATH = ROOT / "outputs" / "spend.jsonl"
+BLANK_RETRIES = 3  # DeepSeek may return blank content in JSON mode; its docs say to retry
+
+PROVIDERS = {
+    "deepseek": {"key": "DEEPSEEK_API_KEY", "base_url": ("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+                 "model": ("DEEPSEEK_MODEL", "deepseek-flash")},
+    "openrouter": {"key": "OPENROUTER_API_KEY", "base_url": ("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+                   "model": ("OPENROUTER_MODEL", "deepseek/deepseek-v4.1-flash")},
+}
+# USD per million tokens. DeepSeek charges half these off-peak; the ledger always uses the peak
+# rate, so its total is an upper bound and does not depend on when a run happened.
+PRICES = {
+    ("deepseek", "deepseek-flash"): {"cache_hit": 0.006, "cache_miss": 0.30, "output": 1.20},
+}
+
+
+class LLMError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class Settings:
+    provider: str
+    model: str
+    base_url: str
+    api_key: str = field(repr=False)
+    pinned: tuple[str, ...] = ()  # OpenRouter upstream providers, in order
+
+    @classmethod
+    def from_env(cls) -> "Settings":
+        load_dotenv(ROOT / ".env", override=False)
+        provider = os.environ.get("LLM_PROVIDER", "deepseek")
+        if provider not in PROVIDERS:
+            raise LLMError(f"LLM_PROVIDER must be one of {sorted(PROVIDERS)}, not {provider!r}")
+        spec = PROVIDERS[provider]
+        key = os.environ.get(spec["key"], "")
+        if not key:
+            raise LLMError(f"{spec['key']} is not set; put it in .env")
+        pinned = tuple(p.strip() for p in os.environ.get("OPENROUTER_PROVIDER", "").split(",") if p.strip())
+        return cls(
+            provider=provider,
+            model=os.environ.get(spec["model"][0]) or spec["model"][1],
+            base_url=os.environ.get(spec["base_url"][0]) or spec["base_url"][1],
+            api_key=key,
+            pinned=pinned if provider == "openrouter" else (),
+        )
+
+
+@dataclass(frozen=True)
+class Token:
+    token: str
+    logprob: float
+    top: tuple[tuple[str, float], ...] = ()  # the most likely alternatives at this position
+
+
+@dataclass(frozen=True)
+class Completion:
+    content: str
+    tokens: tuple[Token, ...] | None  # None when logprobs were not requested
+    model: str  # as the provider reports it
+    usage: dict[str, Any]
+    cache_key: str
+    cached: bool
+
+    def span_probability(self, start: int, end: int) -> float:
+        """Probability of the tokens covering content[start:end]: exp of their summed logprobs."""
+        if self.tokens is None:
+            raise LLMError("logprobs were not requested for this completion")
+        offset, total, covered = 0, 0.0, False
+        for token in self.tokens:
+            token_end = offset + len(token.token)
+            if token_end > start and offset < end:
+                total += token.logprob
+                covered = True
+            offset = token_end
+        if not covered or offset != len(self.content):
+            raise LLMError("tokens do not line up with the content")
+        return math.exp(total)
+
+
+def cost_usd(provider: str, model: str, usage: dict[str, Any]) -> float | None:
+    if "cost" in usage:  # OpenRouter reports the charge itself
+        return float(usage["cost"])
+    prices = PRICES.get((provider, model))
+    if prices is None:
+        return None
+    hit = usage.get("prompt_cache_hit_tokens", 0)
+    miss = usage.get("prompt_cache_miss_tokens", usage.get("prompt_tokens", 0) - hit)
+    output = usage.get("completion_tokens", 0)
+    return (hit * prices["cache_hit"] + miss * prices["cache_miss"] + output * prices["output"]) / 1_000_000
+
+
+class LLM:
+    def __init__(self, settings: Settings | None = None, *, cache_dir: Path = CACHE_DIR,
+                 ledger_path: Path = LEDGER_PATH, client=None):
+        self.settings = settings or Settings.from_env()
+        self.cache_dir, self.ledger_path = cache_dir, ledger_path
+        if client is None:
+            from openai import OpenAI
+            client = OpenAI(api_key=self.settings.api_key, base_url=self.settings.base_url, max_retries=5, timeout=120)
+        self._client = client
+
+    def request(self, messages: list[dict], *, schema: dict | None = None, schema_name: str = "result",
+                logprobs: bool = False, top_logprobs: int = 0, max_tokens: int = 2000, temperature: float = 0) -> dict:
+        """The exact request sent, which is also what the cache key is computed from."""
+        s = self.settings
+        params: dict[str, Any] = {"model": s.model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
+        if logprobs:
+            params.update(logprobs=True, top_logprobs=top_logprobs)
+        if s.provider == "deepseek":
+            params["response_format"] = {"type": "json_object"}
+            params["extra_body"] = {"thinking": {"type": "disabled"}}
+        else:
+            params["response_format"] = (
+                {"type": "json_schema", "json_schema": {"name": schema_name, "strict": True, "schema": schema}}
+                if schema else {"type": "json_object"}
+            )
+            provider = {"require_parameters": True}
+            if s.pinned:
+                provider.update(order=list(s.pinned), allow_fallbacks=False)
+            params["extra_body"] = {"provider": provider, "reasoning": {"enabled": False}}
+        return params
+
+    def complete(self, messages: list[dict], *, purpose: str, prompt_version: str, **options) -> Completion:
+        params = self.request(messages, **options)
+        identity = {"provider": self.settings.provider, "prompt_version": prompt_version, "params": params}
+        key = hashlib.sha256(json.dumps(identity, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        path = self.cache_dir / purpose / f"{key[:24]}.json"
+        if path.exists():
+            return self._completion(json.loads(path.read_text(encoding="utf-8")), key, cached=True)
+
+        for attempt in range(1, BLANK_RETRIES + 1):
+            response = self._client.chat.completions.create(**params)
+            record = self._record(response, identity)
+            self._log_spend(record, purpose, prompt_version, key, attempt)
+            if record["response"]["content"].strip():
+                break
+        else:
+            raise LLMError(f"blank content {BLANK_RETRIES} times in a row ({purpose}, {prompt_version})")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(record, indent=1, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
+        return self._completion(record, key, cached=False)
+
+    # --- internals ----------------------------------------------------------------------------------
+
+    @staticmethod
+    def _record(response, identity: dict) -> dict:
+        choice = response.choices[0]
+        tokens = None
+        if choice.logprobs is not None and choice.logprobs.content is not None:
+            tokens = [
+                {"token": t.token, "logprob": t.logprob, "top": [[alt.token, alt.logprob] for alt in (t.top_logprobs or [])]}
+                for t in choice.logprobs.content
+            ]
+        message = choice.message.model_dump()
+        return {
+            "request": identity,
+            "response": {
+                "content": choice.message.content or "",
+                "reasoning_content": message.get("reasoning_content"),
+                "tokens": tokens,
+                "finish_reason": choice.finish_reason,
+                "model": response.model,
+                "system_fingerprint": response.system_fingerprint,
+                "provider": getattr(response, "provider", None),
+                "usage": response.usage.model_dump() if response.usage else {},
+            },
+        }
+
+    @staticmethod
+    def _completion(record: dict, key: str, cached: bool) -> Completion:
+        r = record["response"]
+        tokens = None if r["tokens"] is None else tuple(
+            Token(t["token"], t["logprob"], tuple((alt, lp) for alt, lp in t["top"])) for t in r["tokens"]
+        )
+        return Completion(content=r["content"], tokens=tokens, model=r["model"], usage=r["usage"], cache_key=key, cached=cached)
+
+    def _log_spend(self, record: dict, purpose: str, prompt_version: str, key: str, attempt: int) -> None:
+        usage = record["response"]["usage"]
+        details = usage.get("completion_tokens_details") or {}
+        entry = {
+            "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "purpose": purpose,
+            "prompt_version": prompt_version,
+            "provider": self.settings.provider,
+            "model": record["response"]["model"],
+            "cache_key": key[:24],
+            "attempt": attempt,
+            "prompt_tokens": usage.get("prompt_tokens", 0),
+            "prompt_cache_hit_tokens": usage.get("prompt_cache_hit_tokens", 0),
+            "completion_tokens": usage.get("completion_tokens", 0),
+            "reasoning_tokens": details.get("reasoning_tokens") or 0,
+            "usd": cost_usd(self.settings.provider, self.settings.model, usage),
+        }
+        self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.ledger_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+
+
+def ledger_total(path: Path = LEDGER_PATH, purpose: str | None = None) -> float:
+    if not path.exists():
+        return 0.0
+    entries = [json.loads(row) for row in path.read_text(encoding="utf-8").splitlines() if row.strip()]
+    return sum(e["usd"] or 0.0 for e in entries if purpose is None or e["purpose"] == purpose)
