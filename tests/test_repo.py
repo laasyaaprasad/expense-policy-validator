@@ -1,4 +1,4 @@
-"""Repository guards that hold for every milestone."""
+"""Repository guards: no secrets committed, and the pipeline never imports evaluation code."""
 
 import ast
 from pathlib import Path

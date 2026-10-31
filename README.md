@@ -58,5 +58,5 @@ I had half expected to use Jev, the new classification model, because it returns
 
 - Build the TIME rules.
 - Calibrate the threshold and measure flag precision on a labelled sample of the company's own receipts.
-- Rerun the gates through OpenRouter.
+- Rerun the smoke tests and the full run through OpenRouter.
 - Send names to the model only as placeholders.
