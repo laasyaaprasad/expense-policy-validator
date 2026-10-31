@@ -52,6 +52,16 @@ The rule is fixed here before any classification output has been seen, on the de
 
 **Result (M9).** The 43 dev items came back right on category, item kind and recipient in all three runs (as configured, a fresh repeat, and without merchant context). None flipped, and the lowest confidence was 0.96, so every candidate scored 0 and the threshold stayed at 0.5 (`outputs/dev/threshold.json`). The dev set is too easy to tell thresholds apart. That says nothing about whether 0.5 is a good threshold.
 
+## The v1 run (M9)
+
+The config was frozen at tag `v1-frozen` (`outputs/v1/frozen_config.json`). The first classification of the real receipts was committed untouched (`outputs/v1/classifications.jsonl`, commit 8f9cc38) before anything was scored against gold. That took 31 calls, all valid on the first attempt, for $0.0074.
+
+- **65 / 65 in-scope items right.** Macro F1 is 1.000 over the 19 answer categories, restricted F1 is 1.000, and there are no restricted-flag errors (`make items`). The three named recipients match `review/item_attributes.csv`, and no line got an item kind.
+- **EXC-03 never fires.** The lowest confidence on any of the 79 items is 0.979 (the iPad line in Japanese). With the threshold at 0.5, no item is uncertain, so the confidence signal plays no part in v1's dispositions.
+- **Stable, and not leaning on the merchant.** A fresh repeat of all 31 calls at temperature 1 changed 0 of 79 answers. A run without merchant and expense type also got 65 / 65 and changed nothing. The two runs cost $0.0150 (`make items` reports them from `outputs/v1/classifications_{repeat,no_context}.jsonl`).
+- **Why it is so clean.** The traps in the data are the examples the taxonomy and the meals policy give themselves ("Beer-battered cod", "Arnold Palmer", "virgin mojito", "Cooking wine", rum cake, barware). The prompt quotes none of them, but its definitions follow the taxonomy table. A capable model given those documents is expected to get them right.
+- **What "blind" means here.** No prompt, setting or threshold was changed after a look at gold. The prompt and dev set were still written by people who had read the receipt lines and the aggregate label counts while planning (IMPLEMENTATION_PLAN.md, "Facts from the data"). So v1 is not a test of a prompt written without knowledge of the data. With 65 items and 7 one-item categories, a perfect score is also weak evidence of how the classifier would do on new receipts.
+
 ## What was checked by hand
 
 - **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
