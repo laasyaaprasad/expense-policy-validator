@@ -20,9 +20,9 @@ items:
 smoke:
 	uv run pytest -m llm -s -q tests/test_llm_smoke.py
 
-# Full pipeline; reuses the cache (M10).
+# Full pipeline on all 32 receipts (M10). Replays the committed cache; with no key in .env it runs offline.
 run:
-	@echo "Not built yet (M10)"; exit 1
+	uv run python -m validator.pipeline
 
 # Metrics and blame report (M11).
 eval:

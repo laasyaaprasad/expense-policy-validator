@@ -62,6 +62,8 @@ The config was frozen at tag `v1-frozen` (`outputs/v1/frozen_config.json`). The 
 - **Why it is so clean.** The traps in the data are the examples the taxonomy and the meals policy give themselves ("Beer-battered cod", "Arnold Palmer", "virgin mojito", "Cooking wine", rum cake, barware). The prompt quotes none of them, but its definitions follow the taxonomy table. A capable model given those documents is expected to get them right.
 - **What "blind" means here.** No prompt, setting or threshold was changed after a look at gold. The prompt and dev set were still written by people who had read the receipt lines and the aggregate label counts while planning (IMPLEMENTATION_PLAN.md, "Facts from the data"). So v1 is not a test of a prompt written without knowledge of the data. With 65 items and 7 one-item categories, a perfect score is also weak evidence of how the classifier would do on new receipts.
 
+**Integrated (M10).** The full pipeline (`make run`) matches the answer key on 28 / 28 in-scope receipts, the same as oracle mode. Over all 32 it gives 18 flag, 3 review and 11 pass. The four out-of-scope receipts differ only where TIME rules apply. So the blame report has nothing to blame on v1. Its tests plant one fault per stage in the v1 classifications and check that the right stage is named, including a case it must call "unknown".
+
 ## What was checked by hand
 
 - **Translations (M8, 2026-10-30).** I read all 11 English glosses in `review/translations.csv` against the originals and marked each `ok`. None needed a change. The assistant drafted the glosses with DeepSeek at temperature 0; I made the call.
@@ -84,6 +86,8 @@ What an assistant got wrong, and the check that caught it.
 | M7 | The smoke gate as planned ("logprobs give a probability between 0 and 1") passed on useless data. At temperature 0, DeepSeek returns logprob 0.0 for every chosen token and -9999 for every alternative, so every item, the trap included, scored 1.0. The classifier now runs at temperature 1, and the gate asserts that logprobs are informative there and degenerate at 0. | Reading the raw logprobs after a too-clean pass |
 | M7 | The plan assumed OpenRouter's strict `json_schema`; DeepSeek's own API offers only `json_object`. The enum is now enforced by validation and a retry instead of during decoding. | DeepSeek API reference, read before writing the client |
 | M9 | Two of the assistant's classifier tests were wrong. The "misaligned confidence" case wasn't misaligned, because `json.dumps` escaped the decoy quotes. The prompt-leak check flagged "Service charge" and "Greeting card", which the taxonomy table itself lists as typical examples, so they belong in the definitions. | Test failures, read before changing anything |
+| M9 | The first offline-rerun test compared parsed rows. `read_jsonl` reads floats as Decimal, so equal confidences looked different. It now compares the written bytes, which is also what the gate asks for. | Test failure, diffed by hand |
+| M10 | The first blame draft compared each extracted recipient with all three annotation fields (name, type and item kind). It would have listed every line as a recipient error. | Code review before the first test run |
 
 ## Changes after the v1 freeze
 

@@ -74,6 +74,11 @@ class ReceiptResult(BaseModel):
     not_evaluated: list[dict[str, str]] = []
     rules_evaluated: list[str] = []
     policy_version: str | None = None
+    # What produced the record. Set by the pipeline; oracle-mode records leave them empty.
+    provider: str | None = None
+    model: str | None = None
+    prompt_version: str | None = None
+    confidence_threshold: float | None = None
 
 
 # --- explanations ---------------------------------------------------------------------------------
@@ -218,7 +223,8 @@ def _signal_reason(s: Signal, lines: _Lines) -> str:
 # --- the record -----------------------------------------------------------------------------------
 
 def report(classified: ClassifiedReceipt, decision: Decision, config: RulesConfig | None = None,
-           policy_version: str | None = None) -> ReceiptResult:
+           policy_version: str | None = None, **run) -> ReceiptResult:
+    """`run` takes the metadata fields (provider, model, prompt_version, confidence_threshold)."""
     config = config or load_rules()
     lines = _Lines(classified)
     return ReceiptResult(
@@ -247,6 +253,7 @@ def report(classified: ClassifiedReceipt, decision: Decision, config: RulesConfi
         not_evaluated=[n.model_dump() for n in decision.not_evaluated],
         rules_evaluated=list(decision.rules_evaluated),
         policy_version=policy_version,
+        **run,
     )
 
 
