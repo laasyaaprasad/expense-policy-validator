@@ -7,8 +7,9 @@ confidence from the logprobs of the category's tokens (DECISIONS.md, section 4).
 is `other` by definition: set in code, with no call and full confidence (EXC-03).
 
 The prompt's examples are written for this project. None is taken from the receipts, and the
-taxonomy's own examples, which do appear in the receipts, are left out on purpose so that the score
-on those items is a real test.
+taxonomy's own examples, which do appear in the receipts, are left out. The definitions were still
+written with the receipts in view and name some of their traps (wine for cooking, dishes cooked with
+alcohol), so the score on those items is not a clean test (docs/evaluation.md, section 1).
 """
 
 import json

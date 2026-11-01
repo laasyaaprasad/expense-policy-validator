@@ -93,7 +93,10 @@ class ReceiptView:
         """MEAL-01: the receipt's currency differs from the currency of the employee's home country."""
         if self.receipt.currency is None:
             raise NotEvaluable("no currency recorded (DOC-04)")
-        return self.receipt.currency != self.config.home_currency[self.receipt.employee_country]
+        home = self.config.home_currency.get(self.receipt.employee_country)
+        if home is None:
+            raise NotEvaluable(f"no home currency recorded for {self.receipt.employee_country}")
+        return self.receipt.currency != home
 
     # --- lines ------------------------------------------------------------------------------------
 
@@ -168,7 +171,6 @@ class Context:
     meal_days: dict[tuple[str, date], list[MealEntry]] = field(default_factory=lambda: defaultdict(list))
     otc_by_trip: dict[str, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
     baggage_by_reference: dict[str, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
-    euro_rates: dict[date, Decimal] = field(default_factory=dict)
     merchant_days: dict[tuple[str, str, date], list[ReceiptView]] = field(default_factory=lambda: defaultdict(list))
 
     def meal_day(self, r: ReceiptView) -> list[MealEntry]:
@@ -199,20 +201,16 @@ class Context:
         return totals
 
     def euro_rate(self, r: ReceiptView) -> Decimal:
-        """The euro rate on the transaction date: a euro receipt's own rate, else one seen on that date."""
+        """The euro rate: a euro receipt's own rate, else the configured one (never another receipt's)."""
         if r.receipt.currency == "EUR" and r.rate is not None:
             return r.rate
-        if r.date not in self.euro_rates:
-            raise NotEvaluable(f"no euro rate known for {r.date}")
-        return self.euro_rates[r.date]
+        return r.config.euro_rate_usd
 
 
 def build_context(views: list[ReceiptView]) -> Context:
     ctx = Context()
     for r in sorted(views, key=lambda view: view.receipt_id):
         receipt = r.receipt
-        if receipt.currency == "EUR" and receipt.fx_rate_to_usd is not None and receipt.transaction_datetime:
-            ctx.euro_rates.setdefault(r.date, receipt.fx_rate_to_usd)
         if receipt.transaction_datetime is not None and receipt.merchant_name:
             ctx.merchant_days[(receipt.employee_id, receipt.merchant_name, r.date)].append(r)
         # Each total is built on its own: a receipt missing what one needs still counts towards the

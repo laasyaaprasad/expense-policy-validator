@@ -64,6 +64,7 @@ class RulesConfig(BaseModel):
 
     regions: dict[str, tuple[str, ...]]
     home_currency: dict[str, str]
+    euro_rate_usd: Decimal
     mcc_risk: dict[str, tuple[str, ...]]
     on_premises_mccs: tuple[str, ...]
     meal_expense_types: tuple[str, ...]

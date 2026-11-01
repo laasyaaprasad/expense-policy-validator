@@ -162,7 +162,7 @@ def build() -> dict:
     records = load_results(OUTPUT_DIR / "results.jsonl")
     blames = blame(load_classified(), gold, load_attributes(), load_gloss_review(), run_oracle())
     metrics = {
-        "note": "The frozen, blind run. Nothing was changed after seeing a gold error (NOTES.md, 'The final run'), so it is also the final one.",
+        "note": "The frozen, blind run, scored on the 28 in-scope receipts. Nothing was changed after seeing a gold error (NOTES.md, 'The final run'); later changes (the timing rules, two robustness fixes) changed no scored decision.",
         "confidence_threshold": CONFIDENCE_THRESHOLD,
         "items": score_items(records, gold),
         **score_receipts(records, gold),

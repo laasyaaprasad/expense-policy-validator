@@ -1,4 +1,5 @@
-"""The CORD pilot: the system, exactly as frozen, on 100 real receipts, scored against hand labels.
+"""The CORD pilot: the system, exactly as frozen, on 100 real receipts, scored against the assistant's labels
+(not yet checked by hand).
 
 `python -m evaluation.cord --run` runs the pipeline on cord/receipts.jsonl (from the cache when it
 can) and writes outputs/cord/. Without --run it scores the committed outputs, offline, and

@@ -34,7 +34,7 @@ eval:
 baseline:
 	uv run python -m validator.baseline
 
-# CORD pilot: the system on 100 real receipts, scored against hand labels (cord/README.md). Offline;
+# CORD pilot: the system on 100 real receipts, scored against the assistant's labels, not yet checked by hand (cord/README.md). Offline;
 # `uv run python -m evaluation.cord --run` reruns the pipeline first.
 cord:
 	uv run python -m evaluation.cord

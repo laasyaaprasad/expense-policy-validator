@@ -6,7 +6,7 @@ A language model says what each receipt line is; plain code checks it against th
 
 ## Architecture
 
-I first asked how real expense tools do this: Expensify, Navan, Concur and Ramp let AI read the receipt and keep limits as configuration, and so does this. All 32 receipts run together, as some caps span receipts.
+As in Expensify, Navan, Concur and Ramp, a model reads the receipt and limits stay in configuration. All 32 receipts run together, as some caps span receipts.
 
 ```mermaid
 flowchart LR
@@ -30,7 +30,7 @@ The classification prompt ([classifier.py](validator/classifier.py)) defines the
 
 ## Policy engine
 
-[`rules/rules.yaml`](rules/rules.yaml) holds 40 rules, each with a severity, parameters, `applies_to` and a policy quote that a test checks word for word. The 34 that can fire each have a small Python check, with `Decimal` money and inclusive caps; a rule that can't be applied is `not_evaluated`, not passed. Built first and tested on the answer key's categories, the engine matched all 28 in-scope receipts, though the assistant that wrote it had the key to hand. Switching off any one check fails a test ([`test_check_coverage.py`](tests/test_check_coverage.py)).
+[`rules/rules.yaml`](rules/rules.yaml) holds 40 rules, each with a severity, parameters, `applies_to` and a policy quote that a test checks word for word. The 34 that can fire each have a small Python check, with `Decimal` money and inclusive caps; a rule that can't be applied is reported as `not_evaluated`, though under EXC-01 it doesn't change the disposition. Built first and tested on the answer key's categories, the engine matched all 28 in-scope receipts, though the assistant that wrote it had the key to hand. Switching off any one check fails a test ([`test_check_coverage.py`](tests/test_check_coverage.py)).
 
 **Confidence threshold: 0.5.** A line below it raises EXC-03 and is left out of every other rule. Every dev item scored 0.96 or higher, so the pre-registered default stood.
 
@@ -44,15 +44,15 @@ The 32 labelled receipts are also the only test set, so the frozen config's firs
 | Receipts exactly right | 28 / 28 (88–100%) | 20 / 28 |
 | False positives · missed violations | 0 / 9 (0–30%) · 0 / 16 (0–19%) | 2 / 9 · 2 / 16 |
 
-This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real receipts from Indonesian shops ([CORD](cord/README.md)) it got 93% of lines right, and five of its six false flags were on lines the taxonomy can't clearly place. The four unscored timing receipts now match too, though their rules came later, with the answers seen.
+This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real receipts from Indonesian shops ([CORD](cord/README.md)), against the assistant's unchecked labels, it got 93% of lines right but flagged or reviewed 11 of 98 clean receipts. With one restricted line and one made-up context, it tests the classifier, not the rules. The four unscored timing receipts now match too, though their rules came later, with the answers seen.
 
 ## Walkthrough: RCP-011
 
-Cellar Door Fine Wines (MCC 5921), Client Entertainment, pre-approval PA-2026-0431. "Vino tinto Rioja Reserva 750ml" is glossed "Rioja Reserva red wine 750ml" and classified `alcohol` (restricted) at 0.99999. Of 10 retrieved rules, the engine raises ALC-03 on L1 (alcohol bought where it isn't served) and MCC-01 (high-risk merchant). The pre-approval waives neither: **flag**, as in the answer key. [`outputs/traces.jsonl`](outputs/traces.jsonl) records each step.
+Cellar Door Fine Wines (MCC 5921), Client Entertainment, pre-approval PA-2026-0431. "Vino tinto Rioja Reserva 750ml" is glossed "Rioja Reserva red wine 750ml" and classified `alcohol` (restricted) at 0.99999. Of 12 retrieved rules, the engine raises ALC-03 on L1 (alcohol bought where it isn't served) and MCC-01 (high-risk merchant). The pre-approval waives neither: **flag**, as in the answer key. [`outputs/traces.jsonl`](outputs/traces.jsonl) records each step.
 
 ## AI collaboration
 
-Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the calls and checked the results. My questions (how real tools do it, which stage to blame, what we test on, does it hold on real receipts) each changed what got built, and [NOTES.md](NOTES.md) logs where I directed, overrode or corrected the assistant, such as stopping it tuning the system on CORD. One thing it got wrong: at temperature 0 DeepSeek gives every chosen token a logprob of 0.0, so the smoke test passed on meaningless numbers until the assistant read the raw values. I signed off the 11 translations by hand. **Who saw the data:** Anthropic, through the assistant, saw the brief, policies, receipts and answer key. DeepSeek's API saw line text, merchant, MCC description and expense type (and the public CORD lines), never amounts, employee fields or labels. OpenRouter saw nothing.
+Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the calls and checked the results. My questions (how real tools do it, which stage to blame, what we test on, does it hold on real receipts) each changed what got built, and [NOTES.md](NOTES.md) logs where I directed, overrode or corrected the assistant. One thing it got wrong: at temperature 0 DeepSeek gives every chosen token a logprob of 0.0, so the smoke test passed on meaningless numbers until the assistant read the raw values. I signed off the 11 translations by hand. **Who saw the data:** Anthropic, through the assistant, saw the brief, policies, receipts and answer key. DeepSeek's API saw line text, merchant, MCC description and expense type (and the public CORD lines), never amounts, employee fields or labels. OpenRouter saw nothing.
 
 ## Spend
 

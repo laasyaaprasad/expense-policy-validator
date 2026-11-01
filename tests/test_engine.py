@@ -288,6 +288,28 @@ def test_otc_spend_is_added_across_a_trip():
     assert a.exceptions[0].severity == "low"
 
 
+def test_a_decision_does_not_depend_on_other_receipts_euro_rates():
+    # REG-03: "Convert EUR 70 to USD at the euro rate on the transaction date". A GB employee's $300 dinner in
+    # USD is over the cap whether or not someone else's euro receipt from that day is in the batch.
+    dinner = receipt("A", line("food_beverage", "300.00"), employee_country="GB")
+    coffee = receipt("B", line("food_beverage", "10.00"), employee_country="FR", employee_id="E-OTHER",
+                     currency="EUR", fx_rate_to_usd="1.20")
+    alone, (with_other, _) = decide(dinner), decide(dinner, coffee)
+    assert raised(alone) == raised(with_other) and {"REG-03", "REG-04"} <= set(raised(alone))
+    assert alone.exceptions == with_other.exceptions
+    reg_03 = next(f for f in alone.exceptions if f.rule_id == "REG-03")
+    assert reg_03.facts["euro_rate"] == CONFIG.euro_rate_usd
+
+
+def test_a_country_with_no_home_currency_is_not_evaluated_not_a_crash():
+    # Data dictionary: "everyone else GLOBAL". MEAL-01 needs the home currency; without it, only that check stops.
+    dinner = receipt("A", line("food_beverage", "120.00"), employee_country="CA", currency="CAD", fx_rate_to_usd="0.73")
+    other = receipt("B", line("food_beverage", "120.00"), employee_id="E-OTHER")
+    a, b = decide(dinner, other)
+    assert {n.rule_id for n in a.not_evaluated} == {"MEAL-01"}
+    assert raised(b) == {"MEAL-01": ()}
+
+
 # --- overrides and retrieval ---------------------------------------------------------------------------
 
 def test_gift_04_replaces_gift_01_for_its_lines():
