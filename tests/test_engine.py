@@ -260,7 +260,7 @@ def test_meals_on_one_day_are_added_together():
     # MEAL-01: "per day means the per-person amounts of all of one employee's meal receipts on the same
     # calendar date, added together ... raise MEAL-01 on every meal receipt that contributes to that day."
     lunch = receipt("A", line("food_beverage", "40.00"), transaction_datetime="2026-04-14T12:00:00")
-    dinner = receipt("B", line("food_beverage", "40.00"), transaction_datetime="2026-04-14T19:00:00")
+    dinner = receipt("B", line("food_beverage", "40.00"), transaction_datetime="2026-04-14T19:00:00", merchant_name="Elsewhere")
     next_day = receipt("C", line("food_beverage", "40.00"), transaction_datetime="2026-04-15T12:00:00")
     other_employee = receipt("D", line("food_beverage", "40.00"), employee_id="E-OTHER")
     a, b, c, d = decide(lunch, dinner, next_day, other_employee)

@@ -106,6 +106,6 @@ def test_the_run_log_counts_the_calls_and_names_the_commit(tmp_path):
                         translations=result.translations, traces=b"")
     assert record["calls"] == {"translate": {"cached": 6, "live": 0}, "classify": {"cached": 31, "live": 0}}
     assert record["retries"] == 0 and record["confidence_fallbacks"] == 0
-    assert record["dispositions"] == {"flag": 18, "review": 3, "pass": 11}
+    assert record["dispositions"] == {"flag": 18, "review": 5, "pass": 9}
     assert set(record["stage_seconds"]) == {"translate", "classify", "retrieve_and_decide", "report"}
     assert record["commit"] is None or re.fullmatch(r"[0-9a-f]{7,}(\+changes)?", record["commit"])

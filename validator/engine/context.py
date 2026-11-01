@@ -1,8 +1,9 @@
 """Pass 1 of the engine: each receipt as the rules see it, and the totals that span receipts.
 
 MEAL-01, REG-02 and REG-03 add up one employee's meal spend per calendar date; HEALTH-01 adds up OTC
-spend across a trip; the PERS-01/02 baggage-delay allowance is shared per delay reference. So every
-receipt is viewed first, the totals are built from all of them, and only then is any receipt judged.
+spend across a trip; the PERS-01/02 baggage-delay allowance is shared per delay reference; TIME-03
+groups one employee's receipts at one merchant on one date. So every receipt is viewed first, the
+totals are built from all of them, and only then is any receipt judged.
 """
 
 from collections import defaultdict
@@ -168,6 +169,7 @@ class Context:
     otc_by_trip: dict[str, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
     baggage_by_reference: dict[str, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
     euro_rates: dict[date, Decimal] = field(default_factory=dict)
+    merchant_days: dict[tuple[str, str, date], list[ReceiptView]] = field(default_factory=lambda: defaultdict(list))
 
     def meal_day(self, r: ReceiptView) -> list[MealEntry]:
         """Every meal receipt by this employee on this receipt's date, including this one."""
@@ -175,6 +177,10 @@ class Context:
         if not any(entry.receipt_id == r.receipt_id for entry in entries):
             raise NotEvaluable("meal spend could not be computed")
         return entries
+
+    def merchant_day(self, r: ReceiptView) -> list[ReceiptView]:
+        """TIME-03: every receipt by this employee at this merchant (by name) on this receipt's date."""
+        return self.merchant_days[(r.receipt.employee_id, r.receipt.merchant_name, r.date)]
 
     def totals_for(self, r: ReceiptView) -> dict:
         """The cross-receipt totals this receipt is part of, with the receipts behind each, for the trace."""
@@ -207,6 +213,8 @@ def build_context(views: list[ReceiptView]) -> Context:
         receipt = r.receipt
         if receipt.currency == "EUR" and receipt.fx_rate_to_usd is not None and receipt.transaction_datetime:
             ctx.euro_rates.setdefault(r.date, receipt.fx_rate_to_usd)
+        if receipt.transaction_datetime is not None and receipt.merchant_name:
+            ctx.merchant_days[(receipt.employee_id, receipt.merchant_name, r.date)].append(r)
         # Each total is built on its own: a receipt missing what one needs still counts towards the
         # others, and its own checks report what is missing.
         try:

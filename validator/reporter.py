@@ -169,6 +169,16 @@ def _laundry_01(f: Finding, lines: _Lines) -> str:
     return f"{lines(f.line_ids)} {_be(f.line_ids)} laundry on {trip}; laundry needs a trip of {f.facts['min_trip_nights']} or more nights."
 
 
+def _time_03(f: Finding, lines: _Lines) -> str:
+    facts = f.facts
+    parts = []
+    for s in facts["split_around"]:
+        each = " and ".join(f"{receipt_id} {usd(amount)}" for receipt_id, amount in s["amounts_usd"].items())
+        parts.append(f"each is within the {usd(s['limit_usd'])} {s['rule_id']} limit ({each}), but together they are over it")
+    return (f"{', '.join(facts['receipts'])} are one employee's receipts at {facts['merchant']} on {facts['date']}: "
+            + "; ".join(parts) + ". Reported as a split, not as the limit itself.")
+
+
 def _attendees(count) -> str:
     return "no attendee count" if count is None else f"{count} attendee{'s' if count != 1 else ''}"
 
@@ -207,6 +217,7 @@ EXPLAIN: dict[str, Callable[[Finding, _Lines], str]] = {
     "DOC-03": lambda f, lines: (f"Declared as {f.facts['expense_type']}, which covers {', '.join(f.facts['covers'])}, "
                                 f"but the items are {', '.join(f.facts['categories'])}."),
     "DOC-04": lambda f, lines: f"The receipt is not in USD and is missing its {' and '.join(f.facts['missing'])}.",
+    "TIME-03": _time_03,
     "REG-04": lambda f, lines: f"The receipt totals {eur(f.facts['total_eur'])}, above {eur(f.facts['threshold_eur'])}, and no VAT number is recorded.",
 }
 
@@ -214,6 +225,10 @@ EXPLAIN: dict[str, Callable[[Finding, _Lines], str]] = {
 def _signal_reason(s: Signal, lines: _Lines) -> str:
     if s.rule_id == "MCC-02":
         return f"MCC {s.facts['mcc']} ({s.facts['mcc_description']}) is medium risk; context only, not an exception."
+    if s.rule_id == "TIME-01":
+        return f"Charged at {s.facts['time']} local time, between 00:00 and 05:00."
+    if s.rule_id == "TIME-02":
+        return f"Declared as {s.facts['expense_type']}, with no trip record."
     if s.rule_id == "EXC-03":
         scores = ", ".join(f"{lines([line_id])} at {confidence:.2f}" for line_id, confidence in s.facts["confidence"].items())
         return f"Category uncertain for {scores} (threshold {s.facts['threshold']:.2f}); left out of every other rule."

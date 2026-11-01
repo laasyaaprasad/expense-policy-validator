@@ -50,8 +50,9 @@ def _active_rules(r: ReceiptView, selected: Collection[str] | None) -> tuple[lis
     applicable = [rule for rule in r.config.rules if rule.kind != "mechanic" and _region_applies(rule, r)]
     overridden = {target for rule in applicable for target in rule.overrides}
     active = [rule for rule in applicable if rule.id not in overridden and (selected is None or rule.id in selected)]
-    # A rule that replaces another on the lines it cites (GIFT-04 over GIFT-01) runs first.
-    return sorted(active, key=lambda rule: not rule.line_overrides), overridden
+    # A rule that can replace another (GIFT-04 over GIFT-01 on its lines, TIME-03 over the threshold
+    # it splits around) runs first.
+    return sorted(active, key=lambda rule: not (rule.line_overrides or rule.replaces)), overridden
 
 
 def _check_evidence(rule: RuleSpec, line_ids: tuple[str, ...]) -> None:
@@ -66,11 +67,15 @@ def decide(r: ReceiptView, ctx: Context, selected: Collection[str] | None = None
     config = r.config
     order = {rule.id: index for index, rule in enumerate(config.rules)}
     hidden: dict[str, set[str]] = defaultdict(set)  # rule ID → lines another rule has taken over
+    replaced: dict[str, str] = {}  # rule ID → the rule that replaces it on this receipt
     exceptions, signals, waived, not_evaluated = [], [], [], []
     steps: dict[str, dict] = {}  # rule ID → what its check found, for the trace
     active, overridden = _active_rules(r, selected)
 
     for rule in active:
+        if rule.id in replaced:
+            steps[rule.id] = {"result": "replaced", "by": replaced[rule.id]}
+            continue
         view = r.without(hidden[rule.id]) if hidden[rule.id] else r
         try:
             outcome = CHECKS[rule.id](rule, view, ctx)
@@ -84,6 +89,9 @@ def decide(r: ReceiptView, ctx: Context, selected: Collection[str] | None = None
         line_ids = tuple(sorted(outcome.line_ids, key=line_order))
         for target in rule.line_overrides:
             hidden[target] |= set(line_ids)
+        if not set(outcome.replaces) <= set(rule.replaces):
+            raise ValueError(f"{rule.id} replaced {outcome.replaces}, but may only replace {rule.replaces}")
+        replaced.update(dict.fromkeys(outcome.replaces, rule.id))
         if outcome.waived_by is not None:
             waived.append(Waiver(rule_id=rule.id, policy_doc=rule.doc, line_ids=line_ids, reference=outcome.waived_by))
             steps[rule.id] = {"result": "waived", "line_ids": list(line_ids), "reference": outcome.waived_by}

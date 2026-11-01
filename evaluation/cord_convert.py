@@ -2,8 +2,8 @@
 
 CORD gives real line text, quantities and prices, but no expense context: no merchant name, date,
 employee, expense type or MCC. Every receipt therefore gets the same declared, synthetic context
-(CONTEXT below, and cord/README.md), and its own employee, so no cross-receipt total joins two
-receipts. Each menu item becomes a line, followed by its sub-items (options, toppings, package
+(CONTEXT below, and cord/README.md), and its own employee and trip, so no cross-receipt total joins
+two receipts. Each menu item becomes a line, followed by its sub-items (options, toppings, package
 contents) as lines of their own. A nameless item has nothing to classify and is dropped.
 
 Standard library only, so it can run isolated on the downloaded file:
@@ -30,8 +30,7 @@ CONTEXT = {
     "transaction_datetime": "2026-03-02T12:30:00",
     "currency": "IDR",
     "attendee_count": 1,
-    "trip_id": None,
-    "trip_nights": None,
+    "trip_nights": 3,  # a US employee paying in rupiah is travelling; each receipt gets its own trip
     "pre_approval_ref": None,
     "itemized": True,
 }
@@ -114,6 +113,7 @@ def convert(row: dict, index: int) -> dict:
         "receipt_id": receipt_id,
         "employee_id": f"E-CORD-{index:04d}",
         **CONTEXT,
+        "trip_id": f"TRIP-CORD-{index:04d}",
         "fx_rate_to_usd": FX_RATE_TO_USD,
         "total_amount": total,
         "total_amount_usd": usd(total),

@@ -28,16 +28,11 @@ def test_every_in_scope_receipt_matches_the_answer_key(decisions, gold):
     assert {receipt_id: c for receipt_id, c in differences.items() if not c.matches} == {}
 
 
-def test_out_of_scope_differences_are_only_the_timing_rules(decisions, gold):
-    # TIME-01 to 04 are not implemented. TIME-03 "replaces the threshold rule being split around",
-    # so on the split pair RCP-020/021 we raise the meal cap it would have replaced.
-    for d in decisions:
-        if in_scope(d.receipt_id):
-            continue
-        c = compare(d, gold[d.receipt_id])
-        assert all(rule.startswith("TIME-") for rule in c.missing + c.missing_signals), d.receipt_id
-        assert c.extra_signals == [] and c.wrong_lines == {}, d.receipt_id
-        assert c.extra in ([], ["MEAL-01"]), d.receipt_id
+def test_the_four_timing_receipts_match_too(decisions, gold):
+    # Not scored on this track; TIME-01 to TIME-03 are the stretch goal.
+    differences = {d.receipt_id: compare(d, gold[d.receipt_id]) for d in decisions if not in_scope(d.receipt_id)}
+    assert len(differences) == 4
+    assert {receipt_id: c for receipt_id, c in differences.items() if not c.matches} == {}
 
 
 def test_output_matches_the_committed_snapshot():

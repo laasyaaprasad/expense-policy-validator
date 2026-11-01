@@ -20,7 +20,7 @@ flowchart LR
         direction TB
         retrieve["retrieve<br/>matching rules"] --> engine["engine<br/>checks, disposition"] --> report["report<br/>policy quote"]
     end
-    rules["rules.yaml<br/>37 rules"] --> C
+    rules["rules.yaml<br/>40 rules"] --> C
     C --> out["results.jsonl<br/>traces.jsonl"]
 ```
 
@@ -30,7 +30,7 @@ The classification prompt ([classifier.py](validator/classifier.py)) defines the
 
 ## Policy engine
 
-[`rules/rules.yaml`](rules/rules.yaml) holds 37 rules, each with a severity, parameters, `applies_to` and a policy quote that a test checks word for word. The 31 that can fire each have a small Python check, with `Decimal` money and inclusive caps; a rule that can't be applied is `not_evaluated`, not passed. Built first and tested on the answer key's categories, the engine matched all 28 in-scope receipts, though the assistant that wrote it had the key to hand. Switching off any one check fails a test ([`test_check_coverage.py`](tests/test_check_coverage.py)).
+[`rules/rules.yaml`](rules/rules.yaml) holds 40 rules, each with a severity, parameters, `applies_to` and a policy quote that a test checks word for word. The 34 that can fire each have a small Python check, with `Decimal` money and inclusive caps; a rule that can't be applied is `not_evaluated`, not passed. Built first and tested on the answer key's categories, the engine matched all 28 in-scope receipts, though the assistant that wrote it had the key to hand. Switching off any one check fails a test ([`test_check_coverage.py`](tests/test_check_coverage.py)).
 
 **Confidence threshold: 0.5.** A line below it raises EXC-03 and is left out of every other rule. Every dev item scored 0.96 or higher, so the pre-registered default stood.
 
@@ -44,7 +44,7 @@ The 32 labelled receipts are also the only test set, so the frozen config's firs
 | Receipts exactly right | 28 / 28 (88–100%) | 20 / 28 |
 | False positives · missed violations | 0 / 9 (0–30%) · 0 / 16 (0–19%) | 2 / 9 · 2 / 16 |
 
-This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real receipts from Indonesian shops ([CORD](cord/README.md)) it got 93% of lines right, and five of its six false flags were on lines the taxonomy can't clearly place.
+This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real receipts from Indonesian shops ([CORD](cord/README.md)) it got 93% of lines right, and five of its six false flags were on lines the taxonomy can't clearly place. The four unscored timing receipts now match too, though their rules came later, with the answers seen.
 
 ## Walkthrough: RCP-011
 
@@ -60,6 +60,5 @@ Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the
 
 ## What I would do next
 
-- Build the TIME rules.
 - Measure flag precision and calibrate the threshold on the company's own receipts.
 - Rerun through OpenRouter, and send names to the model only as placeholders.

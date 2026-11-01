@@ -71,7 +71,7 @@ if m["blame"]["mismatched"]:
     st.dataframe(pd.DataFrame(m["blame"]["receipts"]), hide_index=True, width="stretch")
 else:
     st.markdown("The system gets none of the 28 in-scope receipts wrong, so the blame report is empty. "
-                "The receipts it does get wrong are the four timing receipts, out of scope on this track:")
+                "The four timing receipts are not scored on this track; the timing rules built after the frozen run get them right:")
 st.dataframe(pd.DataFrame([{**o, "got_rules": ", ".join(o["got_rules"]), "want_rules": ", ".join(o["want_rules"])}
                            for o in m["out_of_scope"]]), hide_index=True, width="stretch")
 

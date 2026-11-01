@@ -1,4 +1,4 @@
-"""Hand-written receipts for edge cases and the 11 rules no gold receipt raises.
+"""Hand-written receipts for edge cases and the 14 rules no scored answer raises.
 
 Each scenario in fixtures/synthetic_receipts.jsonl gives the expected result for every receipt and
 quotes the policy sentence that decides it. Fields left out of a receipt take the defaults in
@@ -54,6 +54,6 @@ def test_every_tier_2_rule_fires_somewhere():
         rule_id
         for s in SCENARIOS
         for expected in s["expected"].values()
-        for rule_id in expected.get("exceptions", {})
+        for rule_id in [*expected.get("exceptions", {}), *expected.get("signals", [])]
     }
     assert tier_2 - fired == set()

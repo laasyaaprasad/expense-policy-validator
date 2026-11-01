@@ -9,9 +9,10 @@ import re
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 from validator.data import LineItem
-from validator.engine.context import FOOD_AND_DRINK, Context, NotEvaluable, ReceiptView
+from validator.engine.context import FOOD_AND_DRINK, Context, MealEntry, NotEvaluable, ReceiptView
 from validator.engine.money import cents
 from validator.rules_config import RuleSpec
 
@@ -22,6 +23,7 @@ class Outcome:
     facts: dict = field(default_factory=dict)
     severity: str | None = None  # only for HEALTH-01, the one rule with two severities
     waived_by: str | None = None  # the reference that satisfied the rule (EXC-02)
+    replaces: tuple[str, ...] = ()  # rules this outcome replaces on the receipt (TIME-03)
 
 
 Check = Callable[[RuleSpec, ReceiptView, Context], Outcome | None]
@@ -57,13 +59,27 @@ def _needs_reference(rule: RuleSpec, r: ReceiptView, lines, **facts) -> Outcome 
 
 # --- meals -------------------------------------------------------------------------------------
 
-def _meal_cap(r: ReceiptView, ctx: Context, cap_for_day: Callable, **facts) -> Outcome | None:
+def _meal_01_cap(rule: RuleSpec, r: ReceiptView, ctx: Context, entries: list[MealEntry]):
+    # "on a day that mixes the two, the higher cap applies"
+    return rule.params["international_cap_usd"] if any(e.international for e in entries) else rule.params["domestic_cap_usd"]
+
+
+def _reg_03_cap(rule: RuleSpec, r: ReceiptView, ctx: Context, entries: list[MealEntry]):
+    # "Convert EUR 70 to USD at the euro rate on the transaction date"
+    return rule.params["cap_eur"] * ctx.euro_rate(r)
+
+
+# The daily meal cap each rule sets, in USD per person.
+MEAL_CAPS = {"MEAL-01": _meal_01_cap, "REG-02": lambda rule, r, ctx, entries: rule.params["cap_usd"], "REG-03": _reg_03_cap}
+
+
+def _meal_cap(rule: RuleSpec, r: ReceiptView, ctx: Context, **facts) -> Outcome | None:
     """MEAL-01 definitions: per-person amounts of one employee's meal receipts on one date, added together."""
     if not r.is_meal_receipt:
         return None
     entries = ctx.meal_day(r)
     day_total = sum(entry.per_person_usd for entry in entries)
-    cap = cap_for_day(entries)
+    cap = MEAL_CAPS[rule.id](rule, r, ctx, entries)
     if day_total <= cap:
         return None
     return Outcome((), {
@@ -77,23 +93,19 @@ def _meal_cap(r: ReceiptView, ctx: Context, cap_for_day: Callable, **facts) -> O
 
 @check("MEAL-01")
 def meal_01(rule, r, ctx):
-    # "on a day that mixes the two, the higher cap applies"
-    params = rule.params
-    return _meal_cap(r, ctx, lambda entries: params["international_cap_usd"] if any(e.international for e in entries) else params["domestic_cap_usd"])
+    return _meal_cap(rule, r, ctx)
 
 
 @check("REG-02")
 def reg_02(rule, r, ctx):
-    return _meal_cap(r, ctx, lambda entries: rule.params["cap_usd"])
+    return _meal_cap(rule, r, ctx)
 
 
 @check("REG-03")
 def reg_03(rule, r, ctx):
-    # "Convert EUR 70 to USD at the euro rate on the transaction date"
     if not r.is_meal_receipt:
         return None
-    rate = ctx.euro_rate(r)
-    return _meal_cap(r, ctx, lambda entries: rule.params["cap_eur"] * rate, cap_eur=rule.params["cap_eur"], euro_rate=rate)
+    return _meal_cap(rule, r, ctx, cap_eur=rule.params["cap_eur"], euro_rate=ctx.euro_rate(r))
 
 
 @check("MEAL-02")
@@ -392,3 +404,70 @@ def reg_04(rule, r, ctx):
     if total_eur <= rule.params["threshold_eur"]:
         return None
     return Outcome((), {"total_eur": cents(total_eur), "threshold_eur": rule.params["threshold_eur"], "vat_number": None})
+
+
+# --- transaction patterns ----------------------------------------------------------------------
+
+@check("TIME-01")
+def time_01(rule, r, ctx):
+    # "Transaction times are recorded in local time at the merchant", so the hour is read as recorded.
+    when = r.receipt.transaction_datetime
+    if when is None:
+        raise NotEvaluable("no transaction time recorded (DOC-02)")
+    if when.hour >= rule.params["window_end_hour"]:
+        return None
+    return Outcome((), {"time": when.strftime("%H:%M")})
+
+
+@check("TIME-02")
+def time_02(rule, r, ctx):
+    # "Team meals and client entertainment often happen without travel and are not covered."
+    if r.expense_type not in rule.applies_to.expense_types or r.receipt.trip_id is not None:
+        return None
+    return Outcome((), {"expense_type": r.expense_type})
+
+
+def _split_thresholds(r: ReceiptView, group: list[ReceiptView], ctx: Context):
+    """TIME-03's thresholds that apply to the group: the rule, each receipt's amount, and the limit."""
+    config = r.config
+    if not any(g.receipt.itemized for g in group):
+        yield "DOC-01", {g.receipt_id: g.total_usd() for g in group}, config.rule("DOC-01").params["total_threshold_usd"]
+    if all(g.is_meal_receipt for g in group):
+        # The employee's meal cap is the regional one where the addendum replaces MEAL-01.
+        meal = next((rule for rule in config.rules if "MEAL-01" in rule.overrides and r.region in rule.applies_to.regions),
+                    config.rule("MEAL-01"))
+        ids = {g.receipt_id for g in group}
+        entries = [entry for entry in ctx.meal_day(r) if entry.receipt_id in ids]
+        if len(entries) != len(group):
+            raise NotEvaluable("meal spend could not be computed for every receipt in the group")
+        yield meal.id, {e.receipt_id: e.per_person_usd for e in entries}, MEAL_CAPS[meal.id](meal, r, ctx, entries)
+    by_recipient = defaultdict(lambda: defaultdict(Decimal))
+    for g in group:
+        for line in _gifts(g):
+            item = g.item(line)
+            if item.recipient_name and item.recipient_type != "employee":  # GIFT-01's named gifts
+                by_recipient[_recipient_key(item.recipient_name)][g.receipt_id] += g.line_usd(line)
+    for amounts in by_recipient.values():
+        if len(amounts) > 1:
+            yield "GIFT-01", dict(amounts), config.rule("GIFT-01").params["cap_per_recipient_usd"]
+
+
+@check("TIME-03")
+def time_03(rule, r, ctx):
+    # "It replaces the threshold rule being split around: report the split, not a separate breach of
+    # that threshold."
+    if not r.receipt.merchant_name:
+        raise NotEvaluable("no merchant name recorded (DOC-02)")
+    group = ctx.merchant_day(r)
+    if len(group) < 2:
+        return None
+    split = [
+        {"rule_id": rule_id, "amounts_usd": {k: cents(v) for k, v in amounts.items()}, "limit_usd": cents(limit)}
+        for rule_id, amounts, limit in _split_thresholds(r, group, ctx)
+        if max(amounts.values()) <= limit < sum(amounts.values())
+    ]
+    if not split:
+        return None
+    facts = {"merchant": r.receipt.merchant_name, "date": r.date.isoformat(), "receipts": sorted(g.receipt_id for g in group),
+             "split_around": split}
+    return Outcome((), facts, replaces=tuple(s["rule_id"] for s in split))

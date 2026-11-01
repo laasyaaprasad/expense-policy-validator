@@ -28,6 +28,7 @@ The research done before building, on 2026-10-30. For each decision the brief le
   - **Martin Fowler** notes that a simple rules engine is easy to build yourself, and that chaining, where one rule's action changes another's condition, is what makes rule systems hard to reason about and debug. So no rule triggers another.
   - A library is overkill for about 30 rules, and the older Python ones (`business-rules`, `durable_rules`) haven't been updated since 2022 and 2020. `zen-engine` is the path if it ever has to scale.
   - Cedar's "forbid … unless" is the model for carve-outs such as a pre-approval waiving a cap.
+- **As built:** TIME-03 (split transactions) is the one rule that compares receipts at the same merchant, and when it fires it replaces the limit that was split, as the regional caps replace MEAL-01. `rules.yaml` lists what it may replace, and the trace records what it did.
 - **Drafting the rules:** an LLM drafted `rules.yaml` once, offline, and a person reviewed it, as AWS Bedrock Automated Reasoning and Concur's AI rule authoring do. Never at runtime. A test checks every quote against the policy text.
 
 ## 3. Classifier
@@ -64,7 +65,7 @@ The research done before building, on 2026-10-30. For each decision the brief le
 
 - **Options:** a structured index; BM25 keyword search; small embeddings; passing whole documents.
 - **Picked:** a structured index built from each rule's `applies_to` (category, MCC, expense type, region), plus cross-references and the rules that always apply. It is deterministic and logged.
-- **Why:** the engine is code, so retrieval decides which checks run. A rule it misses is a violation the engine misses, so it can't be fuzzy. It keeps 7.1 of 31 rules per receipt and missed none.
+- **Why:** the engine is code, so retrieval decides which checks run. A rule it misses is a violation the engine misses, so it can't be fuzzy. It keeps 9.5 of 34 rules per receipt and missed none.
 
 ## 7. Evidence and explanations
 

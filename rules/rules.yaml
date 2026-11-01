@@ -49,8 +49,8 @@ expense_type_covers:
 reference_prefixes:
   PA-: pre_approval
 
-# Transaction-pattern rules are out of scope on this track.
-out_of_scope: [TIME-01, TIME-02, TIME-03, TIME-04]
+# TIME-04 applies only when the trip record has start and end dates, and no trip record here does.
+out_of_scope: [TIME-04]
 
 rules:
   # --- meals-and-entertainment-policy.md ---
@@ -422,6 +422,39 @@ rules:
     evidence: >-
       Currency conversion uses the rate on the transaction date, which must be recorded on the
       expense record.
+
+  # --- transaction-pattern-rules.md ---
+  - id: TIME-01
+    doc: transaction-pattern-rules.md
+    kind: review_signal
+    tier: 2
+    params: {window_end_hour: 5}
+    applies_to: {always: true}
+    evidence: >-
+      A transaction timed from 00:00 up to, but not including, 05:00 raises a review signal.
+      Transaction times are recorded in local time at the merchant.
+
+  - id: TIME-02
+    doc: transaction-pattern-rules.md
+    kind: review_signal
+    tier: 2
+    applies_to: {expense_types: [Meals - Individual, Lodging, Travel - Other]}
+    evidence: >-
+      An individual travel expense — declared as Meals - Individual, Lodging, or Travel - Other —
+      with no associated trip record raises a review signal.
+
+  - id: TIME-03
+    doc: transaction-pattern-rules.md
+    kind: exception
+    severity: high
+    scope: receipt
+    tier: 2
+    applies_to: {always: true}
+    replaces: [DOC-01, MEAL-01, REG-02, REG-03, GIFT-01]
+    evidence: >-
+      Two or more receipts by the same employee, at the same merchant (by merchant name), on the
+      same calendar date, are treated as a deliberate split when each one is at or below one of
+      these thresholds but together they are above it
 
   # --- approval-and-exception-handling.md ---
   - id: EXC-01

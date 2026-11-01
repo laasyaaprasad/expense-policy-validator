@@ -42,6 +42,7 @@ class RuleSpec(BaseModel):
     applies_to: AppliesTo = AppliesTo()
     overrides: tuple[str, ...] = ()  # rules this one replaces wherever it applies
     line_overrides: tuple[str, ...] = ()  # rules this one replaces for the lines it cites
+    replaces: tuple[str, ...] = ()  # rules this one may replace on a receipt where it is raised (TIME-03)
     requires_reference: str | None = None  # the reference kind that satisfies the rule (EXC-02)
     evidence: str
 

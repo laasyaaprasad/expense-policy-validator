@@ -15,7 +15,7 @@ python -I evaluation/cord_convert.py rows.json cord/receipts.jsonl
   - a US employee, filing "Meals - Individual" for one attendee
   - MCC 5812, merchant "(not recorded)"
   - IDR at 16,000 per USD
-  - one employee per receipt
+  - one employee per receipt, on a three-night trip of its own (added with the timing rules, so TIME-02 doesn't fire on every receipt; no result changed)
 - **Language.** Every line is marked `id`.
 - **Totals.** Two receipts have no total, so their line sum is used.
 

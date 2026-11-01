@@ -37,7 +37,8 @@ Where the policy text leaves room, these are the readings the engine takes. All 
 | PERS-01 | The baggage-delay carve-out covers every `personal_care` line, and the 24-hour delay is taken as given by the reference. No field records either. | "essential toiletries are reimbursable up to $150, provided the delay reference is recorded" |
 | REG-03, REG-04 | A non-euro receipt is converted at a euro rate taken from a euro receipt on the same date. If there is none, the rule is `not_evaluated`. All EMEA receipts in the data are in euros. | "converted at the euro rate on the transaction date" |
 | DOC-04 | A missing currency also raises DOC-04, because the receipt cannot be shown to be in USD. | "must record the transaction currency and the conversion rate used" |
-| MEAL-01 | MEAL-01 is raised on the split pair RCP-020/021. TIME-03 is out of scope; gold has TIME-03, which replaces the cap. These receipts are not scored. | "It replaces the threshold rule being split around" |
+| TIME-03 | *Added after the run.* Receipts are grouped on the exact `merchant_name`. The meal cap is compared per person, each receipt divided by its own attendee count, against the employee's own cap (regional where the addendum sets one). Only the limit that was split is replaced, on every receipt in the group. A same-day meal at another merchant still counts towards MEAL-01's daily total; no receipt tests that case. | "It replaces the threshold rule being split around" |
+| TIME-02 | *Added after the run.* Only the trip record decides it. The CORD receipts each get a trip of their own, since a US employee paying in rupiah is travelling. | "with no associated trip record" |
 
 ## EXC-03 threshold rule (written before the dev set was first run)
 
@@ -49,7 +50,7 @@ The rule is fixed here before any classification output has been seen, on the de
 
 The config was frozen at tag `frozen` (`outputs/frozen_config.json`), and the first classification of the real receipts was committed untouched (commit e6e8d34) before anything was scored. It took 31 calls, all valid first time, for $0.0074. A fresh repeat and a run without the merchant and expense type cost $0.0150 more (`outputs/classifications_{repeat,no_context}.jsonl`). The scores are in `docs/evaluation.md`.
 
-Nothing was changed after seeing a gold error. The code has changed since the freeze (the crash fix the CORD pilot found, the per-receipt trace, tidying), but `outputs/classifications.jsonl` and `outputs/results.jsonl` are byte-identical to the files first committed in e6e8d34 and 2723f6b.
+Nothing was changed after seeing a gold error. The code has changed since the freeze (the crash fix the CORD pilot found, the per-receipt trace, tidying), and `outputs/classifications.jsonl` is byte-identical to the file first committed in e6e8d34. `outputs/results.jsonl` matched 2723f6b until the timing rules (TIME-01 to 03), a stretch goal built afterwards from the policy text. They change the four unscored timing receipts, which now match their answers, and on the 28 scored receipts only the policy version and the list of rules evaluated.
 
 ## Keyword baseline
 
@@ -79,6 +80,7 @@ Claude Code did most of the building. These are the points where I directed it, 
 | After the pilot | **Directed:** were the false flags really the system's fault? | Four of the six rest only on $0 lines, which became an open question, not a fix. |
 | After the pilot | **Corrected:** it proposed changing the engine and both prompts to fix CORD's errors. I stopped it before any of it was built: why fit the system to receipts the brief isn't about? | Nothing is tuned on CORD. |
 | Before submitting | **Directed:** has anything overfit? | An audit. Labels never reach the system, and the real risks (a prompt written with the receipts in view, an engine that isn't blind, a small n) are stated in the README and evaluation. |
+| Before submitting | **Asked** whether a cleaner rewrite would be better. Kept the design, and **directed** it to build the timing rules cleanly. | TIME-01 to 03, on the existing engine; all four timing receipts match. TIME-04 can't apply. |
 | Before submitting | **Corrected:** asked what observability was missing, it proposed adding monitoring to the viewer, which the brief doesn't ask for and which would have shown made-up reviewer verdicts. I kept it internal. | A per-receipt trace (`outputs/traces.jsonl`); dashboards and reviewer verdicts are in the AWS page's monitoring plan. |
 
 Standing rules throughout: the assistant never reads or commits the API key, labels are used only for scoring, the organisers' data and brief stay out of the repo, and downloaded files are treated as untrusted.
@@ -92,4 +94,5 @@ The assistant's own bugs, and what caught them.
 | Rules config | The EXC-01 and EXC-02 evidence quotes in the assistant's `rules/rules.yaml` each ended with a period where the policy has a colon, so they were not verbatim. | `test_evidence_is_verbatim_policy_text` |
 | Model client | The planned smoke test ("logprobs give a probability between 0 and 1") passed on useless data. At temperature 0, DeepSeek returns logprob 0.0 for every chosen token, so every item, the trap included, scored 1.0. The classifier now runs at temperature 1, and the test checks that logprobs are informative there. | The assistant reading the raw logprobs after a too-clean pass |
 | Model client | The plan assumed strict `json_schema` output, which DeepSeek's own API doesn't offer. The category list is now enforced by validation and one retry. | DeepSeek's API reference, read before writing the client |
+| Timing rules | TIME-02 would have sent all 100 CORD receipts to review: their synthetic context had no trip. Each now has a trip of its own, and the CORD results are unchanged. | A check of which receipts each new rule would touch, before building it |
 | CORD pilot | One of `category_confidences`' two failure paths raised instead of giving confidence 0, and on the 49th real receipt it stopped the whole run. Both paths now give confidence 0. None of the 32 receipts had hit it, and their outputs are unchanged. | The first run on real receipts |

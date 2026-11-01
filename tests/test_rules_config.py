@@ -45,7 +45,7 @@ def scored_gold_rule_ids(gold):
 
 def test_every_rule_is_encoded_or_out_of_scope(config, policies):
     encoded = {rule.id for rule in config.rules}
-    assert set(config.out_of_scope) == {"TIME-01", "TIME-02", "TIME-03", "TIME-04"}
+    assert set(config.out_of_scope) == {"TIME-04"}  # trip records hold no start or end dates
     assert encoded | set(config.out_of_scope) == set(policies)
 
 
@@ -66,7 +66,7 @@ def test_numeric_params_appear_in_rule_text(config, policies):
         text = plain(policies[rule.id].text)
         for name, value in rule.params.items():
             number = int(value) if value == value.to_integral_value() else value
-            candidates = {str(number), NUMBER_WORDS.get(number, str(number))}
+            candidates = {str(number), NUMBER_WORDS.get(number, str(number)), f"{number:02d}:00" if isinstance(number, int) else str(number)}
             if not any(re.search(rf"\b{re.escape(c)}\b", text) for c in candidates):
                 missing.append((rule.id, name, value))
     assert missing == []
@@ -104,11 +104,11 @@ def test_tiers_match_the_scored_answers(config, gold):
     tier_1 = {rule.id for rule in config.rules if rule.tier == 1}
     tier_2 = {rule.id for rule in config.rules if rule.tier == 2}
     assert tier_1 == scored_gold_rule_ids(gold)
-    assert len(tier_1) == 20 and len(tier_2) == 11
+    assert len(tier_1) == 20 and len(tier_2) == 14
 
 
 def test_review_signal_rules(config):
-    assert {rule.id for rule in config.rules if rule.kind == "review_signal"} == {"MCC-02"}
+    assert {rule.id for rule in config.rules if rule.kind == "review_signal"} == {"MCC-02", "TIME-01", "TIME-02"}
 
 
 def test_overrides_point_at_encoded_rules(config):

@@ -4,7 +4,7 @@ checked by planting one fault in its classifications and seeing which stage the 
 import pytest
 
 from evaluation.blame import blame, load_classified, load_gloss_review
-from evaluation.gold import GoldException, load_gold
+from evaluation.gold import load_gold
 from evaluation.oracle import load_attributes, run_oracle
 from validator import pipeline
 from validator.classifier import TAXONOMY
@@ -76,17 +76,14 @@ def test_a_receipt_oracle_mode_also_gets_wrong_is_rule_logic(committed):
 
 
 def test_a_misclassification_on_another_receipt_is_cross_receipt(committed):
-    # RCP-020 and RCP-021 are one employee's meals on one day. With RCP-021's dishes read as office
-    # supplies, the day's meal spend falls under the cap and RCP-020 loses MEAL-01. The pair is out of
-    # scope (gold has TIME-03), so RCP-020 is scored here against the engine's own MEAL-01 answer.
-    [meal_01] = [f for d in ORACLE if d.receipt_id == "RCP-020" for f in d.exceptions]
-    gold = {**GOLD, "RCP-020": GOLD["RCP-020"].model_copy(update={"exceptions": (GoldException(
-        rule_id="MEAL-01", policy_doc=meal_01.policy_doc, severity=meal_01.severity, line_ids=(), reason="test"),)})}
+    # RCP-020 and RCP-021 are one employee's meals at one merchant on one day, split around the meal
+    # cap (TIME-03). With RCP-021's dishes read as office supplies there is no split, and RCP-020
+    # loses TIME-03 through a fault on another receipt.
     faulty = committed
     for line_id in ("RCP-021-L1", "RCP-021-L2", "RCP-021-L3"):
         faulty = plant(faulty, line_id, category="office_supplies")
-    assert stages(committed, gold=gold, scored={"RCP-020"}) == {}
-    assert stages(faulty, gold=gold, scored={"RCP-020"}) == {"RCP-020": "classification (cross-receipt)"}
+    assert stages(committed, scored={"RCP-020"}) == {}
+    assert stages(faulty, scored={"RCP-020"}) == {"RCP-020": "classification (cross-receipt)"}
 
 
 def test_two_faults_on_one_item_are_unknown(committed):

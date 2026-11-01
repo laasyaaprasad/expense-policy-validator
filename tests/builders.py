@@ -12,7 +12,7 @@ from validator.taxonomy import load_taxonomy
 TAXONOMY = load_taxonomy()
 CONFIG = load_rules()
 
-# A US employee's individual meal at a restaurant, in USD, itemized, with nothing else recorded.
+# A US employee's individual meal at a restaurant on a two-night trip, in USD, itemized, with nothing else recorded.
 RECEIPT_DEFAULTS = {
     "employee_id": "E-TEST",
     "employee_country": "US",
@@ -24,8 +24,8 @@ RECEIPT_DEFAULTS = {
     "currency": "USD",
     "fx_rate_to_usd": "1.0",
     "attendee_count": None,
-    "trip_id": None,
-    "trip_nights": None,
+    "trip_id": "TRIP-TEST",
+    "trip_nights": 2,
     "pre_approval_ref": None,
     "itemized": True,
 }
