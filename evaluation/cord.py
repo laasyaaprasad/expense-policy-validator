@@ -22,7 +22,7 @@ from pathlib import Path
 from evaluation.evaluate import SWEEP
 from evaluation.metrics import DISPOSITIONS, confusion, macro_f1, per_category, wilson
 from validator.data import ROOT, ReceiptInput, load_receipts, read_jsonl
-from validator.llm import CACHE_DIR, LLM, LLMError, cost_usd
+from validator.llm import CACHE_DIR, LLM, cost_usd
 from validator.models import ClassifiedItem, ClassifiedReceipt, Decision
 from validator.pipeline import decide_all, run, write_run
 
@@ -219,11 +219,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run", action="store_true", help="run the pipeline first (makes calls on a cache miss)")
     args = parser.parse_args(argv)
     if args.run:
-        try:
-            llm = LLM()
-        except LLMError as e:
-            print(f"{e}. Replaying the committed cache instead.")
-            llm = LLM.offline()
+        llm = LLM.or_offline()
         write_run(run(llm, load_receipts(RECEIPTS_PATH)), OUT_DIR)
     write_label_review(load_receipts(RECEIPTS_PATH), load_labels())
     metrics = build()

@@ -8,7 +8,8 @@ tokens and dollars to outputs/spend.jsonl. Neither file ever holds the API key.
 Providers:
 - deepseek (current): DeepSeek's own API. It offers `json_object` output but not strict
   `json_schema`, so callers validate what comes back. Thinking is on by default and is switched off.
-- openrouter: the brief's default. Strict `json_schema`, a pinned upstream, reasoning off.
+- openrouter: the brief's default. `json_object` output, an optional pinned upstream, reasoning off.
+  Never run live: only DeepSeek's key has been available.
 """
 
 import hashlib
@@ -138,6 +139,15 @@ class LLM:
         """Replays the committed cache with no key and no network. Reviewers rerun the pipeline this way."""
         return cls(Settings.from_env(require_key=False), client=_OfflineClient(), **paths)
 
+    @classmethod
+    def or_offline(cls) -> "LLM":
+        """A live client when a key is set; otherwise the committed cache, where any miss is an error."""
+        try:
+            return cls()
+        except LLMError as e:
+            print(f"{e}. Replaying the committed cache instead.")
+            return cls.offline()
+
     def __init__(self, settings: Settings | None = None, *, cache_dir: Path = CACHE_DIR,
                  ledger_path: Path = LEDGER_PATH, client=None):
         self.settings = settings or Settings.from_env()
@@ -147,21 +157,16 @@ class LLM:
             client = OpenAI(api_key=self.settings.api_key, base_url=self.settings.base_url, max_retries=5, timeout=120)
         self._client = client
 
-    def request(self, messages: list[dict], *, schema: dict | None = None, schema_name: str = "result",
-                logprobs: bool = False, top_logprobs: int = 0, max_tokens: int = 2000, temperature: float = 0) -> dict:
+    def request(self, messages: list[dict], *, logprobs: bool = False, top_logprobs: int = 0, max_tokens: int = 2000, temperature: float = 0) -> dict:
         """The exact request sent, which is also what the cache key is computed from."""
         s = self.settings
         params: dict[str, Any] = {"model": s.model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
         if logprobs:
             params.update(logprobs=True, top_logprobs=top_logprobs)
+        params["response_format"] = {"type": "json_object"}
         if s.provider == "deepseek":
-            params["response_format"] = {"type": "json_object"}
             params["extra_body"] = {"thinking": {"type": "disabled"}}
         else:
-            params["response_format"] = (
-                {"type": "json_schema", "json_schema": {"name": schema_name, "strict": True, "schema": schema}}
-                if schema else {"type": "json_object"}
-            )
             provider = {"require_parameters": True}
             if s.pinned:
                 provider.update(order=list(s.pinned), allow_fallbacks=False)

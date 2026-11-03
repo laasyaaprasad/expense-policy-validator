@@ -103,8 +103,6 @@ def reg_02(rule, r, ctx):
 
 @check("REG-03")
 def reg_03(rule, r, ctx):
-    if not r.is_meal_receipt:
-        return None
     return _meal_cap(rule, r, ctx, cap_eur=rule.params["cap_eur"], euro_rate=ctx.euro_rate(r))
 
 

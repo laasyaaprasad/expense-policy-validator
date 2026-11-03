@@ -60,7 +60,7 @@ def test_a_cross_receipt_total_names_the_receipts_behind_it(traces):
 def test_overrides_are_recorded(traces):
     by_id = {t["receipt_id"]: t for t in traces}
     assert by_id["RCP-022"]["engine"]["lines_taken_over"] == {"GIFT-01": ["RCP-022-L1", "RCP-022-L2"]}  # GIFT-04 first
-    assert "MEAL-01" in by_id["RCP-016"]["engine"]["overridden_by_region"]  # an EMEA employee: REG-02/03 instead
+    assert "MEAL-01" in by_id["RCP-016"]["engine"]["overridden_by_region"]  # an APAC employee: REG-01/02 instead
 
 
 def test_the_trace_holds_no_line_text_or_names(traces):

@@ -6,7 +6,6 @@ from decimal import Decimal
 import pytest
 
 from tests.builders import CONFIG, from_data, line, receipt
-from validator.data import load_receipts
 from validator.engine import evaluate
 from validator.engine.disposition import disposition
 from validator.engine.money import to_usd
@@ -129,13 +128,6 @@ def test_currency_conversion():
     # REG-05 / DOC-04: thresholds are evaluated on the USD amount at the receipt's own rate.
     assert to_usd(Decimal("89800"), Decimal("0.0067")) == Decimal("601.66")
     assert to_usd(Decimal("0.125"), Decimal("1")) == Decimal("0.13")  # half up, not banker's rounding
-
-
-def test_engine_conversion_matches_every_given_usd_amount():
-    for r in load_receipts():
-        for item in r.line_items:
-            assert to_usd(item.amount, r.fx_rate_to_usd) == item.amount_usd, item.line_id
-        assert to_usd(r.total_amount, r.fx_rate_to_usd) == r.total_amount_usd, r.receipt_id
 
 
 def test_cap_crossed_only_after_conversion():

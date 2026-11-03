@@ -4,7 +4,7 @@ The gloss sits beside the original text; it never replaces it. The classifier se
 output keeps `description_raw` exactly as printed. English lines make no call and get no gloss.
 Translation runs at temperature 0: it needs no confidence, and greedy output is the most stable.
 
-`python -m validator.translate` translates every receipt (from the cache when it can) and writes
+`python -m validator.translate` translates every receipt (from the cache; with no key, only from it) and writes
 review/translations.csv for the hand check, keeping any `ok` marks whose gloss is unchanged.
 """
 
@@ -87,7 +87,7 @@ def write_review(receipts: list[ReceiptInput], glosses: dict[str, str], path: Pa
 
 def main() -> int:
     receipts = load_receipts()
-    glosses = translate_all(receipts, LLM())
+    glosses = translate_all(receipts, LLM.or_offline())
     write_review(receipts, glosses)
     print(f"{len(glosses)} glosses; wrote {REVIEW_PATH.relative_to(ROOT)}. Fill in the ok column after checking each one.")
     return 0

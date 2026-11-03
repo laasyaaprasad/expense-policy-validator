@@ -106,10 +106,9 @@ def test_deepseek_request_turns_thinking_off_and_asks_for_json():
     assert params["temperature"] == 0 and params["logprobs"] is True and params["top_logprobs"] == 5
 
 
-def test_openrouter_request_pins_the_provider_and_uses_strict_schema():
-    schema = {"type": "object", "properties": {"category": {"type": "string", "enum": ["a", "b"]}}}
-    params = LLM(OPENROUTER, client=FakeClient()).request(MESSAGES, schema=schema)
-    assert params["response_format"]["json_schema"] == {"name": "result", "strict": True, "schema": schema}
+def test_openrouter_request_pins_the_provider_and_asks_for_json():
+    params = LLM(OPENROUTER, client=FakeClient()).request(MESSAGES)
+    assert params["response_format"] == {"type": "json_object"}
     assert params["extra_body"]["provider"] == {"require_parameters": True, "order": ["google-vertex"], "allow_fallbacks": False}
     assert params["extra_body"]["reasoning"] == {"enabled": False}
 

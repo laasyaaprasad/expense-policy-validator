@@ -20,7 +20,7 @@ from validator.classifier import Classification, classify
 from validator.data import ROOT, ReceiptInput, load_receipts
 from validator.engine import evaluate
 from validator.engine.engine import CONFIDENCE_THRESHOLD
-from validator.llm import LLM, LLMError
+from validator.llm import LLM
 from validator.models import ClassifiedReceipt, Decision
 from validator.policies import load_policies
 from validator.reporter import ReceiptResult, report, to_json_line
@@ -122,14 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--offline", action="store_true", help="replay the committed cache; any miss is an error")
     args = parser.parse_args(argv)
-    if args.offline:
-        llm = LLM.offline()
-    else:
-        try:
-            llm = LLM()
-        except LLMError as e:
-            print(f"{e}. Replaying the committed cache instead.")
-            llm = LLM.offline()
+    llm = LLM.offline() if args.offline else LLM.or_offline()
     started = datetime.now(timezone.utc)
     result = run(llm)
     write_run(result)

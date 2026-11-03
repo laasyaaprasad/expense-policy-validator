@@ -6,7 +6,7 @@
 
 - **API Gateway HTTP API**, cheaper than REST APIs and with a built-in JWT authorizer. `POST /receipts` returns `202` and an ID; `GET /receipts/{id}` returns the result.
 - **Two Lambdas with SQS between them**, so callers never wait on the model. Worker concurrency stays under the rate limit, and failures go to the dead-letter queue.
-- **DynamoDB** holds running totals for meal caps and HEALTH-01, keyed `employee#date` and `trip#id` and written once per receipt ID, so a duplicate delivery isn't counted twice; a receipt that tips a day over a cap re-decides the earlier ones. Results go to S3.
+- **DynamoDB** holds every cross-receipt total (meal days, trip OTC, baggage allowances, same-merchant days), written once per receipt ID, so a duplicate delivery isn't counted twice; a receipt that tips a day over a cap re-decides the earlier ones. Results go to S3.
 - **CloudWatch Logs**, Lambda's default: one trace per receipt, with no line text or names.
 
 ## The policy documents
@@ -24,7 +24,7 @@ Callers get client-credentials tokens from Cognito (one client each, read or wri
 | Line | Arithmetic | $/month |
 |---|---|---|
 | DeepSeek V4.1 Flash, peak prices | (852 cached × $0.006 + 199 uncached × $0.30 + 156 output × $1.20) / 1M = $0.000252 per receipt × 1.52M | ≈ 383 |
-| Worker Lambda | 1.52M × 1.5 s (measured) × 0.5 GB × $0.0000166667 | ≈ 19 |
+| Worker Lambda | 1.52M × 1.4 s (measured) × 0.5 GB × $0.0000166667 | ≈ 18 |
 | API Gateway, SQS, DynamoDB, S3, logs | 3M requests, 4.5M messages, 1.52M PUTs, 3 GB of logs | ≈ 19 |
 | Cognito tokens | 10 callers × 720 tokens (one an hour) × $0.00225 | ≈ 16 |
 

@@ -8,7 +8,7 @@ test:
 oracle:
 	uv run python -m evaluation.oracle
 
-# Classify the hand-written dev set and apply the threshold rule. Needs a key on a cache miss.
+# Classify the hand-written dev set and apply the threshold rule. Replays the cache; a key is needed only on a miss.
 dev:
 	uv run python -m evaluation.dev
 

@@ -70,7 +70,7 @@ The research done before building, on 2026-10-30. For each decision the brief le
 ## 7. Evidence and explanations
 
 - **Options:** an LLM-written explanation with a citation; the policy text stored word for word, with an explanation built from the computed numbers.
-- **Picked:** the stored quote and a template, such as "Meal spend on 2026-04-27 is $145.50 per person across RCP-020, RCP-021, over the $75.00 daily cap."
+- **Picked:** the stored quote and a template, such as "Meal spend on 2026-04-24 is $214.80 per person, over the $75.00 daily cap."
 - **Why:** a stored quote can't be invented, and evidence is graded. Ramp's policy agent likewise links each decision to the policy sections it relies on, and Instructor's citation pattern validates a quote against its source the same way.
 
 ## 8. Model

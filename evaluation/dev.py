@@ -88,7 +88,7 @@ def choose_threshold(rows: list[Scored]) -> tuple[float, dict[float, int]]:
 
 
 def main() -> int:
-    llm = LLM()
+    llm = LLM.or_offline()
     receipts, expected = load_dev()
     glosses = translate_all(receipts, llm)
     runs = {

@@ -5,7 +5,7 @@ in outputs/spend.jsonl, so a rerun makes no calls. Items are written here, never
 
 Finding: at temperature 0 DeepSeek reports logprobs after greedy decoding (0.0 for every chosen
 token, -9999 for every alternative), so they carry no confidence. At temperature 1 they are the
-model's own distribution. The classifier therefore samples at temperature 1 (DECISIONS.md, section 3).
+model's own distribution. The classifier therefore samples at temperature 1 (DECISIONS.md, section 4).
 """
 
 import json

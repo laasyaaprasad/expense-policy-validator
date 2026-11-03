@@ -43,11 +43,11 @@ Fixed in NOTES.md on 2026-10-30, before any label was written or any model call 
 
 The 32 receipts are 57% violations, and nothing in them is unseen or messy. This pilot asks what the system does on real receipt text, at the rate restricted items actually occur.
 
-- **Data.** The 100 receipts in CORD v2's validation split (CC-BY-4.0): real receipts from Indonesian restaurants, cafés, bakeries and shops, 270 lines after conversion. Text only (`cord/README.md`).
+- **Data.** The 100 receipts in CORD v2's validation split (CC-BY-4.0): real receipts from Indonesian restaurants, cafés, bakeries and shops, 270 lines after conversion. Text only.
   - The train split is too large for the API that serves the text.
   - The test split stays unseen for a later held-out check.
 - **Context.** CORD has none, so every receipt gets the same declared, synthetic context: a US employee, "Meals - Individual", MCC 5812, one attendee, IDR at 16,000 per USD, one employee per receipt. Under it, the only rule that can fire without an item cause is the $100 international meal cap (MEAL-01), on CORD-V041.
-- **Labels.** The assistant labels every line, sure or unsure, following the guide in `cord/README.md`. The labels are committed before the first model call and never reach a prompt. The user then checks every restricted and every unsure label, plus a random 30 of the rest.
+- **Labels.** The assistant labels every line, sure or unsure, following the labelling guide above. The labels are committed before the first model call and never reach a prompt. The user then checks every restricted and every unsure label, plus a random 30 of the rest.
 - **What runs.** The system exactly as frozen: same prompts, model, rules, and threshold 0.5. Nothing is tuned on the pilot. The correct decisions come from the engine run on the labels (oracle mode), under the same context.
 - **Metrics.**
   1. **Items:** accuracy and macro F1 on all lines and on sure lines, plus restricted precision and recall.
