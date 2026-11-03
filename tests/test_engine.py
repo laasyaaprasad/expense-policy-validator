@@ -328,6 +328,28 @@ def test_a_meal_split_is_found_beside_a_non_meal_receipt():
     assert raised(c) == {}
 
 
+def test_a_meal_split_is_measured_against_the_days_cap():
+    # MEAL-01: "on a day that mixes the two, the higher cap applies." Two $40 meals at one merchant are $80,
+    # over the $75 domestic cap, but a EUR 5 meal elsewhere that day makes the cap $100: no split, no breach.
+    lunch = receipt("A", line("food_beverage", "40.00"), transaction_datetime="2026-04-14T12:00:00")
+    dinner = receipt("B", line("food_beverage", "40.00"), transaction_datetime="2026-04-14T19:00:00")
+    abroad = receipt("C", line("food_beverage", "5.00"), currency="EUR", fx_rate_to_usd="1.08", merchant_name="Elsewhere",
+                     transaction_datetime="2026-04-14T09:00:00")
+    assert all(raised(d) == {} for d in decide(lunch, dinner, abroad))
+
+
+def test_a_gift_split_keeps_an_unrelated_gift_breach():
+    # TIME-03 "replaces the threshold rule being split around", not GIFT-01's other test: "Any gift of $10 or
+    # more must also name its recipient". The unnamed $15 gift is still a breach.
+    gift = dict(submitted_expense_type="Client Gifts", mcc="5947", merchant_name="Gift Shop")
+    dana = line("gift", "30.00", recipient_name="Dana Lee", recipient_type="client")
+    a = receipt("A", dana, line("gift", "15.00"), transaction_datetime="2026-04-14T10:00:00", **gift)
+    b = receipt("B", dana, transaction_datetime="2026-04-14T16:00:00", **gift)
+    a, b = decide(a, b)
+    assert raised(a) == {"TIME-03": (), "GIFT-01": ("L2",)}
+    assert raised(b) == {"TIME-03": ()}
+
+
 def test_laundry_needs_a_trip_record_not_just_a_night_count():
     # LAUNDRY-01: "On shorter trips, or on a receipt with no trip record, it is a low exception."
     r = receipt("T", line("laundry_service", "20.00"), submitted_expense_type="Travel - Other", mcc="7216",

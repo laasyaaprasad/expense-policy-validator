@@ -26,7 +26,7 @@ flowchart LR
 
 ## Prompts
 
-The classification prompt ([classifier.py](validator/classifier.py)) defines the 21 categories in its own words and says to classify what an item is, not the words in its name, with the merchant as context only. `category` comes before `reason`, so the confidence (the probability of the category tokens) measures the answer, not a justification. The translation prompt asks for a literal gloss. Both were developed on a hand-written dev set of 43 items, never on the receipts.
+The classification prompt ([classifier.py](validator/classifier.py)) defines the 21 categories in its own words and says to classify what an item is, not the words in its name, with the merchant as context only. `category` comes before `reason`, so the confidence (the category tokens' probability) measures the answer, not a justification. The translation prompt asks for a literal gloss. Both were tuned only on a 43-item hand-written dev set, by an assistant that had the answer key.
 
 ## Policy engine
 
@@ -56,7 +56,7 @@ Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the
 
 ## Spend
 
-**$0.0759 over 350 calls** at peak prices (`outputs/spend.jsonl`); a full run costs $0.0081. I pushed for DeepSeek V4.1 Flash (`deepseek-flash`, 1017 release) since, with reasoning off, it was the top open-weights model on Artificial Analysis's Intelligence Index in September 2026 ([archived page](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)): it scores well on few tokens (156 a receipt) and returns the logprobs behind the confidence. Reasoning stays off: the data gives it nothing to fix (every item right, dev confidence ≥ 0.96), and it would use 3.4 times the output tokens on a call now taking about 1.4 s ([why](DECISIONS.md#8-model)). With only a DeepSeek key, the OpenRouter path has never run.
+**$0.0759 over 350 calls** at peak prices (`outputs/spend.jsonl`); a full run costs $0.0081. I pushed for DeepSeek V4.1 Flash (`deepseek-flash`, 1017 release) since, with reasoning off, it was the top open-weights model on Artificial Analysis's Intelligence Index in September 2026 ([archived page](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)): it scores well on few tokens (156 a receipt) and returns the logprobs behind the confidence. Reasoning stays off: the data gives it nothing to fix (every item right, dev confidence ≥ 0.96), and it would use 3.4 times the output tokens ([why](DECISIONS.md#8-model)). With only a DeepSeek key, the OpenRouter path has never run.
 
 ## What I would do next
 

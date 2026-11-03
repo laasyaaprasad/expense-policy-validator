@@ -442,7 +442,8 @@ def _split_thresholds(r: ReceiptView, group: list[ReceiptView], ctx: Context):
         entries = [entry for entry in ctx.meal_day(r) if entry.receipt_id in ids]
         if len(entries) != len(meals):
             raise NotEvaluable("meal spend could not be computed for every meal receipt in the group")
-        yield meal.id, {e.receipt_id: e.per_person_usd for e in entries}, MEAL_CAPS[meal.id](meal, r, ctx, entries)
+        # The cap is the day's, set by all its meals: on a day that mixes the two, the higher one.
+        yield meal.id, {e.receipt_id: e.per_person_usd for e in entries}, MEAL_CAPS[meal.id](meal, r, ctx, ctx.meal_day(r))
     by_recipient = defaultdict(lambda: defaultdict(Decimal))
     for g in group:
         for line in _gifts(g):
@@ -473,4 +474,6 @@ def time_03(rule, r, ctx):
         return None
     receipts = sorted({receipt_id for s in split for receipt_id in s["amounts_usd"]})
     facts = {"merchant": r.receipt.merchant_name, "date": r.date.isoformat(), "receipts": receipts, "split_around": split}
-    return Outcome((), facts, replaces=tuple(s["rule_id"] for s in split))
+    # Only a meal cap adds receipts together, so only it can also be breached by the split itself. DOC-01 and
+    # GIFT-01 test each receipt alone, where each part is within the limit: whatever they find is another breach.
+    return Outcome((), facts, replaces=tuple(s["rule_id"] for s in split if s["rule_id"] in MEAL_CAPS))

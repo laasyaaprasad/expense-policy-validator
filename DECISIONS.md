@@ -28,7 +28,7 @@ The research done before building, on 2026-10-30. For each decision the brief le
   - **Martin Fowler** notes that a simple rules engine is easy to build yourself, and that chaining, where one rule's action changes another's condition, is what makes rule systems hard to reason about and debug. So no rule triggers another.
   - A library is overkill for about 30 rules, and the older Python ones (`business-rules`, `durable_rules`) haven't been updated since 2022 and 2020. `zen-engine` is the path if it ever has to scale.
   - Cedar's "forbid … unless" is the model for carve-outs such as a pre-approval waiving a cap.
-- **As built:** TIME-03 (split transactions) is the one rule that compares receipts at the same merchant, and when it fires it replaces the limit that was split, as the regional caps replace MEAL-01. `rules.yaml` lists what it may replace, and the trace records what it did.
+- **As built:** TIME-03 (split transactions) is the one rule that compares receipts at the same merchant, and when it splits a meal cap it replaces that cap, as the regional caps replace MEAL-01. DOC-01 and GIFT-01 test each receipt alone, so they keep anything else they find. `rules.yaml` lists what it may replace, and the trace records what it did.
 - **Drafting the rules:** an LLM drafted `rules.yaml` once, offline, and a person reviewed it, as AWS Bedrock Automated Reasoning and Concur's AI rule authoring do. Never at runtime. A test checks every quote against the policy text.
 
 ## 3. Classifier
