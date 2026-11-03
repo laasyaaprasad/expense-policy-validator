@@ -326,7 +326,8 @@ def health_01(rule, r, ctx):
 
 @check("LAUNDRY-01")
 def laundry_01(rule, r, ctx):
-    nights = r.receipt.trip_nights
+    # "On shorter trips, or on a receipt with no trip record, it is a low exception."
+    nights = r.receipt.trip_nights if r.receipt.trip_id is not None else None
     if nights is not None and nights >= rule.params["min_trip_nights"]:
         return None
     return _broken(r.with_category("laundry_service"), trip_nights=nights, min_trip_nights=rule.params["min_trip_nights"])
@@ -432,14 +433,15 @@ def _split_thresholds(r: ReceiptView, group: list[ReceiptView], ctx: Context):
     config = r.config
     if not any(g.receipt.itemized for g in group):
         yield "DOC-01", {g.receipt_id: g.total_usd() for g in group}, config.rule("DOC-01").params["total_threshold_usd"]
-    if all(g.is_meal_receipt for g in group):
+    meals = [g for g in group if g.is_meal_receipt]
+    if r.is_meal_receipt and len(meals) > 1:
         # The employee's meal cap is the regional one where the addendum replaces MEAL-01.
         meal = next((rule for rule in config.rules if "MEAL-01" in rule.overrides and r.region in rule.applies_to.regions),
                     config.rule("MEAL-01"))
-        ids = {g.receipt_id for g in group}
+        ids = {g.receipt_id for g in meals}
         entries = [entry for entry in ctx.meal_day(r) if entry.receipt_id in ids]
-        if len(entries) != len(group):
-            raise NotEvaluable("meal spend could not be computed for every receipt in the group")
+        if len(entries) != len(meals):
+            raise NotEvaluable("meal spend could not be computed for every meal receipt in the group")
         yield meal.id, {e.receipt_id: e.per_person_usd for e in entries}, MEAL_CAPS[meal.id](meal, r, ctx, entries)
     by_recipient = defaultdict(lambda: defaultdict(Decimal))
     for g in group:
@@ -461,13 +463,14 @@ def time_03(rule, r, ctx):
     group = ctx.merchant_day(r)
     if len(group) < 2:
         return None
+    # Only the receipts that make up a split share it: a gift to someone else at the same merchant doesn't.
     split = [
         {"rule_id": rule_id, "amounts_usd": {k: cents(v) for k, v in amounts.items()}, "limit_usd": cents(limit)}
         for rule_id, amounts, limit in _split_thresholds(r, group, ctx)
-        if max(amounts.values()) <= limit < sum(amounts.values())
+        if r.receipt_id in amounts and max(amounts.values()) <= limit < sum(amounts.values())
     ]
     if not split:
         return None
-    facts = {"merchant": r.receipt.merchant_name, "date": r.date.isoformat(), "receipts": sorted(g.receipt_id for g in group),
-             "split_around": split}
+    receipts = sorted({receipt_id for s in split for receipt_id in s["amounts_usd"]})
+    facts = {"merchant": r.receipt.merchant_name, "date": r.date.isoformat(), "receipts": receipts, "split_around": split}
     return Outcome((), facts, replaces=tuple(s["rule_id"] for s in split))

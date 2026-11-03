@@ -301,6 +301,40 @@ def test_a_decision_does_not_depend_on_other_receipts_euro_rates():
     assert reg_03.facts["euro_rate"] == CONFIG.euro_rate_usd
 
 
+def test_a_split_is_shared_only_by_the_receipts_that_make_it_up():
+    # TIME-03: "the $50 gift cap for one recipient (GIFT-01)". Two $30 gifts for Dana are a split; a $10 gift
+    # for Alex at the same merchant that day is not part of it, and neither is a coffee there.
+    gift = dict(submitted_expense_type="Client Gifts", mcc="5947", merchant_name="Gift Shop")
+    dana = lambda rid, hour: receipt(rid, line("gift", "30.00", recipient_name="Dana Lee", recipient_type="client"),
+                                     transaction_datetime=f"2026-04-14T{hour}:00:00", **gift)
+    alex = receipt("C", line("gift", "10.00", recipient_name="Alex Kim", recipient_type="client"),
+                   transaction_datetime="2026-04-14T12:00:00", **gift)
+    coffee = receipt("D", line("food_beverage", "8.00"), merchant_name="Gift Shop", transaction_datetime="2026-04-14T13:00:00")
+    a, b, c, d = decide(dana("A", 10), dana("B", 16), alex, coffee)
+    assert raised(a) == raised(b) == {"TIME-03": ()}
+    assert a.exceptions[0].facts["receipts"] == ["A", "B"]
+    assert raised(c) == raised(d) == {}
+
+
+def test_a_meal_split_is_found_beside_a_non_meal_receipt():
+    # TIME-03: "the employee's meal cap, compared per person (MEAL-01 ...)". $74 and $71.50 meals split the $75
+    # cap even when the same merchant also sold the employee something that isn't a meal.
+    lunch = receipt("A", line("food_beverage", "74.00"), transaction_datetime="2026-04-14T12:00:00")
+    dinner = receipt("B", line("food_beverage", "71.50"), transaction_datetime="2026-04-14T19:00:00")
+    shop = receipt("C", line("office_supplies", "5.00"), submitted_expense_type="Office Supplies",
+                   transaction_datetime="2026-04-14T15:00:00")
+    a, b, c = decide(lunch, dinner, shop)
+    assert raised(a) == raised(b) == {"TIME-03": ()}
+    assert raised(c) == {}
+
+
+def test_laundry_needs_a_trip_record_not_just_a_night_count():
+    # LAUNDRY-01: "On shorter trips, or on a receipt with no trip record, it is a low exception."
+    r = receipt("T", line("laundry_service", "20.00"), submitted_expense_type="Travel - Other", mcc="7216",
+                trip_id=None, trip_nights=4)
+    assert raised(decide(r)) == {"LAUNDRY-01": ("L1",)}
+
+
 def test_a_country_with_no_home_currency_is_not_evaluated_not_a_crash():
     # Data dictionary: "everyone else GLOBAL". MEAL-01 needs the home currency; without it, only that check stops.
     dinner = receipt("A", line("food_beverage", "120.00"), employee_country="CA", currency="CAD", fx_rate_to_usd="0.73")

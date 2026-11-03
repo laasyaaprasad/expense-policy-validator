@@ -52,8 +52,19 @@ def receipt_matches(record: dict, gold: GoldReceipt) -> bool:
             and {s["rule_id"] for s in record["review_signals"]} == {s.rule_id for s in gold.review_signals})
 
 
+def check_complete(records: dict[str, dict], gold: dict[str, GoldReceipt]) -> None:
+    """Every in-scope receipt has a result, with each gold line exactly once and no others."""
+    for rid in _scored(gold):
+        if rid not in records:
+            raise ValueError(f"no result for {rid}")
+        ours = [line["line_id"] for line in records[rid]["line_items"]]
+        if sorted(ours) != sorted(gold[rid].items):
+            raise ValueError(f"{rid}: result lines {sorted(ours)} differ from gold lines {sorted(gold[rid].items)}")
+
+
 def score_items(records: dict[str, dict], gold: dict[str, GoldReceipt]) -> dict:
     """Per line item, on the in-scope receipts."""
+    check_complete(records, gold)
     pairs = [(line, gold[rid].items[line["line_id"]]) for rid in _scored(gold) for line in records[rid]["line_items"]]
     y_true, y_pred = [g.category for _, g in pairs], [line["category"] for line, _ in pairs]
     correct = sum(t == p for t, p in zip(y_true, y_pred))
@@ -70,7 +81,7 @@ def score_items(records: dict[str, dict], gold: dict[str, GoldReceipt]) -> dict:
 
 
 def score_receipts(records: dict[str, dict], gold: dict[str, GoldReceipt]) -> dict:
-    """Dispositions, exceptions and signals, on the in-scope receipts."""
+    """Dispositions, exceptions and signals, on the in-scope receipts. A missing receipt is a KeyError."""
     ids = _scored(gold)
     want, got = [gold[rid].disposition for rid in ids], [records[rid]["disposition"] for rid in ids]
     gold_ex = {rid: {e.rule_id: tuple(e.line_ids) for e in gold[rid].exceptions} for rid in ids}
@@ -162,7 +173,7 @@ def build() -> dict:
     records = load_results(OUTPUT_DIR / "results.jsonl")
     blames = blame(load_classified(), gold, load_attributes(), load_gloss_review(), run_oracle())
     metrics = {
-        "note": "The frozen, blind run, scored on the 28 in-scope receipts. Nothing was changed after seeing a gold error (NOTES.md, 'The final run'); later changes (the timing rules, two robustness fixes) changed no scored decision.",
+        "note": "The first scored run after the config freeze, on the 28 in-scope receipts. Nothing was changed after seeing a gold error (NOTES.md, 'The final run'); later changes (the timing rules, fixes found in review) changed no scored decision.",
         "confidence_threshold": CONFIDENCE_THRESHOLD,
         "items": score_items(records, gold),
         **score_receipts(records, gold),
