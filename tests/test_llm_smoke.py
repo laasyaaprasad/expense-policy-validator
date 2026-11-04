@@ -6,6 +6,8 @@ in outputs/spend.jsonl, so a rerun makes no calls. Items are written here, never
 Finding: at temperature 0 DeepSeek reports logprobs after greedy decoding (0.0 for every chosen
 token, -9999 for every alternative), so they carry no confidence. At temperature 1 they are the
 model's own distribution. The classifier therefore samples at temperature 1 (DECISIONS.md, section 4).
+On OpenRouter, a call left to its routing reached a host that returned no logprobs at all, so the
+upstream is pinned (validator/llm.py, PINNED).
 """
 
 import json
@@ -80,8 +82,11 @@ def test_logprobs_carry_information_at_temperature_one(completion):
     assert any(-50 < logprob < 0 for token in completion.tokens for _, logprob in token.top[1:])
 
 
-def test_logprobs_are_degenerate_at_temperature_zero(greedy):
-    # Why the classifier does not run at temperature 0. If this starts failing, revisit the choice.
+def test_logprobs_are_degenerate_at_temperature_zero(llm, greedy):
+    # Why the classifier does not run at temperature 0 on DeepSeek's API. The pinned OpenRouter hosts
+    # return real logprobs at temperature 0, so this holds for DeepSeek only.
+    if llm.settings.provider != "deepseek":
+        pytest.skip("DeepSeek's API only")
     assert {token.logprob for token in greedy.tokens} == {0.0}
     assert {logprob for token in greedy.tokens for _, logprob in token.top[1:]} == {-9999.0}
 

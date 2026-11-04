@@ -6,10 +6,11 @@ same text, so a change in results always has a cause we can name. Every real cal
 tokens and dollars to outputs/spend.jsonl. Neither file ever holds the API key.
 
 Providers:
-- deepseek (current): DeepSeek's own API. It offers `json_object` output but not strict
-  `json_schema`, so callers validate what comes back. Thinking is on by default and is switched off.
-- openrouter: the brief's default. `json_object` output, an optional pinned upstream, reasoning off.
-  Never run live: only DeepSeek's key has been available.
+- openrouter (current, the brief's): `json_object` output, reasoning off, and the upstream pinned to
+  hosts that return logprobs. Unpinned, OpenRouter routed a smoke call to a host that dropped them.
+- deepseek: DeepSeek's own API, which made the first scored run. It offers `json_object` output but
+  not strict `json_schema`, so callers validate what comes back. Thinking is on by default and is
+  switched off.
 """
 
 import hashlib
@@ -41,6 +42,8 @@ PROVIDERS = {
 PRICES = {
     ("deepseek", "deepseek-flash"): {"cache_hit": 0.006, "cache_miss": 0.30, "output": 1.20},
 }
+# The OpenRouter upstreams that returned real logprobs in the smoke test, in order.
+PINNED = ("Fireworks", "Together")
 
 
 class LLMError(RuntimeError):
@@ -58,14 +61,14 @@ class Settings:
     @classmethod
     def from_env(cls, require_key: bool = True) -> "Settings":
         load_dotenv(ROOT / ".env", override=False)
-        provider = os.environ.get("LLM_PROVIDER", "deepseek")
+        provider = os.environ.get("LLM_PROVIDER") or "openrouter"
         if provider not in PROVIDERS:
             raise LLMError(f"LLM_PROVIDER must be one of {sorted(PROVIDERS)}, not {provider!r}")
         spec = PROVIDERS[provider]
         key = os.environ.get(spec["key"], "")
         if not key and require_key:
             raise LLMError(f"{spec['key']} is not set; put it in .env")
-        pinned = tuple(p.strip() for p in os.environ.get("OPENROUTER_PROVIDER", "").split(",") if p.strip())
+        pinned = tuple(p.strip() for p in os.environ.get("OPENROUTER_PROVIDER", "").split(",") if p.strip()) or PINNED
         return cls(
             provider=provider,
             model=os.environ.get(spec["model"][0]) or spec["model"][1],

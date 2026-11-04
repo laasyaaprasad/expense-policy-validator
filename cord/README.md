@@ -62,26 +62,24 @@ The 32 receipts are 57% violations, and nothing in them is unseen or messy. This
 
 ## Results
 
-`make cord` writes `outputs/cord/metrics.json`. The run took 200 calls and cost $0.0394, about $0.00039 a receipt. Translation is a third of that, because every line gets glossed.
+`make cord` writes `outputs/cord/metrics.json`. The committed run is the frozen system through OpenRouter (Fireworks): 300 calls for $0.0410, about $0.00041 a receipt, over half of it translation, because every line gets glossed. The first run, on DeepSeek's API, took 200 calls and $0.0394; its figures are in the right-hand column.
 
-| | System on 100 CORD receipts |
-|---|---|
-| Lines right | 252 / 270 (93%); 240 / 245 on sure labels (98%) |
-| Restricted lines | 1 / 1 found; 7 wrongly restricted (1 on a sure label) |
-| False flags | 6 / 98 (95% CI 2.8–12.7%) |
-| False reviews (EXC-03) | 5 / 98 |
-| Flag precision | 2 / 8 (7–59%); 8 / 8 if the unsure labels go the system's way |
-| Missed flags | 0 / 2 |
+| | Through OpenRouter (committed) | DeepSeek's API (first run) |
+|---|---|---|
+| Lines right | 250 / 270 (93%); 241 / 245 on sure labels (98%) | 252 / 270 (93%); 240 / 245 (98%) |
+| Restricted lines | 1 / 1 found; 9 wrongly restricted | 1 / 1 found; 7 wrongly restricted |
+| False flags | 6 / 98 (95% CI 2.8–12.7%) | 6 / 98 |
+| False reviews (EXC-03) | 7 / 98 | 5 / 98 |
+| Flag precision | 2 / 8 (7–59%); 8 / 8 if the unsure labels go the system's way | the same |
+| Missed flags | 0 / 2 | 0 / 2 |
 
-The labels give 98 pass and 2 flag. The system gives 87 pass, 8 flag and 5 review, and its 8 flags include both real ones. The one restricted line it found is a rice soap.
+The labels give 98 pass and 2 flag. Through OpenRouter the system gives 85 pass, 8 flag and 7 review, and its 8 flags include both real ones. The one restricted line it found is a rice soap. 13 of the 270 lines changed category between the two runs, almost all unreadable codes and packaging.
 
-The six false flags come from seven lines, since CORD-V008 has two. Two plastic bags, a paper bag and a plastic clamshell box were read as `household_goods`, and so was a free birthday candle. "*Rhum", an option on a bakery item, was read as a spirit. "TALAM UNGU", a purple steamed cake, was glossed literally as "PURPLE TRAY" and called kitchenware at 0.99. Four of the six receipts are flagged only for lines priced at $0.
+The six false flags come from seven lines. Three plastic or paper bags and a cup with its seal lid were read as `household_goods`, and so was a free birthday candle. "*Rhum", an option on a bakery item, was read as a spirit. Every one has an unsure label. If every unsure label went the system's way (an after-the-fact check), all 8 flags would be right. So the flag precision turns on whether packaging is `household_goods`, and neither the taxonomy nor HOUSE-01 settles that.
 
-Only the cake has a sure label. If every unsure label went the system's way (an after-the-fact check), all 8 flags would be right. So the flag precision mostly turns on whether packaging is `household_goods`, and neither the taxonomy nor HOUSE-01 settles that.
+The seven reviews are EXC-03 on lines below 0.5: unreadable codes ("SB 1 OR", "REGULAR", a truncated "Cha Keaw L..."), packaging, a cake-topper set, a cake ("MARBLE CASTELA") and "TALAM UNGU", a purple steamed cake. On DeepSeek's API the cake was glossed "PURPLE TRAY" and flagged as kitchenware at 0.99; through OpenRouter the same gloss is read as food at 0.48, so the receipt is reviewed, not flagged. That is EXC-03 doing its job, but the labels can never send a receipt to review, so they count against the system.
 
-The five reviews are EXC-03 on lines below 0.5: three unreadable codes ("TT", "SB 1 OR", "KENTHIR 2") and packaging on two receipts. That is EXC-03 doing its job, but the labels can never send a receipt to review, so they count against the system.
-
-Confidence ranks errors but isn't calibrated. The 225 lines at 0.999 or above are 99% right and the 45 below are 64% right, yet the confident errors sit at 0.96–1.0: the bags at 0.96–0.98, the cake at 0.99, the box at 1.0. For illustration, the threshold rule picks 0.995 at all three weights. False flags would fall from 6 to 1, but 30 of 100 receipts would go to review. The system stays at 0.5.
+Confidence ranks errors but isn't calibrated. The 209 lines at 0.999 or above are 99% right and the 61 below are 72% right, yet some confident errors sit at 0.9–1.0: the bags at 0.92–0.99, the cup at 1.0. For illustration, the threshold rule picks 0.99 at all three weights. False flags would fall from 6 to 1, but 30 of 100 receipts would go to review. The system stays at 0.5.
 
 The first attempt crashed on CORD-V048, the 49th receipt. DeepSeek's logprob tokens ended with a newline its reply text lacked, and one of the two failure paths in `category_confidences` raised instead of returning confidence 0. Both are fixed, and the 32 receipts' outputs are byte-identical after the fix.
 

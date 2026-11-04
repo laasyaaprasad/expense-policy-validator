@@ -147,20 +147,21 @@ def usage(records: dict[str, dict]) -> dict:
     """Tokens and cost of the calls behind this run, read from the committed cache (peak prices)."""
     from validator.llm import cost_usd
     rows = (OUTPUT_DIR / "classifications.jsonl").read_text(encoding="utf-8").splitlines()
-    keys = {row["cache_key"] for row in map(json.loads, rows) if row["cache_key"]}
-    calls = {"classify": [json.loads(p.read_text(encoding="utf-8")) for key in sorted(keys) for p in (CACHE_DIR / "classify").glob(f"{key}.json")],
-             "translate": [r for p in sorted((CACHE_DIR / "translate").glob("*.json"))
-                           if '"RCP-' in (r := json.loads(p.read_text(encoding="utf-8")))["request"]["params"]["messages"][1]["content"]]}
+    keys = {"classify": {row["cache_key"] for row in map(json.loads, rows) if row["cache_key"]}}
+    # The cache holds every provider's calls; the traces name the translations behind this run.
+    traces = (OUTPUT_DIR / "traces.jsonl").read_text(encoding="utf-8").splitlines()
+    keys["translate"] = {t["translate"]["call"] for t in map(json.loads, traces) if t["translate"]}
+    calls = {purpose: [json.loads(p.read_text(encoding="utf-8")) for key in sorted(found) for p in (CACHE_DIR / purpose).glob(f"{key}.json")]
+             for purpose, found in keys.items()}
     out = {}
     for purpose, rows in calls.items():
-        u = [r["response"]["usage"] for r in rows]
-        provider, model = (rows[0]["request"]["provider"], rows[0]["request"]["params"]["model"]) if rows else (None, None)
+        u = [(r["request"]["provider"], r["request"]["params"]["model"], r["response"]["usage"]) for r in rows]
         out[purpose] = {
             "calls": len(rows),
-            "prompt_tokens": sum(x.get("prompt_tokens", 0) for x in u),
-            "prompt_cache_hit_tokens": sum(x.get("prompt_cache_hit_tokens", 0) for x in u),
-            "completion_tokens": sum(x.get("completion_tokens", 0) for x in u),
-            "usd": sum(cost_usd(provider, model, x) for x in u),
+            "prompt_tokens": sum(x.get("prompt_tokens", 0) for _, _, x in u),
+            "prompt_cache_hit_tokens": sum(x.get("prompt_cache_hit_tokens", 0) for _, _, x in u),
+            "completion_tokens": sum(x.get("completion_tokens", 0) for _, _, x in u),
+            "usd": sum(cost_usd(provider, model, x) for provider, model, x in u),
         }
     receipts = len(records)
     out["per_receipt"] = {key: sum(out[p][key] for p in calls) / receipts
@@ -173,7 +174,7 @@ def build() -> dict:
     records = load_results(OUTPUT_DIR / "results.jsonl")
     blames = blame(load_classified(), gold, load_attributes(), load_gloss_review(), run_oracle())
     metrics = {
-        "note": "The first scored run after the config freeze, on the 28 in-scope receipts. Nothing was changed after seeing a gold error (NOTES.md, 'The final run'); later changes (the timing rules, fixes found in review) changed no scored decision.",
+        "note": "The frozen config through OpenRouter (Fireworks); its first scored run, on DeepSeek's own API, gave the same categories and decisions on all 32 receipts. Nothing was changed after seeing a gold error (NOTES.md, 'The final run'); later changes (the timing rules, fixes found in review) changed no scored decision.",
         "confidence_threshold": CONFIDENCE_THRESHOLD,
         "items": score_items(records, gold),
         **score_receipts(records, gold),

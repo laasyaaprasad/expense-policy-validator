@@ -23,12 +23,12 @@ Callers get client-credentials tokens from Cognito (one client each, read or wri
 
 | Line | Arithmetic | $/month |
 |---|---|---|
-| DeepSeek V4.1 Flash, peak prices | (852 cached × $0.006 + 199 uncached × $0.30 + 156 output × $1.20) / 1M = $0.000252 per receipt × 1.52M | ≈ 383 |
+| DeepSeek V4.1 Flash via OpenRouter (Fireworks), as billed | 0 cached + 1050 uncached + 152 output tokens; billed at $0.21 / M in (often less after Fireworks' own prompt caching) and $0.84 / M out = $0.000193 per receipt × 1.52M | ≈ 294 |
 | Worker Lambda | 1.52M × 1.4 s (measured) × 0.5 GB × $0.0000166667 | ≈ 18 |
 | API Gateway, SQS, DynamoDB, S3, logs | 3M requests, 4.5M messages, 1.52M PUTs, 3 GB of logs | ≈ 19 |
 | Cognito tokens | 10 callers × 720 tokens (one an hour) × $0.00225 | ≈ 16 |
 
-**About $440 a month**, nearly 90% of it the model; with no cache hits that line doubles to $764.
+**About $350 a month**, 85% of it the model; at Fireworks' list price with no prompt caching that line rises to $529.
 
 ## Before production
 

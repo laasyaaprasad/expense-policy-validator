@@ -27,7 +27,7 @@ def test_every_record_validates_against_the_schema(committed):
 
 def test_every_record_says_what_produced_it(committed):
     for record in committed:
-        assert record["provider"] == "deepseek" and record["model"] == "deepseek-flash"
+        assert record["provider"] == "openrouter" and record["model"] == "deepseek/deepseek-v4.1-flash"
         assert record["prompt_version"] == "classify-v1"
         assert record["policy_version"] == policy_version()
         assert record["confidence_threshold"] == CONFIDENCE_THRESHOLD

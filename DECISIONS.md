@@ -89,7 +89,8 @@ The research done before building, on 2026-10-30. For each decision the brief le
   - It returns logprobs and takes a temperature, which the confidence method needs. Haiku 5.5 does neither.
   - Jev returns probabilities for free, but independent reviews put 21 categories, six languages and misleading names that need world knowledge squarely in its weak spots. It had launched six weeks earlier.
   - OpenRouter's Classifiers feature tags whole requests after they complete and returns no confidence, so it can't classify lines or drive EXC-03.
-- **As built:** DeepSeek's own API, the only key available, with reasoning off at temperature 1. It averaged 156 output tokens and $0.00025 a receipt. The OpenRouter path is built but has never run.
+- **As built:** first on DeepSeek's own API, the only key available then, with reasoning off at temperature 1: 156 output tokens and $0.00025 a receipt. The submitted run is the same model through OpenRouter, the brief's provider, once its key arrived: 152 output tokens and $0.00019 a receipt, with every category and decision on the 32 receipts unchanged.
+- **As built, the OpenRouter host:** left to its own routing, OpenRouter sent the smoke test to CoreWeave, which returned no logprobs although its listing says it supports them and the request required every parameter. Fireworks and Together both returned real ones, so the client pins them in that order with no fallback (`validator/llm.py`, `PINNED`). Fireworks served every call. On these hosts temperature 0 gives real logprobs too, unlike DeepSeek's API; the classifier stays at temperature 1 so that the frozen config is unchanged.
 
 ## 9. Keyword baseline
 

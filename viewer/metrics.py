@@ -83,5 +83,5 @@ st.subheader("Cost")
 u = m["usage"]
 st.markdown(f"Per receipt: {u['per_receipt']['prompt_tokens']:.0f} prompt tokens ({u['per_receipt']['prompt_cache_hit_tokens']:.0f} "
             f"from the provider's prompt cache) and {u['per_receipt']['completion_tokens']:.0f} completion tokens, "
-            f"${u['per_receipt']['usd']:.5f} at peak prices. "
+            f"${u['per_receipt']['usd']:.5f} as billed. "
             f"Oracle mode (engine on the correct categories): {m['oracle']['k']} / {m['oracle']['n']} exactly right.")
