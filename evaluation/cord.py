@@ -193,11 +193,15 @@ def build() -> dict:
 
 def write_label_review(receipts: list[ReceiptInput], labels: dict[str, dict], path: Path = REVIEW_PATH) -> None:
     """The hand check fixed in the method: every restricted and unsure label, and a random 30 of the rest.
-    It shows no system output. `ok` marks are kept while the label they approved is unchanged."""
+    It shows no system output. `ok` marks are kept while the label they approved is unchanged. Once
+    every row is marked the check is done, and the file is left as its record: rewriting it would
+    redraw the random 30 from labels the check itself corrected."""
     kept = {}
     if path.exists():
         with path.open(encoding="utf-8", newline="") as f:
             kept = {row["line_id"]: row for row in csv.DictReader(f)}
+        if kept and all(row["ok"] for row in kept.values()):
+            return
     must = [i for i, row in labels.items() if row["restricted"] or not row["sure"]]
     rest = random.Random(0).sample(sorted(set(labels) - set(must)), 30)
     lines = {line.line_id: (r, line) for r in receipts for line in r.line_items}

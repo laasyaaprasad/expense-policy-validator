@@ -21,7 +21,7 @@ python -I evaluation/cord_convert.py rows.json cord/receipts.jsonl
 
 **Run and score.** `make cord` scores the committed outputs offline. `uv run python -m evaluation.cord --run` reruns the pipeline first.
 - **Outputs:** `outputs/cord/`, including `metrics.json`.
-- **Hand check:** `review/cord_labels.csv` holds every restricted and unsure label, plus a random 30 of the rest, and shows no system output. This check hasn't been done yet.
+- **Hand check:** `review/cord_labels.csv` holds every restricted and unsure label, plus a random 30 of the rest, and shows no system output. **Done:** all 57 checked by hand against the guide, after the system's CORD results were known. 52 stand; 5 were corrected, none restricted: the two bare "TT" lines became `other` (nothing on their receipts says what they are), "Kwan Yin Cup" and "F.Wngr GES-HC" became sure, and "ISI CAMPUR" became unsure. The `ok` column records each verdict against the original label; `labels.jsonl` holds the corrected ones.
 
 ## Labels (`labels.jsonl`)
 
@@ -66,7 +66,7 @@ The 32 receipts are 57% violations, and nothing in them is unseen or messy. This
 
 | | System on 100 CORD receipts |
 |---|---|
-| Lines right | 252 / 270 (93%); 239 / 244 on sure labels (98%) |
+| Lines right | 252 / 270 (93%); 240 / 245 on sure labels (98%) |
 | Restricted lines | 1 / 1 found; 7 wrongly restricted (1 on a sure label) |
 | False flags | 6 / 98 (95% CI 2.8–12.7%) |
 | False reviews (EXC-03) | 5 / 98 |

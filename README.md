@@ -44,7 +44,7 @@ The 32 labelled receipts are also the only test set, so the frozen config's firs
 | Receipts exactly right | 28 / 28 (88–100%) | 20 / 28 |
 | False positives · missed violations | 0 / 9 (0–30%) · 0 / 16 (0–19%) | 2 / 9 · 2 / 16 |
 
-This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real receipts from Indonesian shops ([CORD](cord/README.md)), against the assistant's unchecked labels, it got 93% of lines right but flagged or reviewed 11 of 98 clean receipts. With one restricted line and one made-up context, it tests the classifier, not the rules. The four unscored timing receipts now match too, though their rules came later, with the answers seen.
+This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real receipts from Indonesian shops ([CORD](cord/README.md)), against the assistant's labels, which I hand-checked (57 lines, 5 corrected), it got 93% of lines right but flagged or reviewed 11 of 98 clean receipts. With one restricted line and one made-up context, it tests the classifier, not the rules. The four unscored timing receipts now match too, though their rules came later, with the answers seen.
 
 ## Walkthrough: RCP-011
 
