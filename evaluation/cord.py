@@ -151,16 +151,14 @@ def disagreements(system: dict[str, dict], labels: dict[str, dict]) -> list[dict
 
 
 def usage(system: dict[str, dict], receipts: int) -> dict:
-    """Tokens and cost of the calls behind the run, read from the committed cache (peak prices)."""
+    """Tokens and cost of the calls behind the run, read from the committed cache, as OpenRouter billed them."""
     keys = {row["cache_key"] for row in system.values() if row["cache_key"]}
     calls = {"classify": [json.loads(p.read_text(encoding="utf-8")) for key in sorted(keys) for p in (CACHE_DIR / "classify").glob(f"{key}.json")],
              "translate": [r for p in sorted((CACHE_DIR / "translate").glob("*.json"))
                            if '"CORD-' in (r := json.loads(p.read_text(encoding="utf-8")))["request"]["params"]["messages"][1]["content"]]}
     out = {}
     for purpose, rows in calls.items():
-        u = [r["response"]["usage"] for r in rows]
-        out[purpose] = {"calls": len(rows), "usd": sum(cost_usd(r["request"]["provider"], r["request"]["params"]["model"], x)
-                                                       for r, x in zip(rows, u))}
+        out[purpose] = {"calls": len(rows), "usd": sum(cost_usd(r["response"]["usage"]) for r in rows)}
     out["usd_per_receipt"] = sum(out[p]["usd"] for p in calls) / receipts
     return out
 

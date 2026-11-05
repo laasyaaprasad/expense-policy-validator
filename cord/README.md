@@ -62,7 +62,7 @@ The 32 receipts are 57% violations, and nothing in them is unseen or messy. This
 
 ## Results
 
-`make cord` writes `outputs/cord/metrics.json`. The committed run is the frozen system through OpenRouter (Fireworks): 300 calls for $0.0410, about $0.00041 a receipt, over half of it translation, because every line gets glossed. The first run, on DeepSeek's API, took 200 calls and $0.0394; its figures are in the right-hand column.
+`make cord` writes `outputs/cord/metrics.json`. The committed run is the frozen system through OpenRouter (Fireworks): 200 calls for $0.0277, about $0.00028 a receipt, a third of it translation, because every line gets glossed. The first run, on DeepSeek's API, took 200 calls and $0.0394; its figures are in the right-hand column, and its outputs are in git history.
 
 | | Through OpenRouter (committed) | DeepSeek's API (first run) |
 |---|---|---|

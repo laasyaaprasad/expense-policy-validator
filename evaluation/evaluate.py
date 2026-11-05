@@ -144,24 +144,24 @@ def out_of_scope(records: dict[str, dict], gold: dict[str, GoldReceipt]) -> list
 
 
 def usage(records: dict[str, dict]) -> dict:
-    """Tokens and cost of the calls behind this run, read from the committed cache (peak prices)."""
+    """Tokens and cost of the calls behind this run, read from the committed cache, as OpenRouter billed them."""
     from validator.llm import cost_usd
     rows = (OUTPUT_DIR / "classifications.jsonl").read_text(encoding="utf-8").splitlines()
     keys = {"classify": {row["cache_key"] for row in map(json.loads, rows) if row["cache_key"]}}
-    # The cache holds every provider's calls; the traces name the translations behind this run.
+    # The traces name the translations behind this run; the cache also holds the dev set's and CORD's.
     traces = (OUTPUT_DIR / "traces.jsonl").read_text(encoding="utf-8").splitlines()
     keys["translate"] = {t["translate"]["call"] for t in map(json.loads, traces) if t["translate"]}
     calls = {purpose: [json.loads(p.read_text(encoding="utf-8")) for key in sorted(found) for p in (CACHE_DIR / purpose).glob(f"{key}.json")]
              for purpose, found in keys.items()}
     out = {}
     for purpose, rows in calls.items():
-        u = [(r["request"]["provider"], r["request"]["params"]["model"], r["response"]["usage"]) for r in rows]
+        u = [r["response"]["usage"] for r in rows]
         out[purpose] = {
             "calls": len(rows),
-            "prompt_tokens": sum(x.get("prompt_tokens", 0) for _, _, x in u),
-            "prompt_cache_hit_tokens": sum(x.get("prompt_cache_hit_tokens", 0) for _, _, x in u),
-            "completion_tokens": sum(x.get("completion_tokens", 0) for _, _, x in u),
-            "usd": sum(cost_usd(provider, model, x) for provider, model, x in u),
+            "prompt_tokens": sum(x.get("prompt_tokens", 0) for x in u),
+            "prompt_cache_hit_tokens": sum(x.get("prompt_cache_hit_tokens", 0) for x in u),
+            "completion_tokens": sum(x.get("completion_tokens", 0) for x in u),
+            "usd": sum(cost_usd(x) for x in u),
         }
     receipts = len(records)
     out["per_receipt"] = {key: sum(out[p][key] for p in calls) / receipts

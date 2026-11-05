@@ -5,12 +5,9 @@ settings, prompt version, messages, parameters). A rerun therefore makes no call
 same text, so a change in results always has a cause we can name. Every real call appends its
 tokens and dollars to outputs/spend.jsonl. Neither file ever holds the API key.
 
-Providers:
-- openrouter (current, the brief's): `json_object` output, reasoning off, and the upstream pinned to
-  hosts that return logprobs. Unpinned, OpenRouter routed a smoke call to a host that dropped them.
-- deepseek: DeepSeek's own API, which made the first scored run. It offers `json_object` output but
-  not strict `json_schema`, so callers validate what comes back. Thinking is on by default and is
-  switched off.
+The provider is OpenRouter, the brief's: `json_object` output, reasoning off, and the upstream
+pinned to hosts that return logprobs. Unpinned, OpenRouter routed a smoke call to a host that
+dropped them. `json_object` is not strict `json_schema`, so callers validate what comes back.
 """
 
 import hashlib
@@ -29,19 +26,11 @@ from validator.data import ROOT
 
 CACHE_DIR = ROOT / "cache"
 LEDGER_PATH = ROOT / "outputs" / "spend.jsonl"
-BLANK_RETRIES = 3  # DeepSeek may return blank content in JSON mode; its docs say to retry
+BLANK_RETRIES = 3  # JSON mode can return blank content; a retry gets a real reply
 
-PROVIDERS = {
-    "deepseek": {"key": "DEEPSEEK_API_KEY", "base_url": ("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-                 "model": ("DEEPSEEK_MODEL", "deepseek-flash")},
-    "openrouter": {"key": "OPENROUTER_API_KEY", "base_url": ("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-                   "model": ("OPENROUTER_MODEL", "deepseek/deepseek-v4.1-flash")},
-}
-# USD per million tokens. DeepSeek charges half these off-peak; the ledger always uses the peak
-# rate, so its total is an upper bound and does not depend on when a run happened.
-PRICES = {
-    ("deepseek", "deepseek-flash"): {"cache_hit": 0.006, "cache_miss": 0.30, "output": 1.20},
-}
+PROVIDER = "openrouter"  # recorded in every result and part of every cache key
+BASE_URL = "https://openrouter.ai/api/v1"
+MODEL = "deepseek/deepseek-v4.1-flash"
 # The OpenRouter upstreams that returned real logprobs in the smoke test, in order.
 PINNED = ("Fireworks", "Together")
 
@@ -61,20 +50,16 @@ class Settings:
     @classmethod
     def from_env(cls, require_key: bool = True) -> "Settings":
         load_dotenv(ROOT / ".env", override=False)
-        provider = os.environ.get("LLM_PROVIDER") or "openrouter"
-        if provider not in PROVIDERS:
-            raise LLMError(f"LLM_PROVIDER must be one of {sorted(PROVIDERS)}, not {provider!r}")
-        spec = PROVIDERS[provider]
-        key = os.environ.get(spec["key"], "")
+        key = os.environ.get("OPENROUTER_API_KEY", "")
         if not key and require_key:
-            raise LLMError(f"{spec['key']} is not set; put it in .env")
+            raise LLMError("OPENROUTER_API_KEY is not set; put it in .env")
         pinned = tuple(p.strip() for p in os.environ.get("OPENROUTER_PROVIDER", "").split(",") if p.strip()) or PINNED
         return cls(
-            provider=provider,
-            model=os.environ.get(spec["model"][0]) or spec["model"][1],
-            base_url=os.environ.get(spec["base_url"][0]) or spec["base_url"][1],
+            provider=PROVIDER,
+            model=os.environ.get("OPENROUTER_MODEL") or MODEL,
+            base_url=os.environ.get("OPENROUTER_BASE_URL") or BASE_URL,
             api_key=key,
-            pinned=pinned if provider == "openrouter" else (),
+            pinned=pinned,
         )
 
 
@@ -106,7 +91,7 @@ class Completion:
                 total += token.logprob
                 covered = True
             offset = token_end
-        # DeepSeek can leave a final newline out of the content that its logprobs still include, so
+        # A reply can leave a final newline out of the content that its logprobs still include, so
         # trailing whitespace is allowed.
         joined = "".join(token.token for token in self.tokens)
         if not covered or not joined.startswith(self.content) or joined[len(self.content):].strip():
@@ -114,16 +99,9 @@ class Completion:
         return math.exp(total)
 
 
-def cost_usd(provider: str, model: str, usage: dict[str, Any]) -> float | None:
-    if "cost" in usage:  # OpenRouter reports the charge itself
-        return float(usage["cost"])
-    prices = PRICES.get((provider, model))
-    if prices is None:
-        return None
-    hit = usage.get("prompt_cache_hit_tokens", 0)
-    miss = usage.get("prompt_cache_miss_tokens", usage.get("prompt_tokens", 0) - hit)
-    output = usage.get("completion_tokens", 0)
-    return (hit * prices["cache_hit"] + miss * prices["cache_miss"] + output * prices["output"]) / 1_000_000
+def cost_usd(usage: dict[str, Any]) -> float | None:
+    """What OpenRouter billed for the call, as it reports it; None if the reply carries no charge."""
+    return float(usage["cost"]) if "cost" in usage else None
 
 
 class _OfflineClient:
@@ -167,13 +145,10 @@ class LLM:
         if logprobs:
             params.update(logprobs=True, top_logprobs=top_logprobs)
         params["response_format"] = {"type": "json_object"}
-        if s.provider == "deepseek":
-            params["extra_body"] = {"thinking": {"type": "disabled"}}
-        else:
-            provider = {"require_parameters": True}
-            if s.pinned:
-                provider.update(order=list(s.pinned), allow_fallbacks=False)
-            params["extra_body"] = {"provider": provider, "reasoning": {"enabled": False}}
+        provider = {"require_parameters": True}
+        if s.pinned:
+            provider.update(order=list(s.pinned), allow_fallbacks=False)
+        params["extra_body"] = {"provider": provider, "reasoning": {"enabled": False}}
         return params
 
     def complete(self, messages: list[dict], *, purpose: str, prompt_version: str, **options) -> Completion:
@@ -245,7 +220,7 @@ class LLM:
             "prompt_cache_hit_tokens": usage.get("prompt_cache_hit_tokens", 0),
             "completion_tokens": usage.get("completion_tokens", 0),
             "reasoning_tokens": details.get("reasoning_tokens") or 0,
-            "usd": cost_usd(self.settings.provider, self.settings.model, usage),
+            "usd": cost_usd(usage),
         }
         self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
         with self.ledger_path.open("a", encoding="utf-8") as f:

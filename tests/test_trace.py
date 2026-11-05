@@ -101,7 +101,7 @@ def test_a_runner_up_is_read_from_the_categorys_first_token(tokens, start):
 
 def test_the_run_log_counts_the_calls_and_names_the_commit(tmp_path):
     result = run(LLM.offline(cache_dir=CACHE_DIR, ledger_path=tmp_path / "spend.jsonl"))
-    record = run_record(started=datetime.now(timezone.utc), seconds=result.seconds, provider="deepseek", model="deepseek-flash",
+    record = run_record(started=datetime.now(timezone.utc), seconds=result.seconds, provider="openrouter", model="deepseek/deepseek-v4.1-flash",
                         dispositions=[r.disposition for r in result.results], classifications=result.classifications,
                         translations=result.translations, traces=b"")
     assert record["calls"] == {"translate": {"cached": 6, "live": 0}, "classify": {"cached": 31, "live": 0}}

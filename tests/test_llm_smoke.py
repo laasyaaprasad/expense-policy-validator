@@ -3,11 +3,9 @@
 Run with `make smoke`; needs the key in .env. Responses are cached under cache/smoke/ and billed
 in outputs/spend.jsonl, so a rerun makes no calls. Items are written here, never taken from receipts.
 
-Finding: at temperature 0 DeepSeek reports logprobs after greedy decoding (0.0 for every chosen
-token, -9999 for every alternative), so they carry no confidence. At temperature 1 they are the
-model's own distribution. The classifier therefore samples at temperature 1 (DECISIONS.md, section 4).
-On OpenRouter, a call left to its routing reached a host that returned no logprobs at all, so the
-upstream is pinned (validator/llm.py, PINNED).
+Finding: a call left to OpenRouter's routing reached a host that returned no logprobs at all, so the
+upstream is pinned (validator/llm.py, PINNED). The classifier samples at temperature 1, the setting
+frozen with the config (DECISIONS.md, section 4); the pinned hosts return real logprobs at both.
 """
 
 import json
@@ -82,13 +80,10 @@ def test_logprobs_carry_information_at_temperature_one(completion):
     assert any(-50 < logprob < 0 for token in completion.tokens for _, logprob in token.top[1:])
 
 
-def test_logprobs_are_degenerate_at_temperature_zero(llm, greedy):
-    # Why the classifier does not run at temperature 0 on DeepSeek's API. The pinned OpenRouter hosts
-    # return real logprobs at temperature 0, so this holds for DeepSeek only.
-    if llm.settings.provider != "deepseek":
-        pytest.skip("DeepSeek's API only")
-    assert {token.logprob for token in greedy.tokens} == {0.0}
-    assert {logprob for token in greedy.tokens for _, logprob in token.top[1:]} == {-9999.0}
+def test_the_pinned_host_returns_logprobs_at_temperature_zero_too(greedy):
+    # An unpinned call once came back with none; the pinned hosts return them at either temperature.
+    assert greedy.tokens is not None
+    assert any(token.logprob < 0 for token in greedy.tokens)
 
 
 def test_thinking_is_off_and_the_temperature_is_honoured(completion):
@@ -100,7 +95,7 @@ def test_thinking_is_off_and_the_temperature_is_honoured(completion):
 
 
 def test_the_model_is_reported(completion):
-    # DeepSeek's own API has no upstream routing; the model ID it reports is what we record.
+    # The model ID OpenRouter reports is what we record.
     assert completion.model
     print("\nmodel reported:", completion.model)
 

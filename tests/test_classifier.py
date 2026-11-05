@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from tests.test_llm import DEEPSEEK, FakeClient, response
+from tests.test_llm import OPENROUTER, FakeClient, response
 from validator.classifier import TAXONOMY, classify
 from validator.data import load_receipts
 from validator.llm import LLM, LLMError
@@ -34,7 +34,7 @@ def line(line_id, category, **fields):
 def llm_with(tmp_path):
     def make(*replies):
         client = FakeClient(*replies)
-        return LLM(DEEPSEEK, client=client, cache_dir=tmp_path / "cache", ledger_path=tmp_path / "spend.jsonl"), client
+        return LLM(OPENROUTER, client=client, cache_dir=tmp_path / "cache", ledger_path=tmp_path / "spend.jsonl"), client
     return make
 
 
@@ -121,7 +121,7 @@ def test_the_request_uses_the_smoke_tested_settings(llm_with):
     classify(RECEIPTS["RCP-032"], {}, llm)
     request = client.requests[0]
     assert request["temperature"] == 1.0 and request["logprobs"] is True
-    assert request["extra_body"] == {"thinking": {"type": "disabled"}}
+    assert request["extra_body"]["reasoning"] == {"enabled": False}
 
 
 def test_the_prompt_lists_exactly_the_taxonomy():
