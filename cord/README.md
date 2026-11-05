@@ -62,9 +62,9 @@ The 32 receipts are 57% violations, and nothing in them is unseen or messy. This
 
 ## Results
 
-`make cord` writes `outputs/cord/metrics.json`. The committed run is the frozen system through OpenRouter (Fireworks): 200 calls for $0.0277, about $0.00028 a receipt, a third of it translation, because every line gets glossed. The first run, on DeepSeek's API, took 200 calls and $0.0394; its figures are in the right-hand column, and its outputs are in git history.
+`make cord` writes `outputs/cord/metrics.json`. The committed run is the frozen system through OpenRouter (Fireworks): 200 calls for $0.0277, about $0.00028 a receipt, a third of it translation, because every line gets glossed. The first run took 200 calls and $0.0394; its figures are in the right-hand column, and its outputs are in git history.
 
-| | Through OpenRouter (committed) | DeepSeek's API (first run) |
+| | Through OpenRouter (committed) | First run |
 |---|---|---|
 | Lines right | 250 / 270 (93%); 241 / 245 on sure labels (98%) | 252 / 270 (93%); 240 / 245 (98%) |
 | Restricted lines | 1 / 1 found; 9 wrongly restricted | 1 / 1 found; 7 wrongly restricted |
@@ -77,11 +77,11 @@ The labels give 98 pass and 2 flag. Through OpenRouter the system gives 85 pass,
 
 The six false flags come from seven lines. Three plastic or paper bags and a cup with its seal lid were read as `household_goods`, and so was a free birthday candle. "*Rhum", an option on a bakery item, was read as a spirit. Every one has an unsure label. If every unsure label went the system's way (an after-the-fact check), all 8 flags would be right. So the flag precision turns on whether packaging is `household_goods`, and neither the taxonomy nor HOUSE-01 settles that.
 
-The seven reviews are EXC-03 on lines below 0.5: unreadable codes ("SB 1 OR", "REGULAR", a truncated "Cha Keaw L..."), packaging, a cake-topper set, a cake ("MARBLE CASTELA") and "TALAM UNGU", a purple steamed cake. On DeepSeek's API the cake was glossed "PURPLE TRAY" and flagged as kitchenware at 0.99; through OpenRouter the same gloss is read as food at 0.48, so the receipt is reviewed, not flagged. That is EXC-03 doing its job, but the labels can never send a receipt to review, so they count against the system.
+The seven reviews are EXC-03 on lines below 0.5: unreadable codes ("SB 1 OR", "REGULAR", a truncated "Cha Keaw L..."), packaging, a cake-topper set, a cake ("MARBLE CASTELA") and "TALAM UNGU", a purple steamed cake. On the first run the cake was glossed "PURPLE TRAY" and flagged as kitchenware at 0.99; through OpenRouter the same gloss is read as food at 0.48, so the receipt is reviewed, not flagged. That is EXC-03 doing its job, but the labels can never send a receipt to review, so they count against the system.
 
 Confidence ranks errors but isn't calibrated. The 209 lines at 0.999 or above are 99% right and the 61 below are 72% right, yet some confident errors sit at 0.9–1.0: the bags at 0.92–0.99, the cup at 1.0. For illustration, the threshold rule picks 0.99 at all three weights. False flags would fall from 6 to 1, but 30 of 100 receipts would go to review. The system stays at 0.5.
 
-The first attempt crashed on CORD-V048, the 49th receipt. DeepSeek's logprob tokens ended with a newline its reply text lacked, and one of the two failure paths in `category_confidences` raised instead of returning confidence 0. Both are fixed, and the 32 receipts' outputs are byte-identical after the fix.
+The first attempt crashed on CORD-V048, the 49th receipt. The API's logprob tokens ended with a newline its reply text lacked, and one of the two failure paths in `category_confidences` raised instead of returning confidence 0. Both are fixed, and the 32 receipts' outputs are byte-identical after the fix.
 
 ## Why nothing was tuned on it
 

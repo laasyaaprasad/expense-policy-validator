@@ -39,7 +39,7 @@ The research done before building, on 2026-10-30. For each decision the brief le
   - **Pipal et al. (2026)** tested eight production models on 3,962 expert-coded texts. Six of the eight stayed within 2 points of one-item-per-call accuracy at batches of up to 100, and asking for up to 10 fields per item did no harm. A receipt is about 2.5 lines and three fields, so one call per receipt costs nothing in accuracy.
   - Fine-tuning and nearest-neighbour classifiers need labelled data, and the brief forbids using the labels as input.
   - The engine is code, so the classifier only needs the taxonomy: about 1,000 tokens a call instead of the whole policy set, and accuracy falls as input grows ("context rot").
-- **As built:** DeepSeek's own API offers `json_object` output but not `json_schema`, so the category list is enforced by validation and one retry, not during decoding.
+- **As built:** the client asks for `json_object` output, not strict `json_schema`, so the category list is enforced by validation and one retry, not during decoding.
 
 ## 4. Confidence and the EXC-03 threshold
 
@@ -49,7 +49,7 @@ The research done before building, on 2026-10-30. For each decision the brief le
   - **Ramp's engineering team** found LLMs give a confidence of 70–80% almost whatever the case, and research on verbalised confidence agrees it is sparse and overconfident.
   - Sampling multiplies cost, and a verifier call can disagree with the first and needs reconciling.
   - The threshold stays low because every EXC-03 signal is scored as wrong, and choosing it from the answer key would be using labels as input.
-- **As built:** at temperature 0, DeepSeek returns logprob 0.0 for every chosen token and −9999 for every alternative, so the probabilities say nothing. At temperature 1 they are the model's own distribution: "Moscow Mule mug" comes back `household_goods` at 0.99954, with `other`, gift and alcohol as the next tokens. The classifier runs at temperature 1, and the cache keeps reruns identical.
+- **As built:** on the first run, at temperature 0, the API returned logprob 0.0 for every chosen token and −9999 for every alternative, so the probabilities say nothing. At temperature 1 they are the model's own distribution: "Moscow Mule mug" comes back `household_goods` at 0.99954, with `other`, gift and alcohol as the next tokens. The classifier runs at temperature 1, and the cache keeps reruns identical.
 
 ## 5. Translation
 
@@ -82,15 +82,15 @@ The research done before building, on 2026-10-30. For each decision the brief le
 | Logprobs | No | Yes | Returns probabilities itself |
 | Quality signal | Vals index 54.3 | Vals index 61.3; 76% vs Jev's 72.5% in one study | Weak with many classes and non-English text |
 
-- **Picked:** DeepSeek V4.1 Flash, which I pushed for. DeepSeek's API serves it as `deepseek-flash`, now the DeepSeek-V4.1-Flash-1017 release.
+- **Picked:** DeepSeek V4.1 Flash, which I pushed for. OpenRouter serves it as `deepseek/deepseek-v4.1-flash`, the DeepSeek-V4.1-Flash-1017 release.
 - **Why:**
   - **Artificial Analysis (September 2026, the release before 1017):** with reasoning off it scored 24.7 on the Intelligence Index, the highest of the 187 open-weights non-reasoning models listed, on 44.5M output tokens against 253M with reasoning at max effort. It lists no multilingual or instruction-following score for it, so those were left to the dev set.
   - **Reasoning off, because this data gives it nothing to fix.** All 43 dev items came back right at confidence 0.96 or higher, all 65 receipt items were right, and the CORD misses were taxonomy gaps and one mistranslation, not misreadings. Leaving it off saves cost and time: on Artificial Analysis's index the 1017 release used 3.4 times the output tokens with maximum reasoning (174M against 51M), while here a receipt takes about 1.4 s (31 calls in 42 s), and its 156 output tokens about 0.1 s of that at roughly 1,500 tokens a second. Reasoning should be retested on a labelled sample of real receipts, where harder items may turn up.
   - It returns logprobs and takes a temperature, which the confidence method needs. Haiku 5.5 does neither.
   - Jev returns probabilities for free, but independent reviews put 21 categories, six languages and misleading names that need world knowledge squarely in its weak spots. It had launched six weeks earlier.
   - OpenRouter's Classifiers feature tags whole requests after they complete and returns no confidence, so it can't classify lines or drive EXC-03.
-- **As built:** first on DeepSeek's own API, the only key available then, with reasoning off at temperature 1: 156 output tokens and $0.00025 a receipt. The submitted run is the same model through OpenRouter, the brief's provider, once its key arrived: 152 output tokens and $0.00019 a receipt, with every category and decision on the 32 receipts unchanged.
-- **As built, the OpenRouter host:** left to its own routing, OpenRouter sent the smoke test to CoreWeave, which returned no logprobs although its listing says it supports them and the request required every parameter. Fireworks and Together both returned real ones, so the client pins them in that order with no fallback (`validator/llm.py`, `PINNED`). Fireworks served every call. On these hosts temperature 0 gives real logprobs too, unlike DeepSeek's API; the classifier stays at temperature 1 so that the frozen config is unchanged. The DeepSeek API client and its cached responses were then removed, so the validator calls OpenRouter only; the first run's outputs remain in git history.
+- **As built:** the first run, on the only key available then, used reasoning off at temperature 1: 156 output tokens and $0.00025 a receipt. The submitted run is the same model through OpenRouter, the brief's provider, once its key arrived: 152 output tokens and $0.00019 a receipt, with every category and decision on the 32 receipts unchanged.
+- **As built, the OpenRouter host:** left to its own routing, OpenRouter sent the smoke test to CoreWeave, which returned no logprobs although its listing says it supports them and the request required every parameter. Fireworks and Together both returned real ones, so the client pins them in that order with no fallback (`validator/llm.py`, `PINNED`). Fireworks served every call. On these hosts temperature 0 gives real logprobs too, unlike the first run's; the classifier stays at temperature 1 so that the frozen config is unchanged. The first run's client and its cached responses were then removed, so the validator calls OpenRouter only; the first run's outputs remain in git history.
 
 ## 9. Keyword baseline
 
