@@ -49,7 +49,7 @@ for column, (name, s) in zip(columns, systems.items()):
 st.subheader("Exceptions")
 st.dataframe(pd.DataFrame({name: {
     "found": f"{s['exceptions']['matched']} of {s['exceptions']['gold']}",
-    "raised": s["exceptions"]["raised"],
+    "raised": str(s["exceptions"]["raised"]),  # a string, like the column's other cells, so Arrow takes it as is
     "evidence exactly right": f"{s['exceptions']['evidence_correct']['k']} of {s['exceptions']['evidence_correct']['n']}",
 } for name, s in systems.items()}), width="stretch")
 with st.expander("Per rule"):
