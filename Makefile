@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config app
+.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -53,6 +53,11 @@ verifier:
 # against rules.yaml and end to end (experiments/policy_config/PLAN.md). Offline once cached; changes nothing submitted.
 policy-config:
 	uv run python -m experiments.policy_config
+
+# Experiment 4, after the freeze: a policy knowledge graph for retrieval, against the structured index, BM25 and
+# embeddings (experiments/graph_retrieval/PLAN.md). Offline once cached; changes nothing submitted.
+graph-retrieval:
+	uv run python -m experiments.graph_retrieval
 
 # Results viewer: receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:
