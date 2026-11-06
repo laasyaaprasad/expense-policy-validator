@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord app
+.PHONY: test oracle dev items smoke run eval baseline cord cascade app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -38,6 +38,11 @@ baseline:
 # `uv run python -m evaluation.cord --run` reruns the pipeline first.
 cord:
 	uv run python -m evaluation.cord
+
+# Experiment 1, after the freeze: a cheap embedding stage that escalates uncertain lines to the LLM
+# (experiments/cascade/PLAN.md). Offline once its embeddings are cached; changes nothing submitted.
+cascade:
+	uv run python -m experiments.cascade
 
 # Results viewer: receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:
