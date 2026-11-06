@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord cascade app
+.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -43,6 +43,11 @@ cord:
 # (experiments/cascade/PLAN.md). Offline once its embeddings are cached; changes nothing submitted.
 cascade:
 	uv run python -m experiments.cascade
+
+# Experiment 2, after the freeze: a decision model checks each restricted line with one yes/no question
+# (experiments/verifier/PLAN.md). Offline once its answers are cached; changes nothing submitted.
+verifier:
+	uv run python -m experiments.verifier
 
 # Results viewer: receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:
