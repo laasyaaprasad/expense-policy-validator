@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier app
+.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -48,6 +48,11 @@ cascade:
 # (experiments/verifier/PLAN.md). Offline once its answers are cached; changes nothing submitted.
 verifier:
 	uv run python -m experiments.verifier
+
+# Experiment 3, after the freeze: an LLM pipeline from the policy text to the standardized config, scored
+# against rules.yaml and end to end (experiments/policy_config/PLAN.md). Offline once cached; changes nothing submitted.
+policy-config:
+	uv run python -m experiments.policy_config
 
 # Results viewer: receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:

@@ -1,0 +1,658 @@
+regions:
+  APAC:
+  - IN
+  - JP
+  - SG
+  EMEA:
+  - GB
+  - DE
+  - FR
+  - NL
+  - IE
+  - PT
+  - ES
+home_currency:
+  US: USD
+  IN: INR
+  JP: JPY
+  SG: SGD
+  GB: GBP
+  DE: EUR
+  FR: EUR
+  NL: EUR
+  IE: EUR
+  PT: EUR
+  ES: EUR
+euro_rate_usd: '1.08'
+mcc_risk:
+  high:
+  - '5921'
+  - '5993'
+  - '7995'
+  - '7297'
+  - '5944'
+  medium:
+  - '5813'
+  - '5912'
+  - '5311'
+  - '5411'
+  - '5732'
+  low:
+  - '5812'
+  - '7011'
+  - '4111'
+  - '4121'
+  - '5942'
+  - '5943'
+  - '5734'
+  - '7216'
+on_premises_mccs:
+- '5812'
+- '5813'
+- '7011'
+meal_expense_types:
+- Meals - Individual
+- Meals - Team
+- Client Entertainment
+expense_type_covers:
+  Meals - Individual:
+  - food_beverage
+  - alcohol
+  Meals - Team:
+  - food_beverage
+  - alcohol
+  Client Entertainment:
+  - food_beverage
+  - alcohol
+  Client Gifts:
+  - gift
+  - gift_card
+  - jewelry
+  Lodging:
+  - lodging
+  - ground_transport
+  - laundry_service
+  Travel - Other:
+  - laundry_service
+  - health_otc
+  - ground_transport
+  - clothing
+  - personal_care
+  Office Supplies:
+  - office_supplies
+  - computer_accessory
+  Computer Equipment:
+  - computer_accessory
+  - personal_electronics
+  - software_subscription
+  Software:
+  - software_subscription
+reference_prefixes:
+  PA-: pre_approval
+out_of_scope:
+- TIME-04
+rules:
+- id: MEAL-01
+  doc: meals-and-entertainment-policy.md
+  kind: mechanic
+  params:
+    domestic_cap_usd: '75'
+    international_cap_usd: '100'
+  evidence: 'Meal spend is capped at **$75 per person per day** for domestic
+
+    travel and **$100 per person per day** for international travel. Spend above the cap is a
+
+    **medium** exception.'
+- id: MEAL-02
+  doc: meals-and-entertainment-policy.md
+  kind: exception
+  severity: low
+  scope: receipt
+  tier: 2
+  params:
+    total_threshold_usd: '150'
+  applies_to:
+    expense_types:
+    - Meals - Individual
+    - Meals - Team
+  evidence: 'Any meal receipt (as defined in MEAL-01) whose receipt total
+
+    is above **$150** in USD must record the number of attendees. A missing attendee count is a **low** exception.'
+- id: ALC-01
+  doc: meals-and-entertainment-policy.md
+  kind: exception
+  severity: high
+  scope: items
+  tier: 1
+  params:
+    min_attendees: '2'
+  applies_to:
+    categories:
+    - alcohol
+  evidence: 'Alcohol is reimbursable
+
+    **only** on a receipt declared as Client Entertainment that records an attendee count of two
+
+    or more. Alcohol on
+
+    any other receipt — an individual or team meal, or any receipt without an attendee count — is a
+
+    **high** exception.'
+- id: ALC-02
+  doc: meals-and-entertainment-policy.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 1
+  params:
+    cap_per_attendee_usd: '30'
+  applies_to:
+    categories:
+    - alcohol
+  evidence: 'Where alcohol is permitted under ALC-01, it is capped at
+
+    **$30 per attendee**: the USD total of the alcohol lines, divided by the attendee count. Spend
+
+    above that cap is a **medium** exception.'
+- id: ALC-03
+  doc: meals-and-entertainment-policy.md
+  kind: exception
+  severity: high
+  scope: items
+  tier: 1
+  applies_to:
+    categories:
+    - alcohol
+  evidence: Alcohol purchased from a package store, liquor store, or any other merchant that is not a restaurant, bar or hotel
+    is **never** reimbursable, regardless of business context. This is a **high** exception.
+- id: ENT-01
+  doc: meals-and-entertainment-policy.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 2
+  applies_to:
+    item_kinds:
+    - entertainment_venue
+  requires_reference: vp_approval
+  evidence: 'Golf, sporting events, theatre, concerts, and similar
+
+    venue spend requires prior VP approval, recorded as an approval reference (see EXC-02). Without
+
+    one this is a **medium** exception.'
+- id: ENT-02
+  doc: meals-and-entertainment-policy.md
+  kind: exception
+  severity: high
+  scope: items
+  tier: 2
+  applies_to:
+    categories:
+    - gambling
+  evidence: Gambling spend of any kind is prohibited and is a **high** exception.
+- id: TECH-01
+  doc: technology-and-equipment-policy.md
+  kind: exception
+  severity: high
+  scope: items
+  tier: 1
+  applies_to:
+    categories:
+    - personal_electronics
+  evidence: 'Purchase of any of these on an expense report is a **high** exception, regardless of stated
+
+    business purpose.'
+- id: TECH-02
+  doc: technology-and-equipment-policy.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 1
+  params:
+    unit_price_cap_usd: '200'
+  applies_to:
+    categories:
+    - computer_accessory
+  requires_reference: pre_approval
+  evidence: Computer accessories and peripherals — cables, adapters, docking stations, mice, keyboards, monitors, laptop stands,
+    webcams — are reimbursable up to **$200 per item**, judged on the item's unit price in USD. Any accessory or peripheral
+    above $200 requires a pre-approval reference (see EXC-02); without one it is a **medium** exception.
+- id: TECH-03
+  doc: technology-and-equipment-policy.md
+  kind: exception
+  severity: high
+  scope: items
+  tier: 2
+  applies_to:
+    item_kinds:
+    - mobile_phone
+  evidence: 'Mobile phone hardware is procured centrally by IT and is never
+
+    reimbursable on an expense report.'
+- id: TECH-04
+  doc: technology-and-equipment-policy.md
+  kind: exception
+  severity: low
+  scope: items
+  tier: 1
+  applies_to:
+    categories:
+    - software_subscription
+  requires_reference: manager_approval
+  evidence: 'Any software or SaaS subscription on an expense report
+
+    requires a manager approval reference (see EXC-02). Without one this is a **low** exception.'
+- id: GIFT-01
+  doc: gifts-and-awards-policy.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 1
+  params:
+    cap_per_recipient_usd: '50'
+    name_required_from_usd: '10'
+  applies_to:
+    categories:
+    - gift
+  evidence: 'Gifts to clients and prospects are capped at **$50 per recipient
+
+    per occasion**. An occasion is one receipt; lines on it that name the same recipient are added together for the cap,
+
+    and the $10 test applies to each line. Spend
+
+    above the cap is a **medium** exception. Any gift of $10 or more must also name its recipient, in the line description
+    or elsewhere on the expense; an unnamed gift at that value is a **medium** exception.'
+- id: GIFT-02
+  doc: gifts-and-awards-policy.md
+  kind: exception
+  severity: high
+  scope: items
+  tier: 1
+  applies_to:
+    categories:
+    - gift_card
+  evidence: 'Gift cards, prepaid cards, vouchers, and any
+
+    other cash equivalent are **never** reimbursable, at any amount and for any recipient. This is a
+
+    **high** exception.'
+- id: GIFT-03
+  doc: gifts-and-awards-policy.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 2
+  applies_to:
+    categories:
+    - gift
+    recipient_types:
+    - employee
+  evidence: Recognition gifts for employees must be processed through HR and are not reimbursable on an expense report.
+- id: GIFT-04
+  doc: gifts-and-awards-policy.md
+  kind: exception
+  severity: critical
+  scope: items
+  tier: 1
+  applies_to:
+    recipient_types:
+    - government_official
+  line_overrides:
+  - GIFT-01
+  evidence: 'Gifts, meals, or anything of value provided to a government
+
+    official, public employee, or state-owned enterprise employee are **prohibited** under our
+
+    anti-corruption policy, at any amount.'
+- id: PERS-01
+  doc: non-reimbursable-items.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 1
+  params:
+    baggage_allowance_usd: '150'
+  applies_to:
+    categories:
+    - personal_care
+  requires_reference: baggage_delay
+  evidence: 'Toiletries, cosmetics, razors, haircuts, salon
+
+    services, spa treatments, and massage are not reimbursable. This is a **medium** exception.'
+- id: PERS-02
+  doc: non-reimbursable-items.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 1
+  params:
+    baggage_allowance_usd: '150'
+  applies_to:
+    categories:
+    - clothing
+  requires_reference: baggage_delay
+  evidence: 'Clothing, footwear, and fashion accessories such as belts,
+
+    ties and bags are not reimbursable;
+
+    a **medium** exception. The same $150 baggage-delay exception applies: one $150 allowance per
+
+    delay, shared between toiletries and clothing.'
+- id: PERS-03
+  doc: non-reimbursable-items.md
+  kind: exception
+  severity: high
+  scope: items
+  tier: 1
+  applies_to:
+    categories:
+    - tobacco
+  evidence: 'Cigarettes, cigars, loose tobacco, vaping devices and
+
+    e-liquids are not reimbursable. This is a **high** exception.'
+- id: HOUSE-01
+  doc: non-reimbursable-items.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 1
+  applies_to:
+    categories:
+    - household_goods
+  evidence: 'Cleaning supplies, laundry products, household paper goods
+
+    (paper towels, toilet paper, tissues), kitchenware and drinkware, bedding, furniture, small
+
+    appliances, and home décor are not reimbursable, whether bought for home or for an office — office
+
+    stock of this kind is bought centrally. This is a **medium** exception.'
+- id: HEALTH-01
+  doc: non-reimbursable-items.md
+  kind: exception
+  severity:
+    otc: low
+    prescription: medium
+  scope: items
+  tier: 2
+  params:
+    trip_cap_usd: '25'
+  applies_to:
+    categories:
+    - health_otc
+    item_kinds:
+    - prescription_medication
+  evidence: OTC medication is reimbursable only on a receipt linked to a trip, up to **$25** in total across all of that trip's
+    receipts. Above $25, or on a receipt with no trip record, it is a **low** exception, raised on each such receipt and citing
+    its medication lines. Prescription medication is never reimbursable on an expense report and is a **medium** exception.
+- id: LAUNDRY-01
+  doc: non-reimbursable-items.md
+  kind: exception
+  severity: low
+  scope: items
+  tier: 1
+  params:
+    min_trip_nights: '4'
+  applies_to:
+    categories:
+    - laundry_service
+  evidence: 'Reimbursable only on trips of **four or more
+
+    nights**, using the trip length on the receipt. On shorter trips, or on a receipt with no trip
+
+    record, it is a **low** exception.'
+- id: MCC-01
+  doc: merchant-category-risk.md
+  kind: exception
+  severity: high
+  scope: receipt
+  tier: 1
+  applies_to:
+    mcc_risk:
+    - high
+  evidence: 'A transaction at a high-risk MCC raises a **high**
+
+    exception on its own, whatever the line items say.'
+- id: MCC-02
+  doc: merchant-category-risk.md
+  kind: review_signal
+  tier: 1
+  applies_to:
+    mcc_risk:
+    - medium
+  evidence: 'A medium-risk MCC raises a **review signal** only.
+
+    It is not an exception by itself and must never be reported as one; it exists to prioritise
+
+    sampling and to add context to an exception raised by another rule. It is always reported as its
+
+    own review signal, even when another rule raises an exception on the same receipt.'
+- id: MCC-03
+  doc: merchant-category-risk.md
+  kind: mechanic
+  evidence: 'A bar (MCC 5813) serves alcohol on the premises, so ALC-01 and
+
+    ALC-02 apply to it exactly as they do to a restaurant, and it is never treated as retail under
+
+    ALC-03.'
+- id: DOC-01
+  doc: receipt-documentation-requirements.md
+  kind: exception
+  severity: medium
+  scope: receipt
+  tier: 1
+  params:
+    total_threshold_usd: '75'
+  applies_to:
+    always: true
+  evidence: 'Any receipt with a total above **$75** (in USD) must be itemized. A
+
+    non-itemized receipt above that threshold is a **medium** exception, because the contents cannot
+
+    be audited.'
+- id: DOC-02
+  doc: receipt-documentation-requirements.md
+  kind: exception
+  severity: medium
+  scope: receipt
+  tier: 2
+  applies_to:
+    always: true
+  evidence: 'A receipt must show the merchant name, the transaction date, and the
+
+    total. A receipt missing any of these is a **medium** exception.'
+- id: DOC-03
+  doc: receipt-documentation-requirements.md
+  kind: exception
+  severity: medium
+  scope: receipt
+  tier: 1
+  applies_to:
+    always: true
+  evidence: 'A receipt is misclassified when **none** of its
+
+    line items belongs to a category that its declared expense type covers. Service fees, gratuities
+
+    and items in the `other` category are ignored for this test; if no items remain, DOC-03 does not
+
+    apply. A misclassification is a **medium**
+
+    exception, reported in addition to any exception raised by the items themselves, not instead of it.'
+- id: DOC-04
+  doc: receipt-documentation-requirements.md
+  kind: exception
+  severity: medium
+  scope: receipt
+  tier: 2
+  applies_to:
+    always: true
+  evidence: 'Receipts in a currency other than USD must record the transaction
+
+    currency and the conversion rate used; a receipt missing either is a **medium** exception.'
+- id: REG-01
+  doc: regional-addendum.md
+  kind: exception
+  severity: high
+  scope: items
+  tier: 1
+  applies_to:
+    regions:
+    - APAC
+    categories:
+    - alcohol
+  overrides:
+  - ALC-01
+  - ALC-02
+  - ALC-03
+  replaces:
+  - ALC-01
+  - ALC-02
+  - ALC-03
+  evidence: 'Alcohol is **never** reimbursable for APAC-entity employees, including
+
+    within client entertainment. This overrides ALC-01 and ALC-02: where those rules would have
+
+    permitted alcohol with an attendee count, REG-01 still makes it a **high** exception.'
+- id: REG-02
+  doc: regional-addendum.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 2
+  params:
+    cap_usd: '60'
+  applies_to:
+    regions:
+    - APAC
+    categories:
+    - food_beverage
+  overrides:
+  - MEAL-01
+  evidence: 'The APAC daily meal cap is **$60 per person**, replacing both MEAL-01
+
+    figures for APAC employees.'
+- id: REG-03
+  doc: regional-addendum.md
+  kind: exception
+  severity: medium
+  scope: items
+  tier: 2
+  params:
+    cap_eur: '70'
+  applies_to:
+    regions:
+    - EMEA
+    categories:
+    - food_beverage
+  overrides:
+  - MEAL-01
+  evidence: 'The EMEA daily meal cap is **EUR 70 per person**, replacing both MEAL-01
+
+    figures for EMEA employees.'
+- id: REG-04
+  doc: regional-addendum.md
+  kind: exception
+  severity: low
+  scope: receipt
+  tier: 2
+  params:
+    threshold_eur: '50'
+  applies_to:
+    regions:
+    - EMEA
+  evidence: 'Receipts above EUR 50 — converted at the euro rate on the transaction date for a receipt in another
+
+    currency — must be valid VAT receipts showing the
+
+    merchant VAT number. A missing VAT number is a **low** exception.'
+- id: REG-05
+  doc: regional-addendum.md
+  kind: mechanic
+  evidence: 'Currency conversion uses the rate on the transaction date, which
+
+    must be recorded on the expense record. REG-05 says which rate to use and raises nothing on its
+
+    own; a missing rate is reported under DOC-04.'
+- id: TIME-01
+  doc: transaction-pattern-rules.md
+  kind: review_signal
+  tier: 2
+  params:
+    window_end_hour: '5'
+  applies_to:
+    always: true
+  evidence: 'A transaction timed from **00:00 up to, but not including,
+
+    05:00** raises a **review signal**. Transaction times are recorded in local time at the merchant.'
+- id: TIME-02
+  doc: transaction-pattern-rules.md
+  kind: review_signal
+  tier: 2
+  applies_to:
+    expense_types:
+    - Meals - Individual
+    - Lodging
+    - Travel - Other
+  evidence: 'An individual travel expense — declared as Meals - Individual,
+
+    Lodging, or Travel - Other — with no associated trip record raises a **review signal**.'
+- id: TIME-03
+  doc: transaction-pattern-rules.md
+  kind: exception
+  severity: high
+  scope: receipt
+  tier: 2
+  applies_to:
+    always: true
+  replaces:
+  - DOC-01
+  - MEAL-01
+  - REG-02
+  - REG-03
+  - GIFT-01
+  evidence: 'Two or more receipts by the same employee, at the same merchant
+
+    (by merchant name), on the same calendar date, are treated as a deliberate split when each one is
+
+    at or below one of these thresholds but together they are above it: the $75 itemization threshold,
+
+    when every receipt in the group is non-itemized (DOC-01); the employee''s meal cap, compared per person (MEAL-01, REG-02,
+    REG-03); or the $50 gift cap for
+
+    one recipient (GIFT-01).'
+- id: EXC-01
+  doc: approval-and-exception-handling.md
+  kind: mechanic
+  evidence: 'A receipt''s disposition is determined by the most severe
+
+    exception raised against it:
+
+
+    - any **critical**, **high**, or **medium** exception → **flag**
+
+    - only **low** exceptions, or only review signals, and no exception above low → **review**
+
+    - no exceptions and no review signals → **pass**'
+- id: EXC-02
+  doc: approval-and-exception-handling.md
+  kind: mechanic
+  evidence: 'Every approval or exception reference — a pre-approval, a VP or manager approval, or a baggage-delay reference
+    — is recorded in one field on the expense (`pre_approval_ref` in the data). Where a rule requires such a reference, a
+    recorded one satisfies that rule and no exception is raised — provided it is the kind the rule asks for: a pre-approval
+    for TECH-02, a VP approval for ENT-01, a manager approval for TECH-04, a baggage-delay reference for the PERS-01 and PERS-02
+    carve-outs.'
+- id: EXC-03
+  doc: approval-and-exception-handling.md
+  kind: mechanic
+  evidence: 'Where the category of an item cannot be determined with sufficient
+
+    confidence, raise a **review signal** with rule ID `EXC-03` rather than an exception, and leave that
+
+    item out of every other rule''s calculation for the receipt.'
+- id: EXC-04
+  doc: approval-and-exception-handling.md
+  kind: mechanic
+  evidence: 'Every exception must cite the rule identifier, the policy document it
+
+    comes from, and the line items it concerns. An exception that cannot name its evidence must not be
+
+    raised.'
