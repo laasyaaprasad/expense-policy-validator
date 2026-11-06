@@ -48,3 +48,16 @@ def test_the_metrics_page_runs():
     at = page("viewer/metrics.py")
     assert not at.exception
     assert any("Classification" in h.value for h in at.subheader)
+
+
+def test_the_detail_page_shows_each_stage_of_the_trace():
+    at = page("viewer/detail.py", source="System", selected="RCP-020")
+    assert not at.exception
+    engine = at.dataframe[-1].value
+    engine = engine.data if hasattr(engine, "data") else engine
+    steps = dict(zip(engine["rule"], engine["result"]))
+    assert steps["TIME-03"] == "raised" and steps["MEAL-01"] == "replaced"
+    assert any("Disposition" in m.value and "flag" in m.value for m in at.markdown)
+
+    at = page("viewer/detail.py", source="System", selected="RCP-016")
+    assert any("ALC-01" in m.value and "Regional rules replace" in m.value for m in at.markdown)

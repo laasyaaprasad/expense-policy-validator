@@ -45,6 +45,20 @@ def glosses() -> dict[str, str]:
 
 
 @st.cache_data
+def traces() -> dict[str, dict]:
+    """The system's per-receipt trace: what each stage did (make run writes it)."""
+    with (OUTPUT_DIR / "traces.jsonl").open(encoding="utf-8") as f:
+        return {row["receipt_id"]: row for row in map(json.loads, f)}
+
+
+@st.cache_data
+def retrieval_reasons() -> dict[str, dict[str, str]]:
+    """Rule ID → why the retriever chose it, per receipt."""
+    with (OUTPUT_DIR / "retrieval.jsonl").open(encoding="utf-8") as f:
+        return {row["receipt_id"]: row["reasons"] for row in map(json.loads, f)}
+
+
+@st.cache_data
 def metrics() -> dict:
     return json.loads(METRICS_PATH.read_text(encoding="utf-8"))
 
