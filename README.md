@@ -2,6 +2,13 @@
 
 A language model says what each receipt line is; plain code checks it against the nine policies and quotes the policy for every exception. Results: [`outputs/results.jsonl`](outputs/results.jsonl). More: [evaluation](docs/evaluation.md), [AWS design](docs/aws-design.md), [decisions](DECISIONS.md), [working log](NOTES.md). **Setup:** with Python 3.12 and [uv](https://docs.astral.sh/uv/), copy the organisers' `data/` into the repo and run `uv sync`. `make test`, `make run`, `make eval`, `make baseline` and `make app` (the viewer) run offline from the committed model cache. New model calls need `OPENROUTER_API_KEY` in a `.env` (see `.env.example`).
 
+## Research first
+
+Before writing any code, I spent [TIME] studying how real expense tools divide the work. [Expensify](https://help.expensify.com/articles/new-expensify/workspaces/Workspace-Rules), [Navan](https://navan.com/blog/audit-engine) and [SAP Concur](https://www.sap.com/products/spend-management/concur-expense-configuration-for-audit-rules.html) apply limits, category lists and merchant-code rules as configuration; even [Ramp's](https://support.ramp.com/policy-agent-overview) LLM-led Policy Agent layers fixed rules on top. The pattern: AI reads the receipt, rules decide. Of three designs:
+- **An LLM judges each receipt:** rejected; caps and precedence done by a model can't be tested or repeated, and the brief bars it from deciding EXC-01.
+- **Keywords and rules, no model:** free and repeatable, but misleading names beat it; kept as the baseline (20 / 28).
+- **The model reads, code judges:** picked; the industry pattern, testable and traceable (28 / 28). Later choices and their alternatives: [DECISIONS.md](DECISIONS.md).
+
 ## Architecture
 
 ```mermaid
@@ -19,11 +26,17 @@ The classification prompt ([classifier.py](validator/classifier.py)) defines the
 
 ## Policy engine
 
-[`rules/rules.yaml`](rules/rules.yaml) holds 40 rules, each with a severity, parameters, `applies_to` and a policy quote a test checks word for word; the 34 that can fire each have a small Python check (`Decimal` money, inclusive caps). On the answer key's categories the engine matched all 28 in-scope receipts (the assistant that wrote it had the key to hand), and switching off any one check fails a test ([`test_check_coverage.py`](tests/test_check_coverage.py)). **Confidence threshold: 0.5,** pre-registered and held on the dev set (its one miss scored 0.43): a line below it raises EXC-03 and is left out of every other rule.
+- **Rules as data, logic as code.** [`rules/rules.yaml`](rules/rules.yaml) holds 40 rules, each with a severity, parameters, `applies_to` and its policy quote; the 34 that can fire each have a small Python check. *Why:* a limit changes with a config edit, as in Expensify or Concur, while each rule's logic stays unit-tested; a rules library is overkill for 34 rules.
+- **No rule triggers another, in a fixed order:** regional overrides, then each check, carve-outs, takeovers (TIME-03 over a meal cap, GIFT-04 over GIFT-01), EXC-03, and EXC-01 for the disposition. *Why:* chained rules are what make rule systems hard to debug, and a fixed order makes every outcome traceable.
+- **Carve-outs need the right evidence.** Only a recorded reference of the kind a rule names waives it. *Why:* the brief says a missing reference means no carve-out.
+- **`Decimal` money, inclusive caps.** *Why:* floating point can misjudge an amount at the cap, and a value at the cap is within it.
+- **Quotes stored word for word,** and a test checks each against the policy. *Why:* evidence is graded, and a stored quote can't be invented.
+- **Checked:** on the answer key's categories the engine matched all 28 in-scope receipts (the assistant that wrote it had the key to hand), and switching off any one check fails a test ([`test_check_coverage.py`](tests/test_check_coverage.py)).
+- **Confidence threshold: 0.5,** pre-registered and held on the dev set (its one miss scored 0.43): a line below it raises EXC-03 and is left out of every other rule. *Why:* fixed before any output was seen, so it isn't tuned on the test set, and kept low because every EXC-03 signal is scored as wrong.
 
 ## Evaluation summary
 
-The labelled receipts are the only test set, so the frozen config's first run was committed before scoring; the submitted OpenRouter run changed no category or decision. The 28 in-scope receipts, with 95% Wilson intervals:
+The labelled receipts are the only test set, so the frozen config's first run was committed before scoring. The 28 in-scope receipts, with 95% Wilson intervals:
 
 | | System | Keyword baseline |
 |---|---|---|
@@ -35,11 +48,11 @@ This proves less than it looks: the traps are the taxonomy's own examples, the a
 
 ## AI collaboration
 
-Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the calls and checked the results, and my questions (how real tools do it, which stage to blame, what we test on, does it hold on real receipts) each changed what got built. [NOTES.md](NOTES.md) logs where I directed, overrode or corrected it. **What it got wrong:** at temperature 0 every chosen token's logprob was 0.0, so the smoke test passed on meaningless numbers until the assistant read the raw values. **Checked by hand:** the 11 translations and 57 CORD labels. **Who saw the data:** Anthropic, through the assistant, saw the brief, policies, receipts and answer key. The model APIs (OpenRouter via Fireworks for the submitted run) saw only line text, merchant, MCC description and expense type, plus the public CORD lines; no amounts, employee fields or labels.
+Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the calls and checked the results. [NOTES.md](NOTES.md) logs where I directed, overrode or corrected it. **What it got wrong:** at temperature 0 every chosen token's logprob was 0.0, so the smoke test passed on meaningless numbers until the assistant read the raw values. **Checked by hand:** the 11 translations and 57 CORD labels. **Who saw the data:** Anthropic, through the assistant, saw the brief, policies, receipts and answer key. The model APIs (OpenRouter via Fireworks for the submitted run) saw only line text, merchant, MCC description and expense type, plus the public CORD lines; no amounts, employee fields or labels.
 
 ## Spend
 
-**$0.0540 over 359 calls** through OpenRouter (`outputs/spend.jsonl`), as billed; a full run costs $0.0062, and the first run's 350 calls ($0.0759 at peak prices) are in git history. **Model:** DeepSeek V4.1 Flash (`deepseek/deepseek-v4.1-flash`, 1017 release), which I pushed for: with reasoning off it led the open-weights models on Artificial Analysis's Intelligence Index in September 2026 ([archived](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)), uses few tokens (152 a receipt) and returns the logprobs the confidence needs. Reasoning stays off: nothing in the data needs it, and it would use 3.4 times the output tokens ([why](DECISIONS.md#8-model)). Calls are pinned to Fireworks, then Together, the hosts checked to return logprobs; Fireworks served every call.
+**$0.0540 over 359 calls** through OpenRouter (`outputs/spend.jsonl`), as billed; a full run costs $0.0062, and the first run's 350 calls ($0.0759 at peak prices) are in git history. **Model:** DeepSeek V4.1 Flash (`deepseek/deepseek-v4.1-flash`, 1017 release), which I pushed for: with reasoning off it led the open-weights models on Artificial Analysis's index ([archived](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)), uses 152 output tokens a receipt and returns the logprobs the confidence needs; reasoning would cost 3.4 times the tokens for nothing this data needs ([why](DECISIONS.md#8-model)). Calls are pinned to Fireworks, then Together, the hosts that returned logprobs.
 
 ## What I would do next
 
