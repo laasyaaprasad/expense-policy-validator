@@ -13,6 +13,7 @@ from pathlib import Path
 
 import yaml
 
+from experiments import TEMPERATURE_1
 from evaluation import cord
 from evaluation.gold import load_gold
 from experiments.policy_config.extract import extract
@@ -32,6 +33,11 @@ def _llm() -> LLM:
     try:
         return LLM(cache_dir=CACHE_DIR, ledger_path=LEDGER_PATH)
     except LLMError as error:
+        if not any((CACHE_DIR / "policy_config").glob("*.json")):
+            # The cache is not committed (every prompt holds policy text), so with no key nothing can be replayed.
+            # Stop rather than write empty results over the committed ones.
+            raise SystemExit(f"{error}, and this experiment's cache is not committed: rerun it with a key. "
+                             "Its committed results are unchanged.") from error
         print(f"{error}. Replaying the cache instead.")
         return LLM.offline(cache_dir=CACHE_DIR, ledger_path=LEDGER_PATH)
 
@@ -71,7 +77,7 @@ def main() -> int:
     failures["self_consistency"] = {k: v for s in samples for k, v in s[1].items()}
 
     cord_receipts = load_receipts(cord.RECEIPTS_PATH)
-    cord_classified = cord.load_system(cord_receipts)[0]
+    cord_classified = cord.load_system(cord_receipts, TEMPERATURE_1 / "cord" / "classifications.jsonl")[0]
     cord_reference = decide(cord_classified, reference, policies, True)
 
     results = {"hand_rules_yaml": {"config_tests": config_tests(reference, policies, gold),

@@ -11,6 +11,7 @@ import json
 import sys
 from pathlib import Path
 
+from experiments import TEMPERATURE_1
 from evaluation.blame import load_classified
 from evaluation.evaluate import decision_records, receipt_matches, score_items, score_receipts
 from evaluation.gold import in_scope, load_gold
@@ -70,11 +71,11 @@ def main() -> int:
     gold, llm = load_gold(), client()
     reworded = reword(load_receipts(), variants)
     glosses = translate_all(reworded, llm)
-    ours = [classify(r, glosses, llm).receipt for r in reworded]
-    unscored = [c for c in load_classified() if not in_scope(c.receipt.receipt_id)]  # same cross-receipt context as before
+    ours = [classify(r, glosses, llm, temperature=1.0).receipt for r in reworded]  # as run, before the switch to 0
+    unscored = [c for c in load_classified(TEMPERATURE_1 / "classifications.jsonl") if not in_scope(c.receipt.receipt_id)]  # same cross-receipt context as before
     got = records(ours + unscored)
-    original = records(load_classified())
-    before = {row["line_id"]: row for row in read_jsonl(ROOT / "outputs" / "classifications.jsonl")}
+    original = records(load_classified(TEMPERATURE_1 / "classifications.jsonl"))
+    before = {row["line_id"]: row for row in read_jsonl(TEMPERATURE_1 / "classifications.jsonl")}
 
     items, receipts = score_items(got, gold), score_receipts(got, gold)
     lines = [{
@@ -95,7 +96,7 @@ def main() -> int:
     by_id = {r.receipt_id: r for r in reworded}
     repeats = {m["line_id"]: [{"run": run, "category": item.category, "confidence": round(item.confidence, 6), "reason": item.reason}
                               for run in REPEATS
-                              for item in [classify(by_id[m["line_id"].rsplit("-", 1)[0]], glosses, llm, run=run).receipt.items[m["line_id"]]]]
+                              for item in [classify(by_id[m["line_id"].rsplit("-", 1)[0]], glosses, llm, run=run, temperature=1.0).receipt.items[m["line_id"]]]]
                for m in items["misclassified"]}
     metrics = {
         "variants": len(variants), "by_kind": {k: sum(v["kind"] == k for v in variants.values()) for k in ("paraphrase", "same trap")},

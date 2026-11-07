@@ -8,6 +8,7 @@ import json
 import re
 from collections import Counter
 
+from experiments import TEMPERATURE_1
 from evaluation.blame import load_classified
 from evaluation.evaluate import decision_records, receipt_matches
 from evaluation.gold import in_scope
@@ -123,7 +124,7 @@ def end_to_end(config: RulesConfig, policies: dict[str, Rule], gold, cord_classi
     out = {}
     runs = {
         "oracle": lambda: (oracle_receipts(load_receipts(), gold, load_attributes()), False),
-        "system": lambda: (load_classified(), True),
+        "system": lambda: (load_classified(TEMPERATURE_1 / "classifications.jsonl"), True),
     }
     for mode, inputs in runs.items():
         try:

@@ -124,6 +124,12 @@ def test_the_request_uses_the_smoke_tested_settings(llm_with):
     assert request["extra_body"]["reasoning"] == {"enabled": False}
 
 
+def test_an_explicit_temperature_overrides_the_default_for_replaying_old_experiments(llm_with):
+    llm, client = llm_with(reply([line("RCP-032-L1", "software_subscription")]))
+    classify(RECEIPTS["RCP-032"], {}, llm, temperature=1.0)
+    assert client.requests[0]["temperature"] == 1.0 and client.requests[0]["logprobs"] is True
+
+
 def test_the_prompt_lists_exactly_the_taxonomy():
     from validator.classifier import DEFINITIONS, SYSTEM
     assert set(DEFINITIONS) == set(TAXONOMY)

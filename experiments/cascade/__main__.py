@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
+from experiments import TEMPERATURE_1
 from evaluation import cord
 from evaluation.blame import load_classified
 from evaluation.dev import load_dev
@@ -82,20 +83,20 @@ def main() -> int:
 
     # --- the three sets, with the LLM's committed answers ---------------------------------------
     dev_receipts, expected = load_dev()
-    dev_rows = {row["line_id"]: row for row in read_jsonl(ROOT / "outputs" / "dev" / "configured.jsonl")}
+    dev_rows = {row["line_id"]: row for row in read_jsonl(TEMPERATURE_1 / "dev" / "configured.jsonl")}
     dev_llm = {i: ClassifiedItem(line_id=i, category=r["got"], restricted=TAXONOMY[r["got"]], confidence=r["confidence"])
                for i, r in dev_rows.items()}
     dev_want = {i: e["category"] for i, e in expected.items()}
 
     receipts = load_receipts()
     gold = load_gold()
-    receipt_llm = _items(load_classified())
+    receipt_llm = _items(load_classified(TEMPERATURE_1 / "classifications.jsonl"))
     scored_receipts = [r for r in receipts if in_scope(r.receipt_id)]
     receipt_want = {line_id: item.category for rid, g in gold.items() if in_scope(rid) for line_id, item in g.items.items()}
 
     cord_receipts = load_receipts(cord.RECEIPTS_PATH)
     cord_labels = cord.load_labels()
-    cord_llm = _items(cord.load_system(cord_receipts)[0])
+    cord_llm = _items(cord.load_system(cord_receipts, TEMPERATURE_1 / "cord" / "classifications.jsonl")[0])
     cord_want_decisions = cord.dispositions(decide_all(cord.labelled(cord_receipts, cord_labels))[1])
 
     # --- the cheap stage's prototypes and scores ------------------------------------------------
@@ -133,7 +134,7 @@ def main() -> int:
     # --- cost model, from the spend ledger -----------------------------------------------------
     spend = [json.loads(row) for row in (ROOT / "outputs" / "spend.jsonl").read_text(encoding="utf-8").splitlines() if row.strip()]
     lines_per_call: dict[str, int] = {}
-    for path in (ROOT / "outputs" / "classifications.jsonl", cord.OUT_DIR / "classifications.jsonl"):
+    for path in (TEMPERATURE_1 / "classifications.jsonl", TEMPERATURE_1 / "cord" / "classifications.jsonl"):
         for row in read_jsonl(path):
             if row.get("cache_key"):
                 lines_per_call[row["cache_key"]] = lines_per_call.get(row["cache_key"], 0) + 1

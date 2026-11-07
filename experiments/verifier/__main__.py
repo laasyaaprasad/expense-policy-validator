@@ -13,6 +13,7 @@ from pathlib import Path
 
 from sklearn.metrics import roc_auc_score
 
+from experiments import TEMPERATURE_1
 from evaluation import cord
 from evaluation.blame import load_classified
 from evaluation.dev import load_dev
@@ -86,15 +87,15 @@ def main() -> int:
     client = Decisions()
     variants = ("llm_only", "doubt", "veto")
 
-    receipts = load_classified()
+    receipts = load_classified(TEMPERATURE_1 / "classifications.jsonl")
     gold = load_gold()
-    receipt_rows = {r["line_id"]: r for r in read_jsonl(ROOT / "outputs" / "classifications.jsonl")}
+    receipt_rows = {r["line_id"]: r for r in read_jsonl(TEMPERATURE_1 / "classifications.jsonl")}
     receipt_p = ask_all(client, receipts, {i: r.get("english") for i, r in receipt_rows.items()}, "receipts")
-    receipt_alts = alternatives(ROOT / "outputs" / "traces.jsonl")
+    receipt_alts = alternatives(TEMPERATURE_1 / "traces.jsonl")
     receipt_truth = {i: item.restricted for rid, g in gold.items() if in_scope(rid) for i, item in g.items.items()}
 
     cord_receipts = load_receipts(cord.RECEIPTS_PATH)
-    cord_classified, cord_rows = cord.load_system(cord_receipts)
+    cord_classified, cord_rows = cord.load_system(cord_receipts, TEMPERATURE_1 / "cord" / "classifications.jsonl")
     cord_p = ask_all(client, cord_classified, {i: r.get("english") for i, r in cord_rows.items()}, "cord")
     cord_alts = alternatives(cord.OUT_DIR / "traces.jsonl")
     cord_labels = cord.load_labels()
@@ -102,7 +103,7 @@ def main() -> int:
     cord_want = cord.dispositions(decide_all(cord.labelled(cord_receipts, cord_labels))[1])
 
     dev_receipts, expected = load_dev()
-    dev_rows = {r["line_id"]: r for r in read_jsonl(ROOT / "outputs" / "dev" / "configured.jsonl")}
+    dev_rows = {r["line_id"]: r for r in read_jsonl(TEMPERATURE_1 / "dev" / "configured.jsonl")}
     dev_classified = [ClassifiedReceipt(receipt=r, items={
         line.line_id: ClassifiedItem(line_id=line.line_id, category=dev_rows[line.line_id]["got"],
                                      restricted=TAXONOMY[dev_rows[line.line_id]["got"]], confidence=dev_rows[line.line_id]["confidence"])

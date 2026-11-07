@@ -11,6 +11,7 @@ import re
 import sys
 from pathlib import Path
 
+from experiments import TEMPERATURE_1
 from evaluation import cord
 from evaluation.blame import load_classified
 from evaluation.evaluate import decision_records, receipt_matches
@@ -39,6 +40,11 @@ def _llm() -> LLM:
     try:
         return LLM(cache_dir=CACHE_DIR, ledger_path=LEDGER_PATH)
     except LLMError as error:
+        if not any((CACHE_DIR / "policy_graph").glob("*.json")):
+            # The cache is not committed (every prompt holds policy text), so with no key nothing can be replayed.
+            # Stop rather than write empty results over the committed ones.
+            raise SystemExit(f"{error}, and this experiment's cache is not committed: rerun it with a key. "
+                             "Its committed results are unchanged.") from error
         print(f"{error}. Replaying the cache instead.")
         return LLM.offline(cache_dir=CACHE_DIR, ledger_path=LEDGER_PATH)
 
@@ -84,11 +90,11 @@ def main() -> int:
 
     # --- the three settings ----------------------------------------------------------------------
     receipts = load_receipts()
-    glosses = {row["line_id"]: row.get("english") for row in read_jsonl(ROOT / "outputs" / "classifications.jsonl")}
+    glosses = {row["line_id"]: row.get("english") for row in read_jsonl(TEMPERATURE_1 / "classifications.jsonl")}
     cord_receipts = load_receipts(cord.RECEIPTS_PATH)
-    cord_classified, cord_rows = cord.load_system(cord_receipts)
+    cord_classified, cord_rows = cord.load_system(cord_receipts, TEMPERATURE_1 / "cord" / "classifications.jsonl")
     glosses |= {i: r.get("english") for i, r in cord_rows.items()}
-    settings = {"oracle": oracle_receipts(receipts, gold, load_attributes()), "system": load_classified(), "cord": cord_classified}
+    settings = {"oracle": oracle_receipts(receipts, gold, load_attributes()), "system": load_classified(TEMPERATURE_1 / "classifications.jsonl"), "cord": cord_classified}
     need = {name: needed(classified, config, checkable) for name, classified in settings.items()}
 
     # --- the graphs ------------------------------------------------------------------------------

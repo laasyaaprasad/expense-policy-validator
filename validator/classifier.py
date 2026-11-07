@@ -181,9 +181,11 @@ def category_alternatives(completion: Completion, start: int, chosen: str) -> li
     return []
 
 
-def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, context: bool = True, run: str = "") -> Classification:
+def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, context: bool = True, run: str = "",
+             temperature: float | None = None) -> Classification:
     """`context=False` leaves out the merchant and expense type (the merchant ablation).
-    `run` names a repeat of the same request, so it is a fresh call rather than a cache hit."""
+    `run` names a repeat of the same request, so it is a fresh call rather than a cache hit.
+    `temperature` overrides CALL's, so experiment 5 can replay its calls at 1."""
     prompt_version = PROMPT_VERSION + ("" if context else "-nocontext") + (f"-{run}" if run else "")
     if not receipt.itemized:
         items = {
@@ -194,7 +196,8 @@ def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, contex
         return Classification(ClassifiedReceipt(receipt=receipt, items=items), prompt_version, None, None)
 
     reply, completion = complete_json(llm, _messages(receipt, glosses, context), Reply, purpose="classify",
-                                      prompt_version=prompt_version, check=_problems(receipt), **CALL)
+                                      prompt_version=prompt_version, check=_problems(receipt),
+                                      **(CALL if temperature is None else {**CALL, "temperature": temperature}))
     confidences, fallback = category_confidences(completion, reply)
     starts = [start for _, start, _ in _category_spans(completion)] if fallback is None else []
     alternatives = {line.line_id: category_alternatives(completion, start, line.category) for line, start in zip(reply.items, starts)}
