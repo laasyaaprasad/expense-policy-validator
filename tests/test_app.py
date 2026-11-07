@@ -53,6 +53,7 @@ def test_the_metrics_page_runs():
 def test_the_detail_page_shows_each_stage_of_the_trace():
     at = page("viewer/detail.py", source="System", selected="RCP-020")
     assert not at.exception
+    assert any("Trace" in t.label for t in at.tabs)
     engine = at.dataframe[-1].value
     engine = engine.data if hasattr(engine, "data") else engine
     steps = dict(zip(engine["rule"], engine["result"]))
