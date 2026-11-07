@@ -177,7 +177,7 @@ class Lookup:
                 near = ((*self.memory[j], round(float(sims[j]), 4)), risk)
                 if risk_sims[r] >= c["tau_mem"]:
                     return LineDecision(False, "model", None, None, "a restricted reference is also a near-repeat", near)
-                return LineDecision(True, "memory", self.memory[j][1], c["memory_confidence"], "a near-repeat of a reviewed line", near)
+                return LineDecision(True, "memory", self.memory[j][1], c["memory_confidence"], f"close to a reviewed line (similarity {sims[j]:.3f}, threshold {c['tau_mem']:.3f})", near)
         lib_sims = self.lib_vectors @ v
         scores = {cat: float(lib_sims[cols].max()) for cat, cols in self.columns.items()}
         best, second = sorted(scores, key=scores.get, reverse=True)[:2]

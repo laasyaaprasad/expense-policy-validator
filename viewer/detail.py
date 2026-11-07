@@ -159,7 +159,8 @@ with trace_tab:
             "closest match": (lambda n: f"{n[0][0]} ({n[0][1]}, {n[0][2]:.3f})" if n else "")(line.get("nearest")),
             "runners-up (model)": ", ".join(f"{a['category']} {a['p']:.2g}" for a in line.get("alternatives", [])) if line.get("decided_by", "model").startswith("model") else "",
             "below threshold": "yes, human review (EXC-03)" if line["line_id"] in engine["uncertain_lines"] else "",
-        } for line in trace["classify"]["lines"]]).style.format({"confidence": "{:.6f}"}), hide_index=True, width="stretch")
+        } for line in trace["classify"]["lines"]]).style.format({"confidence": "{:.6f}"}), hide_index=True, width="stretch",
+            column_config={"line": st.column_config.TextColumn(width=110), "decided by": st.column_config.TextColumn(width=130)})
 
         reasons = data.retrieval_reasons().get(rid, {})
         st.markdown(f"**3 · Retrieve** (code). {len(trace['retrieve']['rules'])} of the policy rules could apply, each for this reason:")
