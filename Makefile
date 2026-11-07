@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval app
+.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -58,6 +58,12 @@ policy-config:
 # embeddings (experiments/graph_retrieval/PLAN.md). Offline once cached; changes nothing submitted.
 graph-retrieval:
 	uv run python -m experiments.graph_retrieval
+
+# Experiment 5, after the freeze: the 28 scored receipts with every itemized line reworded, to test whether 65 / 65
+# depended on the exact wording (experiments/paraphrase/PLAN.md). Needs every row of review.csv checked by hand first;
+# offline once cached. Changes nothing submitted.
+paraphrase:
+	uv run python -m experiments.paraphrase
 
 # Results viewer: receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:
