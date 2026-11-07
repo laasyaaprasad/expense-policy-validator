@@ -61,3 +61,12 @@ def test_scoring_reproduces_the_committed_result_when_nothing_is_reworded():
     gold, got = load_gold(), records(load_classified())
     assert score_items(got, gold)["accuracy"]["k"] == 65
     assert score_receipts(got, gold)["exact_match"]["k"] == 28
+
+
+def test_the_write_up_states_the_committed_numbers():
+    import json
+    from experiments.paraphrase.__main__ import HERE
+    m = json.loads((HERE / "results" / "metrics.json").read_text(encoding="utf-8"))
+    page = (HERE / "README.md").read_text(encoding="utf-8")
+    assert f"{m['items']['reworded']['k']} / 65" in page and f"{m['receipts']['reworded']['k']} / 28" in page
+    assert f"${m['spend_usd']:.4f}" in page

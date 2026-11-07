@@ -24,6 +24,7 @@ Every number here comes from `make eval`, which scores the committed outputs on 
 - The traps in the data are the examples the taxonomy and meals policy themselves give: beer-battered cod, Arnold Palmer, virgin mojito, cooking wine, rum cake.
 - The prompt quotes none of them, but a capable model given those documents is expected to get them right.
 - The prompt and dev set were written by an assistant that had the receipts and their answer key to hand, after building the engine on the gold categories. So 65/65 is not a forecast for new receipts.
+- **Reworded** ([experiment 5](../experiments/paraphrase/README.md)): with every scored line reworded and checked by hand, it got 64/65 items and 27/28 receipts. The miss was "Shaoxing cooking wine", called food, so ALC-03 was missed; the original Marsala line was already the closest call.
 
 ## 2. Disposition
 

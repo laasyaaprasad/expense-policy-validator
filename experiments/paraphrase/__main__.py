@@ -24,6 +24,7 @@ from validator.translate import translate_all
 HERE = Path(__file__).resolve().parent
 REVIEW, RESULTS, CACHE, LEDGER = HERE / "review.csv", HERE / "results", HERE / "cache", HERE / "spend.jsonl"
 ITEMS_KEPT, RECEIPTS_KEPT = 62, 26  # PLAN.md: at most 3 items and 2 receipts lost; fixed before the run
+REPEATS = ("repeat1", "repeat2", "repeat3")  # added after the run (README): fresh calls on each misclassified line's receipt
 
 
 def load_variants(path: Path = REVIEW, *, require_review: bool = True) -> dict[str, dict]:
@@ -91,12 +92,18 @@ def main() -> int:
                        else "a rule, or a field read from the text (recipient, item kind)"}
                       for rid in sorted(got) if in_scope(rid) and not receipt_matches(got[rid], gold[rid])]
     kept_items, kept_receipts = items["accuracy"]["k"], receipts["exact_match"]["k"]
+    by_id = {r.receipt_id: r for r in reworded}
+    repeats = {m["line_id"]: [{"run": run, "category": item.category, "confidence": round(item.confidence, 6), "reason": item.reason}
+                              for run in REPEATS
+                              for item in [classify(by_id[m["line_id"].rsplit("-", 1)[0]], glosses, llm, run=run).receipt.items[m["line_id"]]]]
+               for m in items["misclassified"]}
     metrics = {
         "variants": len(variants), "by_kind": {k: sum(v["kind"] == k for v in variants.values()) for k in ("paraphrase", "same trap")},
         "items": {"original": score_items(original, gold)["accuracy"], "reworded": items["accuracy"],
                   "macro_f1": items["macro_f1"], "restricted_f1": items["restricted_f1"], "misclassified": items["misclassified"]},
         "receipts": {"original": score_receipts(original, gold)["exact_match"], "reworded": receipts["exact_match"],
                      "disposition": receipts["disposition"], "wrong": wrong_receipts},
+        "repeats_of_misses": repeats,  # after the run, not in PLAN.md
         "below_threshold": [l["line_id"] for l in lines if l["confidence"] < CONFIDENCE_THRESHOLD],
         "lowest_confidence": sorted(lines, key=lambda l: l["confidence"])[:5],
         "verdict": ("no sign of overfitting to the wording" if kept_items >= ITEMS_KEPT and kept_receipts >= RECEIPTS_KEPT
@@ -109,7 +116,7 @@ def main() -> int:
         writer = csv.DictWriter(f, fieldnames=list(lines[0]))
         writer.writeheader()
         writer.writerows(lines)
-    (RESULTS / "metrics.json").write_text(json.dumps(metrics, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    (RESULTS / "metrics.json").write_text(json.dumps(metrics, indent=1, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
 
     print(f"items right: {kept_items} / {items['items']} reworded (original {metrics['items']['original']['k']}); "
           f"macro F1 {items['macro_f1']:.3f}, restricted F1 {items['restricted_f1']:.3f}")
@@ -120,6 +127,8 @@ def main() -> int:
         print(f"  item  {m['line_id']} {m['text']!r}: got {m['got']}, want {m['want']}")
     for w in wrong_receipts:
         print(f"  receipt {w['receipt_id']}: got {w['got']} {w['got_rules']}, want {w['want']} {w['want_rules']} ({w['stage']})")
+    for line_id, runs in repeats.items():
+        print(f"  repeats of {line_id}: " + ", ".join(f"{r['category']} {r['confidence']:.2f}" for r in runs))
     print(f"below the {CONFIDENCE_THRESHOLD} threshold: {metrics['below_threshold'] or 'none'}")
     print(f"verdict: {metrics['verdict']}; spend ${metrics['spend_usd']:.4f}")
     return 0
