@@ -174,7 +174,7 @@ def build() -> dict:
     records = load_results(OUTPUT_DIR / "results.jsonl")
     blames = blame(load_classified(), gold, load_attributes(), load_gloss_review(), run_oracle())
     metrics = {
-        "note": "The frozen config through OpenRouter (Fireworks); its first scored run gave the same categories and decisions on all 32 receipts. Nothing was changed after seeing a gold error (NOTES.md, 'The final run'); later changes (the timing rules, fixes found in review) changed no scored decision.",
+        "note": "The frozen config through OpenRouter (Fireworks), with the classifier at temperature 0 since experiment 6; its first scored run, and the run at temperature 1, gave the same categories and decisions on all 32 receipts. Nothing was changed after seeing a gold error (NOTES.md, 'The final run'); later changes (the timing rules, fixes found in review) changed no scored decision.",
         "confidence_threshold": CONFIDENCE_THRESHOLD,
         "items": score_items(records, gold),
         **score_receipts(records, gold),

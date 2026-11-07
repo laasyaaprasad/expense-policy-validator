@@ -4,8 +4,8 @@ Run with `make smoke`; needs the key in .env. Responses are cached under cache/s
 in outputs/spend.jsonl, so a rerun makes no calls. Items are written here, never taken from receipts.
 
 Finding: a call left to OpenRouter's routing reached a host that returned no logprobs at all, so the
-upstream is pinned (validator/llm.py, PINNED). The classifier samples at temperature 1, the setting
-frozen with the config (DECISIONS.md, section 4); the pinned hosts return real logprobs at both.
+upstream is pinned (validator/llm.py, PINNED). The classifier runs at temperature 0, the setting
+the classifier's setting since experiment 6 (DECISIONS.md, section 4); the pinned hosts return real logprobs at both.
 """
 
 import json
@@ -20,8 +20,8 @@ pytestmark = pytest.mark.llm
 
 CATEGORIES = sorted(load_taxonomy())
 ITEMS = [("S1", "Printer paper A4, 500 sheets"), ("S2", "Moscow Mule mug")]
-PROMPT_VERSION = "smoke-v1-t1"
-CLASSIFY = {"logprobs": True, "top_logprobs": 5, "temperature": 1.0}  # the classifier's settings
+PROMPT_VERSION = "smoke-v1"
+CLASSIFY = {"logprobs": True, "top_logprobs": 5, "temperature": 0.0}  # the classifier's settings
 MESSAGES = [
     {"role": "system", "content": (
         "Classify each expense line item into exactly one category from this list: "
@@ -49,8 +49,8 @@ def completion(llm):
 
 
 @pytest.fixture(scope="module")
-def greedy(llm):
-    return llm.complete(MESSAGES, purpose="smoke", prompt_version="smoke-v1", logprobs=True, top_logprobs=5)
+def sampled(llm):
+    return llm.complete(MESSAGES, purpose="smoke", prompt_version="smoke-v1-t1", logprobs=True, top_logprobs=5, temperature=1.0)
 
 
 def category_spans(content: str) -> list[tuple[str, int, int]]:
@@ -74,16 +74,16 @@ def test_logprobs_line_up_with_the_category_tokens(completion):
     print("\ncategory probabilities:", {c: round(p, 6) for c, p in probabilities.items()})
 
 
-def test_logprobs_carry_information_at_temperature_one(completion):
+def test_logprobs_carry_information_at_the_classifiers_temperature(completion):
     # Some chosen token is below certainty, and some alternative has a real probability.
     assert any(token.logprob < 0 for token in completion.tokens)
     assert any(-50 < logprob < 0 for token in completion.tokens for _, logprob in token.top[1:])
 
 
-def test_the_pinned_host_returns_logprobs_at_temperature_zero_too(greedy):
+def test_the_pinned_host_returns_logprobs_at_temperature_one_too(sampled):
     # An unpinned call once came back with none; the pinned hosts return them at either temperature.
-    assert greedy.tokens is not None
-    assert any(token.logprob < 0 for token in greedy.tokens)
+    assert sampled.tokens is not None
+    assert any(token.logprob < 0 for token in sampled.tokens)
 
 
 def test_thinking_is_off_and_the_temperature_is_honoured(completion):
@@ -108,7 +108,7 @@ def test_a_second_identical_call_is_a_cache_hit(llm, completion):
 
 
 def test_a_fresh_repeat_gives_the_same_categories_on_clear_items(llm, completion):
-    # Sampling at temperature 1 can only change an answer the model is unsure of; these two are clear.
+    # A repeat at temperature 0 can still differ slightly in its logprobs, but not on clear items like these.
     repeat = llm.complete(MESSAGES, purpose="smoke", prompt_version=PROMPT_VERSION + "-repeat", **CLASSIFY)
     assert [c for c, _, _ in category_spans(repeat.content)] == [c for c, _, _ in category_spans(completion.content)]
 

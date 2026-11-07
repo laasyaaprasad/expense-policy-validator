@@ -14,12 +14,12 @@
 
 | Line | Arithmetic | $/month |
 |---|---|---|
-| Model (OpenRouter, Fireworks) | 0 cached + 1050 uncached + 152 output tokens, billed at $0.000193 per receipt × 1.52M | ≈ 294 |
+| Model (OpenRouter, Fireworks) | 0 cached + 1050 uncached + 152 output tokens, billed at $0.000182 per receipt × 1.52M | ≈ 277 |
 | Worker Lambda | 1.52M × 1.4 s (measured) × 0.5 GB × $0.0000166667 | ≈ 18 |
 | API, SQS, DynamoDB, S3, logs | 3M requests, 4.5M messages, 1.52M PUTs, 3 GB of logs | ≈ 19 |
 | Cognito tokens | 10 callers × 720 tokens (one an hour) × $0.00225 | ≈ 16 |
 
-**About $350 a month**, 85% of it the model, as billed after Fireworks' prompt caching; at list price ($0.21 / M in, $0.84 / M out) the model line would be $529.
+**About $330 a month**, 84% of it the model, as billed after Fireworks' prompt caching; at list price ($0.21 / M in, $0.84 / M out) the model line would be $529.
 
 **Before production.**
 1. **Watch the model.** Alarm on errors and latency; chart dispositions, rule hits and confidence; log reviewer verdicts for flag precision; rerun the dev and gold gates on upgrades.

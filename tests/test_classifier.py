@@ -120,7 +120,7 @@ def test_the_request_uses_the_smoke_tested_settings(llm_with):
     llm, client = llm_with(reply([line("RCP-032-L1", "software_subscription")]))
     classify(RECEIPTS["RCP-032"], {}, llm)
     request = client.requests[0]
-    assert request["temperature"] == 1.0 and request["logprobs"] is True
+    assert request["temperature"] == 0.0 and request["logprobs"] is True
     assert request["extra_body"]["reasoning"] == {"enabled": False}
 
 

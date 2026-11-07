@@ -1,0 +1,6083 @@
+{
+ "request": {
+  "params": {
+   "extra_body": {
+    "provider": {
+     "allow_fallbacks": false,
+     "order": [
+      "Fireworks",
+      "Together"
+     ],
+     "require_parameters": true
+    },
+    "reasoning": {
+     "enabled": false
+    }
+   },
+   "logprobs": true,
+   "max_tokens": 3000,
+   "messages": [
+    {
+     "content": "You classify the line items on an expense receipt.\n\nFor each line, decide what the item IS, not what words its name contains, and pick exactly one category:\n- alcohol: drinks that contain alcohol: beer, wine, spirits, sake, cocktails, corkage; also wine or spirits sold as a product for cooking\n- tobacco: cigarettes, cigars, cigarillos, loose tobacco, vapes and e-liquids\n- personal_electronics: consumer devices (headphones, earbuds, tablets, e-readers, smart watches, fitness trackers, cameras, drones, speakers, games consoles, televisions, item trackers) and accessories made for them, such as cases, straps and chargers\n- gift: things made to be given: flowers, gift baskets, greeting cards, branded merchandise\n- gift_card: gift cards, prepaid cards, vouchers and any other cash equivalent\n- household_goods: cleaning and laundry products, paper towels, tissues, toilet paper, rubbish bags, kitchenware, drinkware and barware, bedding, furniture, small appliances, home décor\n- personal_care: toiletries, cosmetics, razors, toothbrushes, haircuts, salon, spa and massage\n- clothing: apparel, footwear and fashion accessories such as belts, ties, scarves and bags\n- gambling: casino chips, bets, lottery tickets\n- jewelry: non-electronic watches, bracelets, rings, necklaces, cufflinks, precious-metal items\n- food_beverage: meals, dishes, snacks, desserts, catering and non-alcoholic drinks, including dishes cooked with alcohol and alcohol-free versions of drinks\n- computer_accessory: cables, adapters, docking stations, mice, keyboards, monitors, laptop stands, webcams\n- office_supplies: stationery, paper, pens, notebooks, printing, postage, shipping\n- lodging: room charges, resort fees, lodging taxes\n- ground_transport: taxi, rideshare, transit, shuttles, parking, tolls, fuel\n- airfare: flight tickets, seat fees, bag fees\n- laundry_service: laundry, dry cleaning, pressing\n- health_otc: over-the-counter medicine, lozenges, first aid\n- software_subscription: software and SaaS subscriptions and licences\n- service_fee: service charges, gratuities, tips, delivery fees, booking fees\n- other: anything that fits none of the above, including a charge whose contents are unknown and the three item kinds below\n\nRules:\n- A name can mislead. A dish cooked with a spirit is food_beverage; an alcohol-free beer is food_beverage; a set of martini glasses is household_goods.\n- What an item is and why it was bought are separate. A bottle of sake bought as a present is alcohol, and a silver ring bought for a client is jewelry.\n- The merchant, its category code and the declared expense type are context only. Merchants sell many things and employees mis-declare expense types, so never let them override the item itself.\n- For lines not in English an English gloss is provided. The original text is authoritative; use the gloss to read it.\n\nitem_kind: set it only for these three, and give them category \"other\":\n- \"entertainment_venue\": tickets or fees for golf, sporting events, theatre, concerts or similar venues (for example, football match tickets)\n- \"mobile_phone\": a mobile phone handset\n- \"prescription_medication\": medicine dispensed on prescription\nOtherwise item_kind is null.\n\nrecipient_name and recipient_type: fill them only when the line itself says who the item is for or who the guest is. recipient_type is \"client\" (a client, prospect or anyone at another company), \"employee\" (a colleague or anyone at our own company) or \"government_official\" (a public official, public employee, government body or state-owned enterprise employee). If the line names no one, both are null.\n\nreason: one short sentence on what the item is. For \"other\", say what the item is.\n\nReply in json only, one entry per input line, in the input order, with the keys in this order:\n{\"items\": [{\"line_id\": \"...\", \"category\": \"...\", \"item_kind\": null, \"recipient_name\": null, \"recipient_type\": null, \"reason\": \"...\"}]}",
+     "role": "system"
+    },
+    {
+     "content": "{\"receipt\": {\"merchant\": \"(not recorded)\", \"merchant_category\": \"Eating places and restaurants\", \"declared_expense_type\": \"Meals - Individual\"}, \"items\": [{\"line_id\": \"CORD-V034-L1\", \"text\": \"GRILLED BABY POTATO (R\", \"english\": \"GRILLED BABY POTATO (R\"}, {\"line_id\": \"CORD-V034-L2\", \"text\": \"TRUFFLE CREAM\", \"english\": \"TRUFFLE CREAM\"}, {\"line_id\": \"CORD-V034-L3\", \"text\": \"CARBONARA\", \"english\": \"CARBONARA\"}, {\"line_id\": \"CORD-V034-L4\", \"text\": \"ORIGINAL BREWED TEA\", \"english\": \"ORIGINAL BREWED TEA\"}]}",
+     "role": "user"
+    }
+   ],
+   "model": "deepseek/deepseek-v4.1-flash",
+   "response_format": {
+    "type": "json_object"
+   },
+   "temperature": 0.0,
+   "top_logprobs": 5
+  },
+  "prompt_version": "classify-v1",
+  "provider": "openrouter"
+ },
+ "response": {
+  "content": "{\"items\": [{\"line_id\": \"CORD-V034-L1\", \"category\": \"food_beverage\", \"item_kind\": null, \"recipient_name\": null, \"recipient_type\": null, \"reason\": \"Grilled baby potato is a side dish.\"}, {\"line_id\": \"CORD-V034-L2\", \"category\": \"food_beverage\", \"item_kind\": null, \"recipient_name\": null, \"recipient_type\": null, \"reason\": \"Truffle cream is a food item or sauce.\"}, {\"line_id\": \"CORD-V034-L3\", \"category\": \"food_beverage\", \"item_kind\": null, \"recipient_name\": null, \"recipient_type\": null, \"reason\": \"Carbonara is a pasta dish.\"}, {\"line_id\": \"CORD-V034-L4\", \"category\": \"food_beverage\", \"item_kind\": null, \"recipient_name\": null, \"recipient_type\": null, \"reason\": \"Brewed tea is a non-alcoholic drink.\"}]}",
+  "finish_reason": "stop",
+  "model": "deepseek/deepseek-v4.1-flash",
+  "provider": "Fireworks",
+  "reasoning_content": null,
+  "system_fingerprint": null,
+  "tokens": [
+   {
+    "logprob": -0.23958723,
+    "token": "{\"",
+    "top": [
+     [
+      "{\"",
+      -0.23958723
+     ],
+     [
+      "```",
+      -2.23958731
+     ],
+     [
+      "{\n",
+      -2.23958731
+     ],
+     [
+      "Here",
+      -11.23958683
+     ],
+     [
+      "json",
+      -12.73958683
+     ]
+    ]
+   },
+   {
+    "logprob": -0.00012528,
+    "token": "items",
+    "top": [
+     [
+      "items",
+      -0.00012528
+     ],
+     [
+      "type",
+      -9.00012493
+     ],
+     [
+      "item",
+      -13.62512493
+     ],
+     [
+      "line",
+      -15.50012493
+     ],
+     [
+      "error",
+      -16.25012589
+     ]
+    ]
+   },
+   {
+    "logprob": -0.004079,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      -0.004079
+     ],
+     [
+      "\":[",
+      -5.50407887
+     ],
+     [
+      "\\\":",
+      -15.75407887
+     ],
+     [
+      "':",
+      -16.25407982
+     ],
+     [
+      "\":\n",
+      -16.31657982
+     ]
+    ]
+   },
+   {
+    "logprob": -6.68e-06,
+    "token": " [",
+    "top": [
+     [
+      " [",
+      -6.68e-06
+     ],
+     [
+      " [\n",
+      -12.00000668
+     ],
+     [
+      " [\"",
+      -14.50000668
+     ],
+     [
+      " \"[",
+      -17.50000572
+     ],
+     [
+      " [{",
+      -18.50000572
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "{\"",
+    "top": [
+     [
+      "{\"",
+      0.0
+     ],
+     [
+      "[\"",
+      -20.75
+     ],
+     [
+      "{\\",
+      -20.875
+     ],
+     [
+      " {\"",
+      -22.875
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -24.25
+     ]
+    ]
+   },
+   {
+    "logprob": -7.2e-07,
+    "token": "line",
+    "top": [
+     [
+      "line",
+      -7.2e-07
+     ],
+     [
+      "category",
+      -14.50000095
+     ],
+     [
+      "线",
+      -17.0
+     ],
+     [
+      "лайн",
+      -17.75
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -17.8125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_id",
+    "top": [
+     [
+      "_id",
+      0.0
+     ],
+     [
+      "Id",
+      -20.375
+     ],
+     [
+      "\":",
+      -20.5
+     ],
+     [
+      "_category",
+      -22.25
+     ],
+     [
+      "_k",
+      -23.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "\":\"",
+      -18.1875
+     ],
+     [
+      " \":",
+      -22.375
+     ],
+     [
+      ":",
+      -23.78125
+     ],
+     [
+      "�",
+      -24.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " \"\",",
+      -18.375
+     ],
+     [
+      " null",
+      -18.875
+     ],
+     [
+      " \"-",
+      -20.125
+     ],
+     [
+      " \"\\",
+      -20.25
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": "C",
+    "top": [
+     [
+      "C",
+      -2.4e-07
+     ],
+     [
+      " C",
+      -16.0625
+     ],
+     [
+      "COR",
+      -16.625
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -17.9375
+     ],
+     [
+      "V",
+      -18.6875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ORD",
+    "top": [
+     [
+      "ORD",
+      0.0
+     ],
+     [
+      "ord",
+      -21.125
+     ],
+     [
+      "ARD",
+      -21.5
+     ],
+     [
+      "ORN",
+      -22.5
+     ],
+     [
+      "ORE",
+      -23.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "-V",
+    "top": [
+     [
+      "-V",
+      0.0
+     ],
+     [
+      "-",
+      -20.0625
+     ],
+     [
+      "-N",
+      -20.125
+     ],
+     [
+      "-IV",
+      -20.875
+     ],
+     [
+      "-L",
+      -20.9375
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": "034",
+    "top": [
+     [
+      "034",
+      -2.4e-07
+     ],
+     [
+      "033",
+      -16.5
+     ],
+     [
+      "032",
+      -17.75
+     ],
+     [
+      "024",
+      -18.0625
+     ],
+     [
+      "031",
+      -18.3125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "-L",
+    "top": [
+     [
+      "-L",
+      0.0
+     ],
+     [
+      "-",
+      -18.75
+     ],
+     [
+      "-C",
+      -20.0
+     ],
+     [
+      "\",",
+      -20.875
+     ],
+     [
+      "-M",
+      -21.125
+     ]
+    ]
+   },
+   {
+    "logprob": -1.79e-06,
+    "token": "1",
+    "top": [
+     [
+      "1",
+      -1.79e-06
+     ],
+     [
+      "2",
+      -13.75000191
+     ],
+     [
+      "3",
+      -14.62500191
+     ],
+     [
+      "4",
+      -15.37500191
+     ],
+     [
+      "5",
+      -17.75000191
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\",",
+    "top": [
+     [
+      "\",",
+      0.0
+     ],
+     [
+      "\",\"",
+      -18.375
+     ],
+     [
+      "\",\n",
+      -19.0
+     ],
+     [
+      "l",
+      -21.0625
+     ],
+     [
+      "\\u",
+      -21.6875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " \"$",
+      -22.875
+     ],
+     [
+      " \\\"",
+      -23.125
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -23.4375
+     ],
+     [
+      " category",
+      -23.625
+     ]
+    ]
+   },
+   {
+    "logprob": -3.6e-07,
+    "token": "category",
+    "top": [
+     [
+      "category",
+      -3.6e-07
+     ],
+     [
+      "c",
+      -16.3125
+     ],
+     [
+      "item",
+      -16.625
+     ],
+     [
+      " катего",
+      -16.875
+     ],
+     [
+      " category",
+      -17.4375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "”:",
+      -22.75
+     ],
+     [
+      "':",
+      -23.0625
+     ],
+     [
+      "**:",
+      -25.75
+     ],
+     [
+      "\\\":",
+      -26.375
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      -2.4e-07
+     ],
+     [
+      " null",
+      -15.625
+     ],
+     [
+      " \"\",",
+      -16.625
+     ],
+     [
+      "\r",
+      -18.375
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -20.3125
+     ]
+    ]
+   },
+   {
+    "logprob": -1.073e-05,
+    "token": "food",
+    "top": [
+     [
+      "food",
+      -1.073e-05
+     ],
+     [
+      "other",
+      -11.50001049
+     ],
+     [
+      " food",
+      -15.87501049
+     ],
+     [
+      "食品",
+      -16.12501144
+     ],
+     [
+      "service",
+      -16.50001144
+     ]
+    ]
+   },
+   {
+    "logprob": -3.6e-07,
+    "token": "_b",
+    "top": [
+     [
+      "_b",
+      -3.6e-07
+     ],
+     [
+      "_",
+      -16.5625
+     ],
+     [
+      "_e",
+      -16.625
+     ],
+     [
+      "_d",
+      -17.25
+     ],
+     [
+      "\",",
+      -17.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ever",
+    "top": [
+     [
+      "ever",
+      0.0
+     ],
+     [
+      " Bever",
+      -17.25
+     ],
+     [
+      " beverage",
+      -17.5
+     ],
+     [
+      " ever",
+      -18.875
+     ],
+     [
+      "ey",
+      -19.5
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "age",
+    "top": [
+     [
+      "age",
+      -1.2e-07
+     ],
+     [
+      "rage",
+      -18.0
+     ],
+     [
+      "e",
+      -18.0
+     ],
+     [
+      "ange",
+      -18.25
+     ],
+     [
+      "iage",
+      -18.375
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "\",",
+    "top": [
+     [
+      "\",",
+      -1.2e-07
+     ],
+     [
+      "\"},",
+      -17.0
+     ],
+     [
+      "\":",
+      -18.5
+     ],
+     [
+      "\"，",
+      -20.125
+     ],
+     [
+      "}\",",
+      -20.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " item",
+      -22.375
+     ],
+     [
+      ",",
+      -22.375
+     ],
+     [
+      " \"$",
+      -22.6875
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -23.0
+     ]
+    ]
+   },
+   {
+    "logprob": -1.07e-06,
+    "token": "item",
+    "top": [
+     [
+      "item",
+      -1.07e-06
+     ],
+     [
+      "reason",
+      -14.00000095
+     ],
+     [
+      "recip",
+      -15.68750095
+     ],
+     [
+      "category",
+      -17.87500191
+     ],
+     [
+      " item",
+      -18.18750191
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_k",
+    "top": [
+     [
+      "_k",
+      0.0
+     ],
+     [
+      "_",
+      -18.0
+     ],
+     [
+      " kind",
+      -18.6875
+     ],
+     [
+      " Kind",
+      -18.75
+     ],
+     [
+      "_type",
+      -18.875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ind",
+    "top": [
+     [
+      "ind",
+      0.0
+     ],
+     [
+      "indle",
+      -21.25
+     ],
+     [
+      "inda",
+      -21.875
+     ],
+     [
+      "end",
+      -22.25
+     ],
+     [
+      "ink",
+      -23.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "”:",
+      -19.75
+     ],
+     [
+      "':",
+      -19.75
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -21.25
+     ],
+     [
+      "_id",
+      -21.5
+     ]
+    ]
+   },
+   {
+    "logprob": -3.6e-07,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -3.6e-07
+     ],
+     [
+      " \"",
+      -15.375
+     ],
+     [
+      "null",
+      -16.625
+     ],
+     [
+      " false",
+      -18.5
+     ],
+     [
+      " ",
+      -19.125
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      -2.4e-07
+     ],
+     [
+      "\",",
+      -16.125
+     ],
+     [
+      ",\"",
+      -16.875
+     ],
+     [
+      " recipient",
+      -17.1875
+     ],
+     [
+      "，",
+      -17.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " recipient",
+      -24.9375
+     ],
+     [
+      " '",
+      -25.6875
+     ],
+     [
+      " \\\"",
+      -26.0
+     ],
+     [
+      " null",
+      -26.3125
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "recip",
+    "top": [
+     [
+      "recip",
+      -1.2e-07
+     ],
+     [
+      " recipient",
+      -16.5
+     ],
+     [
+      "rece",
+      -18.375
+     ],
+     [
+      "rec",
+      -18.5625
+     ],
+     [
+      "re",
+      -18.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ient",
+    "top": [
+     [
+      "ient",
+      0.0
+     ],
+     [
+      "ent",
+      -19.5
+     ],
+     [
+      "IENT",
+      -25.375
+     ],
+     [
+      "iant",
+      -25.75
+     ],
+     [
+      "end",
+      -25.8125
+     ]
+    ]
+   },
+   {
+    "logprob": -7.2e-07,
+    "token": "_name",
+    "top": [
+     [
+      "_name",
+      -7.2e-07
+     ],
+     [
+      "_type",
+      -14.25000095
+     ],
+     [
+      "_id",
+      -17.875
+     ],
+     [
+      "_Name",
+      -18.125
+     ],
+     [
+      "\":",
+      -19.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -19.25
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -21.125
+     ],
+     [
+      "”:",
+      -21.4375
+     ],
+     [
+      " null",
+      -21.75
+     ]
+    ]
+   },
+   {
+    "logprob": -3.6e-07,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -3.6e-07
+     ],
+     [
+      " \"",
+      -15.0
+     ],
+     [
+      "null",
+      -18.25
+     ],
+     [
+      " \"\",",
+      -18.375
+     ],
+     [
+      " nullptr",
+      -20.5
+     ]
+    ]
+   },
+   {
+    "logprob": -3.6e-07,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      -3.6e-07
+     ],
+     [
+      " \"",
+      -15.75
+     ],
+     [
+      ",\"",
+      -16.375
+     ],
+     [
+      " ,",
+      -17.8125
+     ],
+     [
+      ",\n",
+      -18.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " recipient",
+      -25.125
+     ],
+     [
+      " ",
+      -26.0
+     ],
+     [
+      " '",
+      -26.6875
+     ],
+     [
+      " null",
+      -27.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "recip",
+    "top": [
+     [
+      "recip",
+      0.0
+     ],
+     [
+      "rece",
+      -17.75
+     ],
+     [
+      "rec",
+      -18.25
+     ],
+     [
+      " recipient",
+      -19.375
+     ],
+     [
+      "reci",
+      -20.0
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ient",
+    "top": [
+     [
+      "ient",
+      0.0
+     ],
+     [
+      "ment",
+      -21.625
+     ],
+     [
+      "ent",
+      -21.75
+     ],
+     [
+      "rient",
+      -24.0
+     ],
+     [
+      "ee",
+      -24.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_type",
+    "top": [
+     [
+      "_type",
+      0.0
+     ],
+     [
+      "_",
+      -19.3125
+     ],
+     [
+      "_name",
+      -19.8125
+     ],
+     [
+      "_text",
+      -20.625
+     ],
+     [
+      "_id",
+      -20.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "”:",
+      -20.375
+     ],
+     [
+      "':",
+      -21.125
+     ],
+     [
+      "\\\":",
+      -24.0
+     ],
+     [
+      "”：",
+      -25.375
+     ]
+    ]
+   },
+   {
+    "logprob": -4.17e-06,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -4.17e-06
+     ],
+     [
+      " \"",
+      -12.37500381
+     ],
+     [
+      " \"\",",
+      -17.50000381
+     ],
+     [
+      " \"\\",
+      -20.00000381
+     ],
+     [
+      " ",
+      -20.50000381
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      "},",
+      -17.875
+     ],
+     [
+      "\",",
+      -18.125
+     ],
+     [
+      ",\n",
+      -18.8125
+     ],
+     [
+      " \"",
+      -19.15625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " \\\"",
+      -21.875
+     ],
+     [
+      " {\"",
+      -23.75
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -24.0
+     ],
+     [
+      " \"$",
+      -25.375
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "reason",
+    "top": [
+     [
+      "reason",
+      -1.2e-07
+     ],
+     [
+      "re",
+      -15.75
+     ],
+     [
+      "理由",
+      -17.375
+     ],
+     [
+      " reason",
+      -17.625
+     ],
+     [
+      "原因",
+      -18.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -22.5625
+     ],
+     [
+      "_",
+      -22.9375
+     ],
+     [
+      "\":\"",
+      -23.125
+     ],
+     [
+      "�",
+      -23.5
+     ]
+    ]
+   },
+   {
+    "logprob": -3.6e-07,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      -3.6e-07
+     ],
+     [
+      " \"'",
+      -15.625
+     ],
+     [
+      " \"(",
+      -16.25
+     ],
+     [
+      " \"\"",
+      -17.25
+     ],
+     [
+      " \"\\",
+      -17.5
+     ]
+    ]
+   },
+   {
+    "logprob": -0.31549722,
+    "token": "Gr",
+    "top": [
+     [
+      "Gr",
+      -0.31549722
+     ],
+     [
+      "A",
+      -1.31549716
+     ],
+     [
+      "Side",
+      -6.5654974
+     ],
+     [
+      "gr",
+      -8.0654974
+     ],
+     [
+      "a",
+      -8.0654974
+     ]
+    ]
+   },
+   {
+    "logprob": -3.81e-06,
+    "token": "illed",
+    "top": [
+     [
+      "illed",
+      -3.81e-06
+     ],
+     [
+      "iled",
+      -12.62500381
+     ],
+     [
+      "ill",
+      -14.87500381
+     ],
+     [
+      " grilled",
+      -16.56250381
+     ],
+     [
+      "ll",
+      -16.93750381
+     ]
+    ]
+   },
+   {
+    "logprob": -3.683e-05,
+    "token": " baby",
+    "top": [
+     [
+      " baby",
+      -3.683e-05
+     ],
+     [
+      " potatoes",
+      -10.75003719
+     ],
+     [
+      " potato",
+      -11.25003719
+     ],
+     [
+      " side",
+      -13.25003719
+     ],
+     [
+      " Baby",
+      -15.25003719
+     ]
+    ]
+   },
+   {
+    "logprob": -0.10020702,
+    "token": " potato",
+    "top": [
+     [
+      " potato",
+      -0.10020702
+     ],
+     [
+      " potatoes",
+      -2.35020709
+     ],
+     [
+      " pot",
+      -15.10020733
+     ],
+     [
+      " Potato",
+      -15.97520733
+     ],
+     [
+      " red",
+      -17.47520638
+     ]
+    ]
+   },
+   {
+    "logprob": -0.40172458,
+    "token": " is",
+    "top": [
+     [
+      " is",
+      -0.40172458
+     ],
+     [
+      " dish",
+      -1.52672458
+     ],
+     [
+      " side",
+      -2.40172458
+     ],
+     [
+      ",",
+      -3.77672458
+     ],
+     [
+      " appet",
+      -10.15172482
+     ]
+    ]
+   },
+   {
+    "logprob": -4.77e-06,
+    "token": " a",
+    "top": [
+     [
+      " a",
+      -4.77e-06
+     ],
+     [
+      " an",
+      -12.50000477
+     ],
+     [
+      " food",
+      -14.75000477
+     ],
+     [
+      " cooked",
+      -15.00000477
+     ],
+     [
+      " prepared",
+      -16.50000381
+     ]
+    ]
+   },
+   {
+    "logprob": -0.58317244,
+    "token": " side",
+    "top": [
+     [
+      " side",
+      -0.58317244
+     ],
+     [
+      " cooked",
+      -1.45817244
+     ],
+     [
+      " food",
+      -2.08317232
+     ],
+     [
+      " dish",
+      -2.58317232
+     ],
+     [
+      " prepared",
+      -5.33317232
+     ]
+    ]
+   },
+   {
+    "logprob": -1.287e-05,
+    "token": " dish",
+    "top": [
+     [
+      " dish",
+      -1.287e-05
+     ],
+     [
+      " food",
+      -11.6250124
+     ],
+     [
+      " snack",
+      -13.0000124
+     ],
+     [
+      " vegetable",
+      -13.8750124
+     ],
+     [
+      " dishes",
+      -15.2500124
+     ]
+    ]
+   },
+   {
+    "logprob": -0.68193424,
+    "token": ".\"",
+    "top": [
+     [
+      ".\"",
+      -0.68193424
+     ],
+     [
+      " served",
+      -0.93193424
+     ],
+     [
+      " of",
+      -2.43193436
+     ],
+     [
+      ",",
+      -5.05693436
+     ],
+     [
+      " ordered",
+      -6.68193436
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "},",
+    "top": [
+     [
+      "},",
+      -1.2e-07
+     ],
+     [
+      "],",
+      -17.0
+     ],
+     [
+      " },",
+      -17.25
+     ],
+     [
+      "}",
+      -19.0
+     ],
+     [
+      "}]",
+      -19.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " {\"",
+    "top": [
+     [
+      " {\"",
+      0.0
+     ],
+     [
+      " \"",
+      -21.5
+     ],
+     [
+      " {'",
+      -25.25
+     ],
+     [
+      " null",
+      -25.4375
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -25.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "line",
+    "top": [
+     [
+      "line",
+      0.0
+     ],
+     [
+      "线",
+      -18.25
+     ],
+     [
+      "лайн",
+      -18.375
+     ],
+     [
+      " line",
+      -18.625
+     ],
+     [
+      "خط",
+      -19.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_id",
+    "top": [
+     [
+      "_id",
+      0.0
+     ],
+     [
+      "_i",
+      -24.625
+     ],
+     [
+      "_Id",
+      -24.75
+     ],
+     [
+      "_ID",
+      -25.625
+     ],
+     [
+      "_ids",
+      -26.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -21.6875
+     ],
+     [
+      "\":\"",
+      -23.1875
+     ],
+     [
+      "”:",
+      -23.5
+     ],
+     [
+      "》：",
+      -24.0625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " \"-",
+      -26.625
+     ],
+     [
+      " \"\",",
+      -27.3125
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -28.1875
+     ],
+     [
+      "\r",
+      -28.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "C",
+    "top": [
+     [
+      "C",
+      0.0
+     ],
+     [
+      "COR",
+      -22.0
+     ],
+     [
+      "V",
+      -22.75
+     ],
+     [
+      "CON",
+      -25.375
+     ],
+     [
+      "G",
+      -25.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ORD",
+    "top": [
+     [
+      "ORD",
+      0.0
+     ],
+     [
+      "ord",
+      -22.75
+     ],
+     [
+      "ORN",
+      -23.875
+     ],
+     [
+      "ARD",
+      -24.125
+     ],
+     [
+      "RO",
+      -26.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "-V",
+    "top": [
+     [
+      "-V",
+      0.0
+     ],
+     [
+      "-N",
+      -20.0
+     ],
+     [
+      "-L",
+      -20.75
+     ],
+     [
+      "-S",
+      -20.75
+     ],
+     [
+      "-",
+      -21.6875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "034",
+    "top": [
+     [
+      "034",
+      0.0
+     ],
+     [
+      "024",
+      -18.0625
+     ],
+     [
+      "054",
+      -18.75
+     ],
+     [
+      "044",
+      -19.25
+     ],
+     [
+      "014",
+      -19.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "-L",
+    "top": [
+     [
+      "-L",
+      0.0
+     ],
+     [
+      "-C",
+      -21.75
+     ],
+     [
+      "-V",
+      -22.125
+     ],
+     [
+      "-",
+      -22.625
+     ],
+     [
+      "-M",
+      -23.75
+     ]
+    ]
+   },
+   {
+    "logprob": -3.6e-07,
+    "token": "2",
+    "top": [
+     [
+      "2",
+      -3.6e-07
+     ],
+     [
+      "3",
+      -15.25
+     ],
+     [
+      "1",
+      -15.9375
+     ],
+     [
+      "4",
+      -17.25
+     ],
+     [
+      "-",
+      -19.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\",",
+    "top": [
+     [
+      "\",",
+      0.0
+     ],
+     [
+      "-",
+      -19.75
+     ],
+     [
+      "l",
+      -20.125
+     ],
+     [
+      "\":",
+      -20.375
+     ],
+     [
+      "a",
+      -20.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " \"$",
+      -22.25
+     ],
+     [
+      " '",
+      -23.625
+     ],
+     [
+      " \"\\",
+      -25.25
+     ],
+     [
+      "\r",
+      -25.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "category",
+    "top": [
+     [
+      "category",
+      0.0
+     ],
+     [
+      " катего",
+      -18.375
+     ],
+     [
+      " category",
+      -18.75
+     ],
+     [
+      "ategory",
+      -19.0625
+     ],
+     [
+      "item",
+      -19.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -21.3125
+     ],
+     [
+      "**:",
+      -23.125
+     ],
+     [
+      "”:",
+      -23.75
+     ],
+     [
+      " food",
+      -24.25
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      -1.2e-07
+     ],
+     [
+      " null",
+      -16.5
+     ],
+     [
+      "\r",
+      -20.625
+     ],
+     [
+      " \"\",",
+      -21.25
+     ],
+     [
+      " \"\\",
+      -21.5
+     ]
+    ]
+   },
+   {
+    "logprob": -2.861e-05,
+    "token": "food",
+    "top": [
+     [
+      "food",
+      -2.861e-05
+     ],
+     [
+      "other",
+      -10.50002861
+     ],
+     [
+      "house",
+      -14.25002861
+     ],
+     [
+      "service",
+      -15.37502861
+     ],
+     [
+      "personal",
+      -16.75002861
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_b",
+    "top": [
+     [
+      "_b",
+      0.0
+     ],
+     [
+      " Bever",
+      -18.125
+     ],
+     [
+      "b",
+      -18.125
+     ],
+     [
+      "_be",
+      -18.25
+     ],
+     [
+      "_",
+      -18.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ever",
+    "top": [
+     [
+      "ever",
+      0.0
+     ],
+     [
+      " beverage",
+      -21.25
+     ],
+     [
+      " ever",
+      -21.625
+     ],
+     [
+      " Bever",
+      -22.0
+     ],
+     [
+      "ew",
+      -22.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "age",
+    "top": [
+     [
+      "age",
+      0.0
+     ],
+     [
+      "able",
+      -19.125
+     ],
+     [
+      "ive",
+      -19.75
+     ],
+     [
+      "ages",
+      -20.25
+     ],
+     [
+      "rage",
+      -20.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\",",
+    "top": [
+     [
+      "\",",
+      0.0
+     ],
+     [
+      "\"},",
+      -18.375
+     ],
+     [
+      "\":",
+      -19.25
+     ],
+     [
+      "item",
+      -19.5
+     ],
+     [
+      " item",
+      -19.8125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " '",
+      -26.75
+     ],
+     [
+      " \"_",
+      -28.25
+     ],
+     [
+      " \\\"",
+      -29.5
+     ],
+     [
+      " ",
+      -29.75
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": "item",
+    "top": [
+     [
+      "item",
+      -2.4e-07
+     ],
+     [
+      " item",
+      -16.5
+     ],
+     [
+      "category",
+      -18.375
+     ],
+     [
+      "it",
+      -18.875
+     ],
+     [
+      "icon",
+      -19.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_k",
+    "top": [
+     [
+      "_k",
+      0.0
+     ],
+     [
+      "_key",
+      -18.375
+     ],
+     [
+      "Kind",
+      -18.625
+     ],
+     [
+      " kind",
+      -19.125
+     ],
+     [
+      "_id",
+      -19.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ind",
+    "top": [
+     [
+      "ind",
+      0.0
+     ],
+     [
+      "end",
+      -20.75
+     ],
+     [
+      "ang",
+      -22.5
+     ],
+     [
+      "ink",
+      -23.75
+     ],
+     [
+      "and",
+      -24.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -20.3125
+     ],
+     [
+      "”:",
+      -21.5
+     ],
+     [
+      "_type",
+      -21.875
+     ],
+     [
+      "_",
+      -22.3125
+     ]
+    ]
+   },
+   {
+    "logprob": -3.1e-06,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -3.1e-06
+     ],
+     [
+      " \"",
+      -12.75000286
+     ],
+     [
+      " ",
+      -16.87500381
+     ],
+     [
+      " \"\",",
+      -17.75000381
+     ],
+     [
+      " false",
+      -18.87500381
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      ",\"",
+      -19.25
+     ],
+     [
+      " \"",
+      -19.375
+     ],
+     [
+      ":",
+      -20.5625
+     ],
+     [
+      ".",
+      -21.0
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -24.5
+     ],
+     [
+      " recipient",
+      -24.75
+     ],
+     [
+      " ",
+      -25.1875
+     ],
+     [
+      " null",
+      -25.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "recip",
+    "top": [
+     [
+      "recip",
+      0.0
+     ],
+     [
+      "rec",
+      -17.75
+     ],
+     [
+      "recipe",
+      -19.625
+     ],
+     [
+      "rece",
+      -20.25
+     ],
+     [
+      "reci",
+      -20.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ient",
+    "top": [
+     [
+      "ient",
+      0.0
+     ],
+     [
+      "ent",
+      -25.125
+     ],
+     [
+      "rient",
+      -26.375
+     ],
+     [
+      "ien",
+      -27.75
+     ],
+     [
+      "ment",
+      -28.375
+     ]
+    ]
+   },
+   {
+    "logprob": -1.07e-06,
+    "token": "_name",
+    "top": [
+     [
+      "_name",
+      -1.07e-06
+     ],
+     [
+      "_type",
+      -13.75000095
+     ],
+     [
+      "_Name",
+      -20.12500191
+     ],
+     [
+      "_names",
+      -20.50000191
+     ],
+     [
+      "_id",
+      -20.68750191
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -20.6875
+     ],
+     [
+      "_id",
+      -22.625
+     ],
+     [
+      "_type",
+      -23.125
+     ],
+     [
+      "”:",
+      -23.8125
+     ]
+    ]
+   },
+   {
+    "logprob": -1.91e-06,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -1.91e-06
+     ],
+     [
+      " \"",
+      -13.25000191
+     ],
+     [
+      " \"\",",
+      -16.12500191
+     ],
+     [
+      " ",
+      -19.12500191
+     ],
+     [
+      " \"\\",
+      -19.87500191
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      ",\"",
+      -17.625
+     ],
+     [
+      " \"",
+      -18.125
+     ],
+     [
+      ".",
+      -18.4375
+     ],
+     [
+      ":",
+      -18.8125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " null",
+      -24.0625
+     ],
+     [
+      " \"$",
+      -24.875
+     ],
+     [
+      " recipient",
+      -25.1875
+     ],
+     [
+      " \"_",
+      -25.625
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "recip",
+    "top": [
+     [
+      "recip",
+      -1.2e-07
+     ],
+     [
+      "rec",
+      -16.125
+     ],
+     [
+      "rece",
+      -18.0
+     ],
+     [
+      " recipient",
+      -18.875
+     ],
+     [
+      "re",
+      -20.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ient",
+    "top": [
+     [
+      "ient",
+      0.0
+     ],
+     [
+      "ent",
+      -26.25
+     ],
+     [
+      "IENT",
+      -29.0
+     ],
+     [
+      "ients",
+      -29.0
+     ],
+     [
+      "ant",
+      -29.0
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "_type",
+    "top": [
+     [
+      "_type",
+      -1.2e-07
+     ],
+     [
+      "_name",
+      -16.9375
+     ],
+     [
+      "_",
+      -18.5
+     ],
+     [
+      "-type",
+      -18.9375
+     ],
+     [
+      "_id",
+      -19.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "”:",
+      -23.375
+     ],
+     [
+      "':",
+      -23.75
+     ],
+     [
+      "_id",
+      -26.75
+     ],
+     [
+      "\\\":",
+      -26.9375
+     ]
+    ]
+   },
+   {
+    "logprob": -3.7e-06,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -3.7e-06
+     ],
+     [
+      " \"",
+      -12.50000381
+     ],
+     [
+      " \"\",",
+      -17.75000381
+     ],
+     [
+      "null",
+      -19.43750381
+     ],
+     [
+      " \"\\",
+      -20.06250381
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      ",\"",
+      -21.75
+     ],
+     [
+      ".",
+      -21.875
+     ],
+     [
+      ",\n\n",
+      -22.0
+     ],
+     [
+      "\n\n",
+      -22.0625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " reason",
+      -22.0
+     ],
+     [
+      " {\"",
+      -23.5
+     ],
+     [
+      " \\\"",
+      -24.625
+     ],
+     [
+      " ",
+      -24.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "reason",
+    "top": [
+     [
+      "reason",
+      0.0
+     ],
+     [
+      "re",
+      -17.5
+     ],
+     [
+      "理由",
+      -18.375
+     ],
+     [
+      "remark",
+      -18.875
+     ],
+     [
+      "meaning",
+      -19.0
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "\",",
+      -20.625
+     ],
+     [
+      "':",
+      -22.5
+     ],
+     [
+      "\";",
+      -23.25
+     ],
+     [
+      "”:",
+      -23.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " null",
+      -18.0
+     ],
+     [
+      " \"\"",
+      -18.25
+     ],
+     [
+      " \"'",
+      -19.0
+     ],
+     [
+      " \"\\",
+      -20.0
+     ]
+    ]
+   },
+   {
+    "logprob": -3.171e-05,
+    "token": "T",
+    "top": [
+     [
+      "T",
+      -3.171e-05
+     ],
+     [
+      "A",
+      -10.75003147
+     ],
+     [
+      "C",
+      -12.00003147
+     ],
+     [
+      "This",
+      -13.62503147
+     ],
+     [
+      "TR",
+      -14.00003147
+     ]
+    ]
+   },
+   {
+    "logprob": -6e-07,
+    "token": "ruff",
+    "top": [
+     [
+      "ruff",
+      -6e-07
+     ],
+     [
+      "uffle",
+      -14.25000095
+     ],
+     [
+      "ruce",
+      -19.125
+     ],
+     [
+      " ruff",
+      -19.25
+     ],
+     [
+      "art",
+      -20.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "le",
+    "top": [
+     [
+      "le",
+      0.0
+     ],
+     [
+      "led",
+      -17.625
+     ],
+     [
+      "lle",
+      -18.125
+     ],
+     [
+      "l",
+      -18.5
+     ],
+     [
+      "el",
+      -20.1875
+     ]
+    ]
+   },
+   {
+    "logprob": -3.6e-07,
+    "token": " cream",
+    "top": [
+     [
+      " cream",
+      -3.6e-07
+     ],
+     [
+      " Cream",
+      -14.75
+     ],
+     [
+      "cream",
+      -17.375
+     ],
+     [
+      " sauce",
+      -19.75
+     ],
+     [
+      " cre",
+      -19.75
+     ]
+    ]
+   },
+   {
+    "logprob": -0.00064757,
+    "token": " is",
+    "top": [
+     [
+      " is",
+      -0.00064757
+     ],
+     [
+      " sauce",
+      -7.50064754
+     ],
+     [
+      " dish",
+      -9.87564754
+     ],
+     [
+      " appears",
+      -11.25064754
+     ],
+     [
+      " likely",
+      -11.50064754
+     ]
+    ]
+   },
+   {
+    "logprob": -9.787e-05,
+    "token": " a",
+    "top": [
+     [
+      " a",
+      -9.787e-05
+     ],
+     [
+      " an",
+      -9.50009823
+     ],
+     [
+      " part",
+      -11.00009823
+     ],
+     [
+      " food",
+      -12.50009823
+     ],
+     [
+      " likely",
+      -13.00009823
+     ]
+    ]
+   },
+   {
+    "logprob": -0.02472143,
+    "token": " food",
+    "top": [
+     [
+      " food",
+      -0.02472143
+     ],
+     [
+      " dish",
+      -4.02472162
+     ],
+     [
+      " sauce",
+      -5.77472162
+     ],
+     [
+      " creamy",
+      -6.27472162
+     ],
+     [
+      " cream",
+      -6.64972162
+     ]
+    ]
+   },
+   {
+    "logprob": -0.50867701,
+    "token": " item",
+    "top": [
+     [
+      " item",
+      -0.50867701
+     ],
+     [
+      " dish",
+      -1.00867701
+     ],
+     [
+      " sauce",
+      -3.50867701
+     ],
+     [
+      " ingredient",
+      -6.75867701
+     ],
+     [
+      " component",
+      -6.88367701
+     ]
+    ]
+   },
+   {
+    "logprob": -0.20401259,
+    "token": " or",
+    "top": [
+     [
+      " or",
+      -0.20401259
+     ],
+     [
+      ".\"",
+      -2.20401263
+     ],
+     [
+      " served",
+      -3.45401263
+     ],
+     [
+      ",",
+      -3.45401263
+     ],
+     [
+      "/s",
+      -5.20401239
+     ]
+    ]
+   },
+   {
+    "logprob": -0.10411417,
+    "token": " sauce",
+    "top": [
+     [
+      " sauce",
+      -0.10411417
+     ],
+     [
+      " dish",
+      -2.35411406
+     ],
+     [
+      " cond",
+      -6.60411406
+     ],
+     [
+      " cream",
+      -7.22911406
+     ],
+     [
+      " ingredient",
+      -7.47911406
+     ]
+    ]
+   },
+   {
+    "logprob": -0.01883854,
+    "token": ".\"",
+    "top": [
+     [
+      ".\"",
+      -0.01883854
+     ],
+     [
+      " served",
+      -4.01883841
+     ],
+     [
+      " component",
+      -8.51883888
+     ],
+     [
+      " accompaniment",
+      -9.01883888
+     ],
+     [
+      " for",
+      -9.26883888
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "},",
+    "top": [
+     [
+      "},",
+      0.0
+     ],
+     [
+      "}]",
+      -17.75
+     ],
+     [
+      "],",
+      -18.0
+     ],
+     [
+      "}",
+      -18.375
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -19.5625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " {\"",
+    "top": [
+     [
+      " {\"",
+      0.0
+     ],
+     [
+      " \"",
+      -24.5
+     ],
+     [
+      " {...",
+      -25.25
+     ],
+     [
+      " {:",
+      -25.375
+     ],
+     [
+      " ...",
+      -26.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "line",
+    "top": [
+     [
+      "line",
+      0.0
+     ],
+     [
+      "线",
+      -20.875
+     ],
+     [
+      "iline",
+      -21.125
+     ],
+     [
+      "лайн",
+      -21.625
+     ],
+     [
+      "lie",
+      -21.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_id",
+    "top": [
+     [
+      "_id",
+      0.0
+     ],
+     [
+      "_line",
+      -20.9375
+     ],
+     [
+      "_i",
+      -22.3125
+     ],
+     [
+      "_Id",
+      -23.25
+     ],
+     [
+      "_ids",
+      -23.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "”:",
+      -20.875
+     ],
+     [
+      ":",
+      -21.3125
+     ],
+     [
+      "':",
+      -21.5
+     ],
+     [
+      "**:",
+      -23.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " \"-",
+      -22.25
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -22.8125
+     ],
+     [
+      " \"\",",
+      -23.3125
+     ],
+     [
+      " \"/",
+      -23.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "C",
+    "top": [
+     [
+      "C",
+      0.0
+     ],
+     [
+      "COR",
+      -20.5
+     ],
+     [
+      "V",
+      -21.25
+     ],
+     [
+      "D",
+      -23.75
+     ],
+     [
+      "S",
+      -23.875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ORD",
+    "top": [
+     [
+      "ORD",
+      0.0
+     ],
+     [
+      "ARD",
+      -22.5
+     ],
+     [
+      "ORN",
+      -22.625
+     ],
+     [
+      "ORDER",
+      -24.5
+     ],
+     [
+      "ord",
+      -25.0
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "-V",
+    "top": [
+     [
+      "-V",
+      0.0
+     ],
+     [
+      "-L",
+      -19.875
+     ],
+     [
+      "-N",
+      -20.5
+     ],
+     [
+      "-M",
+      -21.5
+     ],
+     [
+      "-S",
+      -21.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "034",
+    "top": [
+     [
+      "034",
+      0.0
+     ],
+     [
+      "004",
+      -22.5
+     ],
+     [
+      "024",
+      -23.0
+     ],
+     [
+      "003",
+      -23.25
+     ],
+     [
+      "054",
+      -23.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "-L",
+    "top": [
+     [
+      "-L",
+      0.0
+     ],
+     [
+      "-C",
+      -21.5
+     ],
+     [
+      "_L",
+      -22.25
+     ],
+     [
+      "-V",
+      -22.5
+     ],
+     [
+      "-",
+      -22.5
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": "3",
+    "top": [
+     [
+      "3",
+      -2.4e-07
+     ],
+     [
+      "4",
+      -16.1875
+     ],
+     [
+      "2",
+      -16.5625
+     ],
+     [
+      "1",
+      -18.625
+     ],
+     [
+      "-",
+      -18.8125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\",",
+    "top": [
+     [
+      "\",",
+      0.0
+     ],
+     [
+      "}\",",
+      -22.34375
+     ],
+     [
+      "a",
+      -22.6875
+     ],
+     [
+      "-",
+      -22.875
+     ],
+     [
+      "l",
+      -22.9375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " '",
+      -23.25
+     ],
+     [
+      " \"$",
+      -23.75
+     ],
+     [
+      " \"__",
+      -27.0
+     ],
+     [
+      " \"-",
+      -27.0
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "category",
+    "top": [
+     [
+      "category",
+      -1.2e-07
+     ],
+     [
+      " катего",
+      -17.125
+     ],
+     [
+      " category",
+      -17.375
+     ],
+     [
+      "item",
+      -17.75
+     ],
+     [
+      "ategory",
+      -18.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -23.0
+     ],
+     [
+      "food",
+      -24.125
+     ],
+     [
+      "》：",
+      -24.375
+     ],
+     [
+      "”:",
+      -24.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " null",
+      -20.9375
+     ],
+     [
+      "\r",
+      -22.125
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -22.875
+     ],
+     [
+      " \"\\",
+      -22.9375
+     ]
+    ]
+   },
+   {
+    "logprob": -6e-07,
+    "token": "food",
+    "top": [
+     [
+      "food",
+      -6e-07
+     ],
+     [
+      "other",
+      -14.50000095
+     ],
+     [
+      "食品",
+      -17.375
+     ],
+     [
+      "食物",
+      -18.0625
+     ],
+     [
+      " food",
+      -18.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_b",
+    "top": [
+     [
+      "_b",
+      0.0
+     ],
+     [
+      "_be",
+      -18.0
+     ],
+     [
+      "b",
+      -18.0
+     ],
+     [
+      "_d",
+      -18.25
+     ],
+     [
+      "_",
+      -19.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ever",
+    "top": [
+     [
+      "ever",
+      0.0
+     ],
+     [
+      " Bever",
+      -17.25
+     ],
+     [
+      " beverage",
+      -18.125
+     ],
+     [
+      "verage",
+      -18.5
+     ],
+     [
+      " ever",
+      -21.1875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "age",
+    "top": [
+     [
+      "age",
+      0.0
+     ],
+     [
+      "rage",
+      -18.375
+     ],
+     [
+      "al",
+      -19.5
+     ],
+     [
+      "gage",
+      -19.75
+     ],
+     [
+      "a",
+      -20.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\",",
+    "top": [
+     [
+      "\",",
+      0.0
+     ],
+     [
+      "\"},",
+      -19.375
+     ],
+     [
+      "item",
+      -20.25
+     ],
+     [
+      "\"",
+      -20.25
+     ],
+     [
+      "\"，",
+      -20.28125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " ",
+      -24.125
+     ],
+     [
+      " '",
+      -24.375
+     ],
+     [
+      " item",
+      -25.125
+     ],
+     [
+      " \"_",
+      -26.25
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": "item",
+    "top": [
+     [
+      "item",
+      -2.4e-07
+     ],
+     [
+      " item",
+      -16.1875
+     ],
+     [
+      "category",
+      -18.375
+     ],
+     [
+      "icon",
+      -18.375
+     ],
+     [
+      "it",
+      -18.5625
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "_k",
+    "top": [
+     [
+      "_k",
+      -1.2e-07
+     ],
+     [
+      "_key",
+      -18.125
+     ],
+     [
+      "_",
+      -18.3125
+     ],
+     [
+      "_id",
+      -18.75
+     ],
+     [
+      "_d",
+      -18.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ind",
+    "top": [
+     [
+      "ind",
+      0.0
+     ],
+     [
+      "end",
+      -19.125
+     ],
+     [
+      "indle",
+      -20.75
+     ],
+     [
+      "ang",
+      -21.0
+     ],
+     [
+      "ink",
+      -22.0625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "_type",
+      -23.375
+     ],
+     [
+      "':",
+      -23.5
+     ],
+     [
+      "”:",
+      -23.5625
+     ],
+     [
+      "_",
+      -23.9375
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -1.2e-07
+     ],
+     [
+      " \"",
+      -16.0
+     ],
+     [
+      " nulla",
+      -19.0
+     ],
+     [
+      " ",
+      -19.75
+     ],
+     [
+      " nul",
+      -20.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      ",\"",
+      -20.125
+     ],
+     [
+      " \"",
+      -20.375
+     ],
+     [
+      ".",
+      -21.5625
+     ],
+     [
+      "、",
+      -21.9375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " '",
+      -25.125
+     ],
+     [
+      " ",
+      -27.0
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -27.125
+     ],
+     [
+      " recipient",
+      -27.1875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "recip",
+    "top": [
+     [
+      "recip",
+      0.0
+     ],
+     [
+      "rec",
+      -18.25
+     ],
+     [
+      "reci",
+      -19.0
+     ],
+     [
+      "recipe",
+      -20.0
+     ],
+     [
+      "rece",
+      -20.0
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ient",
+    "top": [
+     [
+      "ient",
+      0.0
+     ],
+     [
+      "ent",
+      -22.375
+     ],
+     [
+      "rient",
+      -23.75
+     ],
+     [
+      "ien",
+      -24.4375
+     ],
+     [
+      "end",
+      -24.625
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "_name",
+    "top": [
+     [
+      "_name",
+      -1.2e-07
+     ],
+     [
+      "_type",
+      -16.25
+     ],
+     [
+      "_names",
+      -19.5
+     ],
+     [
+      "名称",
+      -20.0625
+     ],
+     [
+      "_id",
+      -20.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -23.125
+     ],
+     [
+      "”:",
+      -23.8125
+     ],
+     [
+      ":",
+      -25.0
+     ],
+     [
+      "_",
+      -25.875
+     ]
+    ]
+   },
+   {
+    "logprob": -7.2e-07,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -7.2e-07
+     ],
+     [
+      " \"",
+      -14.25000095
+     ],
+     [
+      " \"\",",
+      -17.25
+     ],
+     [
+      " nul",
+      -19.5625
+     ],
+     [
+      " nil",
+      -20.0
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      ",\"",
+      -19.75
+     ],
+     [
+      ".",
+      -20.625
+     ],
+     [
+      " \"",
+      -21.25
+     ],
+     [
+      "、",
+      -22.0625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " '",
+      -23.9375
+     ],
+     [
+      " null",
+      -24.5
+     ],
+     [
+      " `",
+      -25.0
+     ],
+     [
+      " ",
+      -25.375
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "recip",
+    "top": [
+     [
+      "recip",
+      -1.2e-07
+     ],
+     [
+      "rec",
+      -16.0
+     ],
+     [
+      "rece",
+      -18.875
+     ],
+     [
+      "reci",
+      -19.75
+     ],
+     [
+      "recipe",
+      -20.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ient",
+    "top": [
+     [
+      "ient",
+      0.0
+     ],
+     [
+      "rient",
+      -24.25
+     ],
+     [
+      "ent",
+      -24.25
+     ],
+     [
+      "ant",
+      -25.6875
+     ],
+     [
+      "jent",
+      -25.875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_type",
+    "top": [
+     [
+      "_type",
+      0.0
+     ],
+     [
+      "_",
+      -17.375
+     ],
+     [
+      "_name",
+      -18.125
+     ],
+     [
+      "_id",
+      -18.9375
+     ],
+     [
+      "_t",
+      -19.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "_id",
+      -23.75
+     ],
+     [
+      "_type",
+      -23.9375
+     ],
+     [
+      "':",
+      -24.75
+     ],
+     [
+      "”:",
+      -24.875
+     ]
+    ]
+   },
+   {
+    "logprob": -2.26e-06,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -2.26e-06
+     ],
+     [
+      " \"",
+      -13.00000191
+     ],
+     [
+      " {",
+      -19.00000191
+     ],
+     [
+      "null",
+      -19.37500191
+     ],
+     [
+      " {\"",
+      -20.00000191
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      ".",
+      -21.875
+     ],
+     [
+      ";",
+      -23.4375
+     ],
+     [
+      ":",
+      -23.75
+     ],
+     [
+      " ,",
+      -23.8125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -23.0625
+     ],
+     [
+      " '",
+      -23.875
+     ],
+     [
+      " reason",
+      -23.875
+     ],
+     [
+      " {\"",
+      -24.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "reason",
+    "top": [
+     [
+      "reason",
+      0.0
+     ],
+     [
+      " reason",
+      -18.875
+     ],
+     [
+      "meaning",
+      -19.125
+     ],
+     [
+      "理由",
+      -19.5
+     ],
+     [
+      "re",
+      -19.875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      ":",
+      -20.0
+     ],
+     [
+      "\"",
+      -20.5
+     ],
+     [
+      "\",",
+      -21.0
+     ],
+     [
+      " \":",
+      -21.5625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " \"'",
+      -18.375
+     ],
+     [
+      " \"\\",
+      -18.625
+     ],
+     [
+      " \"\"",
+      -19.375
+     ],
+     [
+      " \"(",
+      -20.0625
+     ]
+    ]
+   },
+   {
+    "logprob": -2.837e-05,
+    "token": "Carbon",
+    "top": [
+     [
+      "Carbon",
+      -2.837e-05
+     ],
+     [
+      "P",
+      -10.75002861
+     ],
+     [
+      "Carb",
+      -12.00002861
+     ],
+     [
+      "A",
+      -14.25002861
+     ],
+     [
+      " Carbon",
+      -16.75002861
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ara",
+    "top": [
+     [
+      "ara",
+      0.0
+     ],
+     [
+      "ar",
+      -18.25
+     ],
+     [
+      " ara",
+      -20.0
+     ],
+     [
+      "ARA",
+      -20.25
+     ],
+     [
+      "n",
+      -20.375
+     ]
+    ]
+   },
+   {
+    "logprob": -1.025e-05,
+    "token": " is",
+    "top": [
+     [
+      " is",
+      -1.025e-05
+     ],
+     [
+      " pasta",
+      -11.50001049
+     ],
+     [
+      "is",
+      -16.25000954
+     ],
+     [
+      ",",
+      -18.12500954
+     ],
+     [
+      " as",
+      -18.25000954
+     ]
+    ]
+   },
+   {
+    "logprob": -3.58e-06,
+    "token": " a",
+    "top": [
+     [
+      " a",
+      -3.58e-06
+     ],
+     [
+      " pasta",
+      -13.25000381
+     ],
+     [
+      " an",
+      -13.25000381
+     ],
+     [
+      "a",
+      -17.25000381
+     ],
+     [
+      " the",
+      -17.50000381
+     ]
+    ]
+   },
+   {
+    "logprob": -8.678e-05,
+    "token": " pasta",
+    "top": [
+     [
+      " pasta",
+      -8.678e-05
+     ],
+     [
+      " cooked",
+      -9.50008678
+     ],
+     [
+      " dish",
+      -12.00008678
+     ],
+     [
+      " prepared",
+      -12.37508678
+     ],
+     [
+      " meal",
+      -13.75008678
+     ]
+    ]
+   },
+   {
+    "logprob": -4.649e-05,
+    "token": " dish",
+    "top": [
+     [
+      " dish",
+      -4.649e-05
+     ],
+     [
+      " meal",
+      -10.00004673
+     ],
+     [
+      " main",
+      -14.25004673
+     ],
+     [
+      " meat",
+      -15.62504673
+     ],
+     [
+      " dishes",
+      -16.25004578
+     ]
+    ]
+   },
+   {
+    "logprob": -0.00024316,
+    "token": ".\"",
+    "top": [
+     [
+      ".\"",
+      -0.00024316
+     ],
+     [
+      " meal",
+      -8.75024319
+     ],
+     [
+      ",",
+      -10.12524319
+     ],
+     [
+      " served",
+      -10.25024319
+     ],
+     [
+      " and",
+      -12.75024319
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "},",
+    "top": [
+     [
+      "},",
+      -1.2e-07
+     ],
+     [
+      "}]",
+      -15.5625
+     ],
+     [
+      "}",
+      -17.6875
+     ],
+     [
+      "],",
+      -18.25
+     ],
+     [
+      " },",
+      -19.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " {\"",
+    "top": [
+     [
+      " {\"",
+      0.0
+     ],
+     [
+      " {:",
+      -24.8125
+     ],
+     [
+      " {'",
+      -25.25
+     ],
+     [
+      " {},",
+      -26.1875
+     ],
+     [
+      " {...",
+      -26.5625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "line",
+    "top": [
+     [
+      "line",
+      0.0
+     ],
+     [
+      "iline",
+      -19.375
+     ],
+     [
+      "线",
+      -19.375
+     ],
+     [
+      "лайн",
+      -19.625
+     ],
+     [
+      " line",
+      -20.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_id",
+    "top": [
+     [
+      "_id",
+      0.0
+     ],
+     [
+      "_line",
+      -23.0
+     ],
+     [
+      "_ID",
+      -24.5
+     ],
+     [
+      "_item",
+      -24.625
+     ],
+     [
+      "_i",
+      -24.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      ":",
+      -18.8125
+     ],
+     [
+      "':",
+      -20.03125
+     ],
+     [
+      "_id",
+      -20.1875
+     ],
+     [
+      "”:",
+      -20.8125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " \"\",",
+      -22.4375
+     ],
+     [
+      " \"-",
+      -22.5625
+     ],
+     [
+      " null",
+      -22.6875
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -23.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "C",
+    "top": [
+     [
+      "C",
+      0.0
+     ],
+     [
+      "COR",
+      -21.375
+     ],
+     [
+      "V",
+      -22.5625
+     ],
+     [
+      "B",
+      -23.875
+     ],
+     [
+      "D",
+      -24.0
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ORD",
+    "top": [
+     [
+      "ORD",
+      0.0
+     ],
+     [
+      "ord",
+      -19.5
+     ],
+     [
+      "ARD",
+      -20.125
+     ],
+     [
+      " Cord",
+      -22.75
+     ],
+     [
+      " cord",
+      -22.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "-V",
+    "top": [
+     [
+      "-V",
+      0.0
+     ],
+     [
+      "-N",
+      -18.75
+     ],
+     [
+      "-L",
+      -18.75
+     ],
+     [
+      "-W",
+      -20.0
+     ],
+     [
+      "-M",
+      -20.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "034",
+    "top": [
+     [
+      "034",
+      0.0
+     ],
+     [
+      "054",
+      -19.0
+     ],
+     [
+      "004",
+      -19.0
+     ],
+     [
+      "024",
+      -19.125
+     ],
+     [
+      "044",
+      -19.25
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "-L",
+    "top": [
+     [
+      "-L",
+      0.0
+     ],
+     [
+      "-",
+      -20.5
+     ],
+     [
+      "-C",
+      -21.8125
+     ],
+     [
+      "L",
+      -21.8125
+     ],
+     [
+      "-l",
+      -21.875
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": "4",
+    "top": [
+     [
+      "4",
+      -2.4e-07
+     ],
+     [
+      "3",
+      -15.125
+     ],
+     [
+      "5",
+      -17.5
+     ],
+     [
+      "1",
+      -17.9375
+     ],
+     [
+      "2",
+      -19.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\",",
+    "top": [
+     [
+      "\",",
+      0.0
+     ],
+     [
+      "\":",
+      -20.4375
+     ],
+     [
+      "\"",
+      -20.5
+     ],
+     [
+      "}\",",
+      -20.53125
+     ],
+     [
+      "-",
+      -21.0625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " \"$",
+      -24.6875
+     ],
+     [
+      " category",
+      -26.0625
+     ],
+     [
+      " '",
+      -26.25
+     ],
+     [
+      " \"-",
+      -26.875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "category",
+    "top": [
+     [
+      "category",
+      0.0
+     ],
+     [
+      "city",
+      -17.875
+     ],
+     [
+      "ategory",
+      -18.625
+     ],
+     [
+      "country",
+      -19.25
+     ],
+     [
+      "name",
+      -19.875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "**:",
+      -22.375
+     ],
+     [
+      "':",
+      -23.3125
+     ],
+     [
+      "_id",
+      -23.5
+     ],
+     [
+      " \":",
+      -23.6875
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      -2.4e-07
+     ],
+     [
+      " null",
+      -15.375
+     ],
+     [
+      " \"\",",
+      -19.5
+     ],
+     [
+      " false",
+      -20.4375
+     ],
+     [
+      "\r",
+      -20.625
+     ]
+    ]
+   },
+   {
+    "logprob": -1.31e-06,
+    "token": "food",
+    "top": [
+     [
+      "food",
+      -1.31e-06
+     ],
+     [
+      "other",
+      -13.75000095
+     ],
+     [
+      "service",
+      -16.50000191
+     ],
+     [
+      "b",
+      -17.12500191
+     ],
+     [
+      "g",
+      -17.37500191
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_b",
+    "top": [
+     [
+      "_b",
+      0.0
+     ],
+     [
+      " Bever",
+      -19.25
+     ],
+     [
+      "b",
+      -19.5
+     ],
+     [
+      "_d",
+      -20.125
+     ],
+     [
+      " beverage",
+      -20.3125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ever",
+    "top": [
+     [
+      "ever",
+      0.0
+     ],
+     [
+      " beverage",
+      -20.25
+     ],
+     [
+      " ever",
+      -20.625
+     ],
+     [
+      "verage",
+      -21.375
+     ],
+     [
+      "Ever",
+      -21.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "age",
+    "top": [
+     [
+      "age",
+      0.0
+     ],
+     [
+      "rage",
+      -19.25
+     ],
+     [
+      "iage",
+      -19.75
+     ],
+     [
+      "gage",
+      -20.0
+     ],
+     [
+      "ange",
+      -20.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\",",
+    "top": [
+     [
+      "\",",
+      0.0
+     ],
+     [
+      "_item",
+      -20.28125
+     ],
+     [
+      "\":",
+      -20.65625
+     ],
+     [
+      "item",
+      -20.71875
+     ],
+     [
+      "_",
+      -20.875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " '",
+      -22.5
+     ],
+     [
+      " ",
+      -24.875
+     ],
+     [
+      " item",
+      -25.625
+     ],
+     [
+      " \"_",
+      -25.8125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "item",
+    "top": [
+     [
+      "item",
+      0.0
+     ],
+     [
+      " item",
+      -18.6875
+     ],
+     [
+      "category",
+      -18.75
+     ],
+     [
+      "it",
+      -18.75
+     ],
+     [
+      "icon",
+      -19.125
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_k",
+    "top": [
+     [
+      "_k",
+      0.0
+     ],
+     [
+      "_f",
+      -20.125
+     ],
+     [
+      "_d",
+      -20.125
+     ],
+     [
+      "_",
+      -20.375
+     ],
+     [
+      "_id",
+      -20.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ind",
+    "top": [
+     [
+      "ind",
+      0.0
+     ],
+     [
+      "end",
+      -21.375
+     ],
+     [
+      "indle",
+      -22.5
+     ],
+     [
+      "ink",
+      -22.875
+     ],
+     [
+      "'ind",
+      -23.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -23.125
+     ],
+     [
+      "_type",
+      -23.6875
+     ],
+     [
+      "”:",
+      -23.75
+     ],
+     [
+      "_",
+      -24.125
+     ]
+    ]
+   },
+   {
+    "logprob": -1.55e-06,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -1.55e-06
+     ],
+     [
+      " \"",
+      -13.37500191
+     ],
+     [
+      " \"\",",
+      -17.93750191
+     ],
+     [
+      " ",
+      -18.37500191
+     ],
+     [
+      " false",
+      -18.62500191
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      " \"",
+      -20.375
+     ],
+     [
+      ",\"",
+      -21.125
+     ],
+     [
+      "、",
+      -21.75
+     ],
+     [
+      ".",
+      -22.1875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " ",
+      -24.375
+     ],
+     [
+      " null",
+      -24.5625
+     ],
+     [
+      " '",
+      -25.375
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -25.6875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "recip",
+    "top": [
+     [
+      "recip",
+      0.0
+     ],
+     [
+      "rec",
+      -19.125
+     ],
+     [
+      "recipe",
+      -19.625
+     ],
+     [
+      "recogn",
+      -21.125
+     ],
+     [
+      "reci",
+      -22.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ient",
+    "top": [
+     [
+      "ient",
+      0.0
+     ],
+     [
+      "rient",
+      -21.5
+     ],
+     [
+      "ent",
+      -23.25
+     ],
+     [
+      "ients",
+      -24.125
+     ],
+     [
+      "end",
+      -24.6875
+     ]
+    ]
+   },
+   {
+    "logprob": -1.2e-07,
+    "token": "_name",
+    "top": [
+     [
+      "_name",
+      -1.2e-07
+     ],
+     [
+      "_type",
+      -16.5
+     ],
+     [
+      "_names",
+      -20.375
+     ],
+     [
+      "_id",
+      -20.375
+     ],
+     [
+      "名称",
+      -20.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -21.8125
+     ],
+     [
+      "_type",
+      -22.25
+     ],
+     [
+      "_id",
+      -22.3125
+     ],
+     [
+      "_",
+      -22.5
+     ]
+    ]
+   },
+   {
+    "logprob": -1.31e-06,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -1.31e-06
+     ],
+     [
+      " \"",
+      -13.62500095
+     ],
+     [
+      " \"\",",
+      -16.37500191
+     ],
+     [
+      " {},",
+      -19.75000191
+     ],
+     [
+      " nullptr",
+      -19.81250191
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      ",\"",
+      -18.5
+     ],
+     [
+      "、",
+      -19.375
+     ],
+     [
+      " \"",
+      -20.0
+     ],
+     [
+      ".",
+      -20.875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " null",
+      -22.375
+     ],
+     [
+      " '",
+      -24.0
+     ],
+     [
+      " `",
+      -25.375
+     ],
+     [
+      " \"_",
+      -26.375
+     ]
+    ]
+   },
+   {
+    "logprob": -4.8e-07,
+    "token": "recip",
+    "top": [
+     [
+      "recip",
+      -4.8e-07
+     ],
+     [
+      "rec",
+      -14.5
+     ],
+     [
+      "rece",
+      -19.125
+     ],
+     [
+      "reason",
+      -19.5
+     ],
+     [
+      "rent",
+      -19.75
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ient",
+    "top": [
+     [
+      "ient",
+      0.0
+     ],
+     [
+      "ent",
+      -22.625
+     ],
+     [
+      "rient",
+      -23.25
+     ],
+     [
+      "end",
+      -24.875
+     ],
+     [
+      "ients",
+      -25.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "_type",
+    "top": [
+     [
+      "_type",
+      0.0
+     ],
+     [
+      "_name",
+      -17.25
+     ],
+     [
+      "_",
+      -18.0
+     ],
+     [
+      "_id",
+      -18.625
+     ],
+     [
+      "_t",
+      -19.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "':",
+      -20.4375
+     ],
+     [
+      ":",
+      -20.875
+     ],
+     [
+      "”:",
+      -21.5
+     ],
+     [
+      "_id",
+      -23.625
+     ]
+    ]
+   },
+   {
+    "logprob": -7.03e-06,
+    "token": " null",
+    "top": [
+     [
+      " null",
+      -7.03e-06
+     ],
+     [
+      " \"",
+      -11.87500668
+     ],
+     [
+      " \"\",",
+      -17.18750763
+     ],
+     [
+      " {",
+      -18.93750763
+     ],
+     [
+      " {\"",
+      -19.25000763
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": ",",
+    "top": [
+     [
+      ",",
+      0.0
+     ],
+     [
+      " and",
+      -20.5625
+     ],
+     [
+      ".",
+      -20.625
+     ],
+     [
+      " ,",
+      -21.5
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -21.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " reason",
+      -20.0
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -20.75
+     ],
+     [
+      " }",
+      -22.125
+     ],
+     [
+      " “",
+      -22.375
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "reason",
+    "top": [
+     [
+      "reason",
+      0.0
+     ],
+     [
+      "remark",
+      -20.25
+     ],
+     [
+      "recip",
+      -21.125
+     ],
+     [
+      " reason",
+      -21.25
+     ],
+     [
+      "理由",
+      -21.5
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "\":",
+    "top": [
+     [
+      "\":",
+      0.0
+     ],
+     [
+      "\"]",
+      -21.0
+     ],
+     [
+      "\"",
+      -21.875
+     ],
+     [
+      "}:",
+      -23.625
+     ],
+     [
+      "':",
+      -23.625
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " \"",
+    "top": [
+     [
+      " \"",
+      0.0
+     ],
+     [
+      " null",
+      -17.0
+     ],
+     [
+      " \"\"",
+      -18.4375
+     ],
+     [
+      " Original",
+      -19.625
+     ],
+     [
+      " \"'",
+      -19.75
+     ]
+    ]
+   },
+   {
+    "logprob": -0.47411025,
+    "token": "B",
+    "top": [
+     [
+      "B",
+      -0.47411025
+     ],
+     [
+      "Original",
+      -0.97411025
+     ],
+     [
+      "Te",
+      -10.4741106
+     ],
+     [
+      "Originally",
+      -12.9741106
+     ],
+     [
+      "Orig",
+      -13.7241106
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "rew",
+    "top": [
+     [
+      "rew",
+      0.0
+     ],
+     [
+      "ott",
+      -17.0
+     ],
+     [
+      " rew",
+      -18.0
+     ],
+     [
+      "ever",
+      -19.375
+     ],
+     [
+      " Brew",
+      -21.0
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "ed",
+    "top": [
+     [
+      "ed",
+      0.0
+     ],
+     [
+      " tea",
+      -18.75
+     ],
+     [
+      "edd",
+      -20.3125
+     ],
+     [
+      "ered",
+      -20.375
+     ],
+     [
+      "ED",
+      -20.6875
+     ]
+    ]
+   },
+   {
+    "logprob": -1.43e-06,
+    "token": " tea",
+    "top": [
+     [
+      " tea",
+      -1.43e-06
+     ],
+     [
+      " ",
+      -13.50000095
+     ],
+     [
+      " Tea",
+      -17.75000191
+     ],
+     [
+      "tea",
+      -18.00000191
+     ],
+     [
+      " bre",
+      -19.75000191
+     ]
+    ]
+   },
+   {
+    "logprob": -4.8e-07,
+    "token": " is",
+    "top": [
+     [
+      " is",
+      -4.8e-07
+     ],
+     [
+      ",",
+      -15.5
+     ],
+     [
+      " with",
+      -17.0
+     ],
+     [
+      " as",
+      -17.25
+     ],
+     [
+      " (",
+      -17.4375
+     ]
+    ]
+   },
+   {
+    "logprob": -1.299e-05,
+    "token": " a",
+    "top": [
+     [
+      " a",
+      -1.299e-05
+     ],
+     [
+      " an",
+      -11.25001335
+     ],
+     [
+      " non",
+      -17.37501335
+     ],
+     [
+      " the",
+      -18.50001335
+     ],
+     [
+      "a",
+      -19.37501335
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": " non",
+    "top": [
+     [
+      " non",
+      0.0
+     ],
+     [
+      " Non",
+      -17.75
+     ],
+     [
+      "非",
+      -18.25
+     ],
+     [
+      "non",
+      -19.5
+     ],
+     [
+      " drink",
+      -19.875
+     ]
+    ]
+   },
+   {
+    "logprob": 0.0,
+    "token": "-al",
+    "top": [
+     [
+      "-al",
+      0.0
+     ],
+     [
+      " alcoholic",
+      -17.0
+     ],
+     [
+      "al",
+      -17.0
+     ],
+     [
+      "-Al",
+      -19.0
+     ],
+     [
+      "‑",
+      -19.75
+     ]
+    ]
+   },
+   {
+    "logprob": -2.4e-07,
+    "token": "coholic",
+    "top": [
+     [
+      "coholic",
+      -2.4e-07
+     ],
+     [
+      "ch",
+      -15.5
+     ],
+     [
+      " alcoholic",
+      -20.0
+     ],
+     [
+      "oh",
+      -20.125
+     ],
+     [
+      "co",
+      -20.5
+     ]
+    ]
+   },
+   {
+    "logprob": -0.04858847,
+    "token": " drink",
+    "top": [
+     [
+      " drink",
+      -0.04858847
+     ],
+     [
+      " beverage",
+      -3.04858851
+     ],
+     [
+      " drinks",
+      -13.79858875
+     ],
+     [
+      " Drink",
+      -16.4235878
+     ],
+     [
+      " hot",
+      -17.0485878
+     ]
+    ]
+   },
+   {
+    "logprob": -1.478e-05,
+    "token": ".\"",
+    "top": [
+     [
+      ".\"",
+      -1.478e-05
+     ],
+     [
+      " served",
+      -11.50001431
+     ],
+     [
+      ",",
+      -13.87501431
+     ],
+     [
+      "\"",
+      -14.00001431
+     ],
+     [
+      ".",
+      -14.50001431
+     ]
+    ]
+   },
+   {
+    "logprob": -1.43e-06,
+    "token": "}]",
+    "top": [
+     [
+      "}]",
+      -1.43e-06
+     ],
+     [
+      "}",
+      -14.00000095
+     ],
+     [
+      "}}",
+      -14.50000095
+     ],
+     [
+      "},",
+      -17.18750191
+     ],
+     [
+      "]",
+      -17.25000191
+     ]
+    ]
+   },
+   {
+    "logprob": -2.26e-06,
+    "token": "}",
+    "top": [
+     [
+      "}",
+      -2.26e-06
+     ],
+     [
+      "<｜end▁of▁sentence｜>",
+      -14.12500191
+     ],
+     [
+      "}}",
+      -14.37500191
+     ],
+     [
+      "}'",
+      -14.50000191
+     ],
+     [
+      " }",
+      -15.25000191
+     ]
+    ]
+   }
+  ],
+  "usage": {
+   "completion_tokens": 232,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": null,
+    "audio_tokens": 0,
+    "image_tokens": 0,
+    "reasoning_tokens": 0,
+    "rejected_prediction_tokens": null,
+    "text_tokens": null
+   },
+   "cost": 0.0002547972,
+   "cost_details": {
+    "upstream_inference_completions_cost": 0.00019488,
+    "upstream_inference_cost": 0.0002547972,
+    "upstream_inference_prompt_cost": 5.99172e-05
+   },
+   "is_byok": false,
+   "prompt_tokens": 1134,
+   "prompt_tokens_details": {
+    "audio_tokens": 0,
+    "cache_write_tokens": 0,
+    "cached_tokens": 866,
+    "image_tokens": null,
+    "text_tokens": null,
+    "video_tokens": 0
+   },
+   "total_tokens": 1366
+  }
+ }
+}

@@ -28,8 +28,10 @@ from validator.taxonomy import load_taxonomy
 
 PROMPT_VERSION = "classify-v1"
 TAXONOMY = load_taxonomy()
-# Settings the live smoke test (tests/test_llm_smoke.py) established: logprobs carry information only at temperature 1.
-CALL = {"logprobs": True, "top_logprobs": 5, "temperature": 1.0, "max_tokens": 3000}
+# Temperature 0, as the brief asks: on the pinned hosts the logprobs are informative at 0 (tests/test_llm_smoke.py).
+# The first run's provider returned empty ones at 0, so the classifier ran at 1 until experiment 6 tested the change
+# (experiments/semantic_first/README.md; DECISIONS.md, section 4).
+CALL = {"logprobs": True, "top_logprobs": 5, "temperature": 0.0, "max_tokens": 3000}
 
 DEFINITIONS = {
     "alcohol": "drinks that contain alcohol: beer, wine, spirits, sake, cocktails, corkage; also wine or spirits sold as a product for cooking",
