@@ -53,3 +53,27 @@ def test_every_trace_line_says_who_decided_it():
     lines = [x for row in (ROOT / "outputs" / "traces.jsonl").read_text().splitlines() for x in json.loads(row)["classify"]["lines"]]
     assert all("decided_by" in x for x in lines)
     assert {x["decided_by"] for x in lines} <= {"lookup (memory)", "lookup (library)", "model", "model (code check)", "code (not itemized)"}
+
+
+@pytest.mark.parametrize("a, b, same", [
+    ("ES TEH MANIS", "teh manis", True),
+    ("EL KEUN HWANGTAE", "EL KEUN HWANGTAE SUNDUBU (TUKBEGI)", True),
+    ("*Rhum", "BANANA RHUM RAISIN", False),  # one shared word isn't the same item
+    ("Grilled salmon entree", "Chicken Steak", False),
+    ("Large 1", "Grande", False),
+    ("25%", "25%", False),  # no words at all
+])
+def test_the_same_item_word_test(a, b, same):
+    from validator.lookup import same_words
+    assert same_words(a, b, 0.5) == same
+
+
+def test_two_key_learning_remembers_agreed_lines_and_keeps_restricted_ones_as_risk():
+    lookup = Lookup()
+    lookup._load_vectors()
+    if lookup.ready is not True:
+        pytest.skip("the committed vectors don't cover the library")
+    memory, risk = len(lookup.memory), len(lookup.risk)
+    assert lookup.learn("Iced tea", "food_beverage", False, "food_beverage", 0.99).startswith("left out: unsure")
+    assert lookup.learn("Pepperoni pizza", "food_beverage", True, "other", 0.99).startswith("left out: the model disagrees")
+    assert (len(lookup.memory), len(lookup.risk)) == (memory, risk)

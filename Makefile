@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first semantic-v2 semantic-v3 app
+.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first semantic-v2 semantic-v3 semantic-v31 app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -81,6 +81,11 @@ semantic-v2:
 # fresh CORD training receipts with learning after each batch, against main (experiments/semantic_v3/PLAN.md).
 semantic-v3:
 	uv run --group semantic python -m experiments.semantic_v3
+
+# Experiment 9: a stricter same-item rule for the lookup's memory, streamed over 200 fresh CORD receipts against the
+# lookup as it is and the model on every line (experiments/semantic_v31/PLAN.md).
+semantic-v31:
+	uv run --group semantic python -m experiments.semantic_v31
 
 # Results viewer: receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:
