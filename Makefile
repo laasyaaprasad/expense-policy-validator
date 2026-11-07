@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase app
+.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -64,6 +64,12 @@ graph-retrieval:
 # offline once cached. Changes nothing submitted.
 paraphrase:
 	uv run python -m experiments.paraphrase
+
+# Experiment 6, after the freeze: a semantic first stage that decides clear, safe lines from labelled anchors and
+# sends the rest to the model at temperature 0 (experiments/semantic_first/PLAN.md). Offline once cached; changes
+# nothing submitted.
+semantic-first:
+	uv run python -m experiments.semantic_first
 
 # Results viewer: receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:
