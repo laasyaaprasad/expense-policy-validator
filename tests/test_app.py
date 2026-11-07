@@ -93,4 +93,7 @@ def test_next_and_previous_step_through_the_receipts():
 def test_the_metrics_page_answers_the_failure_and_base_rate_questions():
     at = page("viewer/metrics.py")
     assert any("base-rate" in h.value for h in at.subheader)
+    assert any("CORD" in h.value for h in at.subheader)
+    tiles = {m.label: m.value for m in at.metric}
+    assert tiles["Lines right"] == "252 / 270" and tiles["False alarms"] == "12 / 98" and tiles["Violations caught"] == "2 / 2"
     assert any("TALAM UNGU" in m.value for m in at.markdown)

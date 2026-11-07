@@ -80,6 +80,33 @@ with st.expander("Two failure cases, by stage (docs/evaluation.md)"):
 st.subheader("The base-rate question")
 st.markdown(data.evaluation_section("7. The base-rate question"))
 
+st.subheader("Out-of-sample check: 100 real receipts (CORD v2)")
+cord = data.cord_metrics()
+lines, sure, r = cord["items"]["all"], cord["items"]["sure"], cord["receipts"]
+st.caption("The submitted system, on 100 real Indonesian receipts it never saw (CORD v2, CC-BY-4.0). "
+           "Caveats: the assistant wrote these labels and only 57 were hand-checked, after the results were known; "
+           "only one line is restricted; and every receipt has the same made-up context, so the regional, "
+           "cross-receipt and timing rules never come into play. Full method in cord/README.md.")
+tiles = [*st.columns(2), *st.columns(2)]  # two per row, so the values aren't cut off
+tiles[0].metric("Lines right", f"{lines['category_correct']['k']} / {lines['category_correct']['n']}",
+                help="Lines whose label is unsure (packaging, freebies) are included.")
+tiles[1].metric("Lines with a sure label", f"{sure['category_correct']['k']} / {sure['category_correct']['n']}")
+tiles[2].metric("Violations caught", f"{r['flag_precision']['k']} / {r['missed_flags']['n']}")
+tiles[3].metric("False alarms", f"{r['false_alarms']['k']} / {r['false_alarms']['n']}",
+                help=f"{r['false_flags']['k']} flagged and {r['false_reviews']['k']} sent to review, of the clean receipts.")
+st.markdown(f"So {r['flag_precision']['k']} of its {r['flag_precision']['n']} flags were right. Every false flag turns on a line "
+            "whose label is itself unsure; if those labels went the system's way, all "
+            f"{cord['receipts_if_unsure_labels_follow_system']['flag_precision']['k']} flags would be right.")
+with st.expander(f"The {len(r['disagreements'])} receipts where we disagree, and the {len(cord['item_disagreements'])} lines behind them"):
+    st.dataframe(pd.DataFrame([{"receipt": d["receipt_id"], "ours": d["ours"], "label says": d["want"],
+                                "our findings": ", ".join(d["our_rules"])} for d in r["disagreements"]]),
+                 hide_index=True, width="stretch")
+    st.dataframe(pd.DataFrame([{"line": d["line_id"], "text": d["description_raw"], "English": d["english"],
+                                "ours": d["ours"], "label": d["label"], "label sure": "yes" if d["sure"] else "no",
+                                "confidence": d["confidence"], "label note": d.get("label_note") or ""}
+                               for d in cord["item_disagreements"]]).style.format({"confidence": "{:.3f}"}),
+                 hide_index=True, width="stretch")
+
 st.subheader("Confidence threshold sweep")
 st.caption(m["threshold_sweep"]["note"] + ". In use: " + str(m["confidence_threshold"]) + ".")
 st.dataframe(pd.DataFrame(m["threshold_sweep"]["rows"]), hide_index=True, width="stretch")

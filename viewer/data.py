@@ -64,6 +64,12 @@ def metrics() -> dict:
 
 
 @st.cache_data
+def cord_metrics() -> dict:
+    """The frozen system on 100 real CORD receipts (`cord/README.md`), as committed."""
+    return json.loads((ROOT / "outputs" / "cord" / "metrics.json").read_text(encoding="utf-8"))
+
+
+@st.cache_data
 def evaluation_section(heading: str) -> str:
     """The body of one `## ` section of docs/evaluation.md, the written answers to Part 3."""
     text = (ROOT / "docs" / "evaluation.md").read_text(encoding="utf-8")
