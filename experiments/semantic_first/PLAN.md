@@ -78,6 +78,10 @@ The merchant ablation, the number of receipts that need no model call, and the c
 
 About 300 model calls (classify and translate, in arm B, its repeat and the ablation) and about 2,500 embeddings across the three candidates: roughly $0.05–0.10, all in this experiment's `spend.jsonl`.
 
+## Amendment, before any result
+
+The first run stopped while caching the embeddings, before any line was decided or any classification call was made: the three models' vectors differ in length, so each model now has its own cache file. The unit tests then showed two flaws in the confidence rule above. As written, it falls slightly as the margin rises, since fewer anchors have large margins, and a line with a larger margin than any anchor gets exactly 0.5. **Amended:** a decided line's confidence is the best smoothed accuracy, (right + 1) / (decided + 2), among the anchors decided leave-one-out with a margin of at least t, over every t from the cutoff up to the line's own margin. It never falls as the margin rises. No decision depends on it: a decided line is never below 0.5. Nothing else changed.
+
 ## What this can't show
 
 - **The anchors were written by an assistant that has seen the test sets.** Decontamination catches copies, not near-misses in meaning. Leaving out trap examples limits the leak, but doesn't remove it.
