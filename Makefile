@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first app
+.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first semantic-v2 app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -70,6 +70,12 @@ paraphrase:
 # nothing submitted.
 semantic-first:
 	uv run python -m experiments.semantic_first
+
+# Experiment 7: a local semantic lookup decides the clear, safe lines and the model the rest, against main's
+# classifier, on every test set including CORD's held-out test split (experiments/semantic_v2/PLAN.md).
+# Needs the semantic dependency group (PyTorch, sentence-transformers) and the local model.
+semantic-v2:
+	uv run --group semantic python -m experiments.semantic_v2
 
 # Results viewer: receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:

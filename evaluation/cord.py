@@ -155,7 +155,7 @@ def usage(system: dict[str, dict], receipts: int) -> dict:
     keys = {row["cache_key"] for row in system.values() if row["cache_key"]}
     calls = {"classify": [json.loads(p.read_text(encoding="utf-8")) for key in sorted(keys) for p in (CACHE_DIR / "classify").glob(f"{key}.json")],
              "translate": [r for p in sorted((CACHE_DIR / "translate").glob("*.json"))
-                           if '"CORD-' in (r := json.loads(p.read_text(encoding="utf-8")))["request"]["params"]["messages"][1]["content"]]}
+                           if '"CORD-V' in (r := json.loads(p.read_text(encoding="utf-8")))["request"]["params"]["messages"][1]["content"]]}
     out = {}
     for purpose, rows in calls.items():
         out[purpose] = {"calls": len(rows), "usd": sum(cost_usd(r["response"]["usage"]) for r in rows)}
