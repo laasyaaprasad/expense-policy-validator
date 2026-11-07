@@ -61,3 +61,26 @@ def test_the_detail_page_shows_each_stage_of_the_trace():
 
     at = page("viewer/detail.py", source="System", selected="RCP-016")
     assert any("ALC-01" in m.value and "Regional rules replace" in m.value for m in at.markdown)
+
+
+def test_the_mismatch_filter_keeps_only_the_mismatches():
+    at = page("viewer/receipts.py", source="Keyword baseline")
+    at.toggle[0].set_value(True).run()
+    assert not at.exception
+    table = at.dataframe[0].value
+    table = table.data if hasattr(table, "data") else table
+    assert len(table) == 28 - EXACT["Keyword baseline"] and set(table["match"]) == {"✗"}
+
+
+def test_next_and_previous_step_through_the_receipts():
+    at = page("viewer/detail.py", source="System", selected="RCP-032")
+    next(b for b in at.button if b.label == "Next").click().run()
+    assert at.selectbox[0].value == "RCP-001"
+    next(b for b in at.button if b.label == "Previous").click().run()
+    assert at.selectbox[0].value == "RCP-032"
+
+
+def test_the_metrics_page_answers_the_failure_and_base_rate_questions():
+    at = page("viewer/metrics.py")
+    assert any("base-rate" in h.value for h in at.subheader)
+    assert any("TALAM UNGU" in m.value for m in at.markdown)

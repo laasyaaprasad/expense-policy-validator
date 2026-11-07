@@ -11,9 +11,21 @@ results, gold, receipts, glosses = data.results(source), data.gold(), data.recei
 ids = sorted(results)
 
 st.title("Receipt detail")
+if st.button("Back to the receipt list", icon=":material/arrow_back:", type="tertiary"):
+    st.switch_page("viewer/receipts.py")
 selected = st.session_state.get("selected", ids[0])
-rid = st.selectbox("Receipt", ids, index=ids.index(selected) if selected in ids else 0,
-                   format_func=lambda r: f"{r} · {receipts[r].merchant_name} · {data.match_label(r, results[r])}")
+selected = selected if selected in ids else ids[0]
+
+
+def step(by: int) -> None:
+    st.session_state["selected"] = ids[(ids.index(selected) + by) % len(ids)]
+
+
+pick, previous, following = st.columns([6, 1, 1], vertical_alignment="bottom")
+rid = pick.selectbox("Receipt", ids, index=ids.index(selected),
+                     format_func=lambda r: f"{r} · {receipts[r].merchant_name} · {data.match_label(r, results[r])}")
+previous.button("Previous", icon=":material/chevron_left:", on_click=step, args=(-1,), width="stretch")
+following.button("Next", icon=":material/chevron_right:", on_click=step, args=(1,), width="stretch")
 st.session_state["selected"] = rid
 record, answer, receipt = results[rid], gold[rid], receipts[rid]
 
@@ -29,12 +41,15 @@ right.markdown(f"Employee {receipt.employee_id} · {receipt.employee_country} ({
 
 ours, correct = st.columns(2)
 ours.metric(f"Ours ({source})", record["disposition"])
-correct.metric("Correct answer", answer.disposition,
-               delta=None if data.match_label(rid, record) == "not scored" else
-               ("match" if data.match_label(rid, record) == "✓" else "mismatch"),
-               delta_color="normal" if data.match_label(rid, record) == "✓" else "inverse")
-if data.match_label(rid, record) == "not scored":
+correct.metric("Correct answer", answer.disposition)
+match = data.match_label(rid, record)
+if match == "not scored":
     st.info("Out of scope on this track (timing rules), so not scored.")
+elif match == "✓":
+    st.success("Matches the correct answer: the same disposition, exceptions, signals and line items cited.")
+else:
+    st.error("Differs from the correct answer in its disposition, its exceptions or signals, or the line items cited. "
+             "Any wrong category is tinted below.")
 
 # --- line items ---------------------------------------------------------------------------------
 st.subheader("Line items")

@@ -10,37 +10,55 @@ results, gold, receipts = data.results(source), data.gold(), data.receipts()
 
 st.title("Receipts")
 
+def findings(exceptions: list[str], signals: list[str]) -> str:
+    """Exception rule IDs, then any review signals in brackets, in one cell."""
+    return " ".join(part for part in (", ".join(exceptions), signals and f"({', '.join(signals)})") if part)
+
+
 rows = []
 for rid in sorted(results):
     record, answer = results[rid], gold[rid]
     rows.append({
         "receipt": rid,
-        "merchant": receipts[rid].merchant_name,
-        "expense type": receipts[rid].submitted_expense_type,
+        "match": data.match_label(rid, record),
         "ours": record["disposition"],
         "correct": answer.disposition,
-        "match": data.match_label(rid, record),
-        "our exceptions": ", ".join(e["rule_id"] for e in record["exceptions"]),
-        "correct exceptions": ", ".join(e.rule_id for e in answer.exceptions),
-        "our signals": ", ".join(s["rule_id"] for s in record["review_signals"]),
-        "correct signals": ", ".join(s.rule_id for s in answer.review_signals),
+        "merchant": receipts[rid].merchant_name,
+        "expense type": receipts[rid].submitted_expense_type,
+        "our findings": findings([e["rule_id"] for e in record["exceptions"]], [s["rule_id"] for s in record["review_signals"]]),
+        "correct findings": findings([e.rule_id for e in answer.exceptions], [s.rule_id for s in answer.review_signals]),
     })
 table = pd.DataFrame(rows)
 wrong = int((table["match"] == "✗").sum())
+unscored = int((table["match"] == "not scored").sum())
+scored = len(table) - unscored
+
+right, mismatched, out = st.columns(3)
+right.metric(f"Exactly right ({source})", f"{scored - wrong} / {scored}")
+mismatched.metric("Mismatches", wrong)
+out.metric("Not scored (timing rules)", unscored)
 
 st.caption(
-    f"**{source}.** {wrong} of 28 in-scope receipts differ from the correct answer (✗, tinted): a wrong disposition, "
-    "a missing or extra exception or signal, or wrong line items cited. The four timing receipts are out of scope "
-    "and not scored. Select a row to open it."
+    "✗ (tinted) means the receipt differs from the correct answer: a wrong disposition, a missing or extra exception "
+    "or signal, or wrong line items cited. Findings list the exceptions raised, with review signals in brackets. "
+    "**Click a row to open the receipt.**"
 )
+if st.toggle("Show only mismatches"):
+    table = table[table["match"] == "✗"].reset_index(drop=True)
+    if table.empty:
+        st.success(f"No mismatches: every scored receipt matches the correct answer ({source}).")
+        st.stop()
 
 
 def tint(row: pd.Series) -> list[str]:
     return [f"background-color: {data.MISMATCH}" if row["match"] == "✗" else ""] * len(row)
 
 
-event = st.dataframe(table.style.apply(tint, axis=1), hide_index=True, width="stretch", height=35 * 33 + 3,
-                     on_select="rerun", selection_mode="single-row", key="receipt_table")
+widths = {"receipt": 75, "match": 55, "ours": 50, "correct": 60, "merchant": 175, "expense type": 145,
+          "our findings": 195, "correct findings": 195}
+narrow = {name: st.column_config.TextColumn(width=width) for name, width in widths.items()}
+event = st.dataframe(table.style.apply(tint, axis=1), hide_index=True, width="stretch", height=35 * (len(table) + 1) + 3,
+                     column_config=narrow, on_select="rerun", selection_mode="single-row", key="receipt_table")
 if event.selection.rows:
     st.session_state["selected"] = table.iloc[event.selection.rows[0]]["receipt"]
     st.switch_page("viewer/detail.py")

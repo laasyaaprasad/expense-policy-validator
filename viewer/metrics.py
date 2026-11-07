@@ -74,6 +74,11 @@ else:
                 "The four timing receipts are not scored on this track; the timing rules built after the frozen run get them right:")
 st.dataframe(pd.DataFrame([{**o, "got_rules": ", ".join(o["got_rules"]), "want_rules": ", ".join(o["want_rules"])}
                            for o in m["out_of_scope"]]), hide_index=True, width="stretch")
+with st.expander("Two failure cases, by stage (docs/evaluation.md)"):
+    st.markdown(data.evaluation_section("6. Two failure cases"))
+
+st.subheader("The base-rate question")
+st.markdown(data.evaluation_section("7. The base-rate question"))
 
 st.subheader("Confidence threshold sweep")
 st.caption(m["threshold_sweep"]["note"] + ". In use: " + str(m["confidence_threshold"]) + ".")

@@ -10,7 +10,7 @@ import streamlit as st
 
 from evaluation.evaluate import BASELINE_PATH, METRICS_PATH, load_results, receipt_matches
 from evaluation.gold import GoldReceipt, in_scope, load_gold
-from validator.data import ReceiptInput, load_receipts
+from validator.data import ROOT, ReceiptInput, load_receipts
 from validator.pipeline import OUTPUT_DIR
 
 SOURCES = {"System": OUTPUT_DIR / "results.jsonl", "Keyword baseline": BASELINE_PATH}
@@ -61,6 +61,14 @@ def retrieval_reasons() -> dict[str, dict[str, str]]:
 @st.cache_data
 def metrics() -> dict:
     return json.loads(METRICS_PATH.read_text(encoding="utf-8"))
+
+
+@st.cache_data
+def evaluation_section(heading: str) -> str:
+    """The body of one `## ` section of docs/evaluation.md, the written answers to Part 3."""
+    text = (ROOT / "docs" / "evaluation.md").read_text(encoding="utf-8")
+    body = text.split(f"\n## {heading}\n", 1)[1]
+    return body.split("\n## ", 1)[0].strip()
 
 
 def match_label(receipt_id: str, record: dict) -> str:
