@@ -17,6 +17,8 @@ from evaluation.metrics import recipient_matches
 from validator.classifier import Classification, classify
 from validator.data import ROOT, LineItem, ReceiptInput, read_jsonl
 from validator.llm import LLM
+from validator.lookup import default_lookup
+from validator.pipeline import needs_model
 from validator.translate import translate_all
 
 DEV_PATH = ROOT / "dev" / "trap_items.jsonl"
@@ -90,11 +92,12 @@ def choose_threshold(rows: list[Scored]) -> tuple[float, dict[float, int]]:
 def main() -> int:
     llm = LLM.or_offline()
     receipts, expected = load_dev()
-    glosses = translate_all(receipts, llm)
+    lookup = default_lookup()
+    glosses = translate_all(needs_model(receipts, lookup), llm)
     runs = {
-        "configured": [classify(r, glosses, llm) for r in receipts],
-        "repeat": [classify(r, glosses, llm, run="repeat") for r in receipts],
-        "no_context": [classify(r, glosses, llm, context=False) for r in receipts],
+        "configured": [classify(r, glosses, llm, lookup=lookup) for r in receipts],
+        "repeat": [classify(r, glosses, llm, run="repeat", lookup=lookup) for r in receipts],
+        "no_context": [classify(r, glosses, llm, context=False, lookup=lookup) for r in receipts],
     }
     scored = {name: score(cs, expected) for name, cs in runs.items()}
     OUT_DIR.mkdir(parents=True, exist_ok=True)

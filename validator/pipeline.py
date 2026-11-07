@@ -21,6 +21,7 @@ from validator.data import ROOT, ReceiptInput, load_receipts
 from validator.engine import evaluate
 from validator.engine.engine import CONFIDENCE_THRESHOLD
 from validator.llm import LLM
+from validator.lookup import default_lookup
 from validator.models import ClassifiedReceipt, Decision
 from validator.policies import load_policies
 from validator.reporter import ReceiptResult, report, to_json_line
@@ -44,9 +45,17 @@ class Run:
     seconds: dict[str, float]  # stage → wall-clock time
 
 
-def classify_all(receipts: list[ReceiptInput], llm: LLM, *, context: bool = True, run: str = "") -> tuple[dict[str, str], list[Classification]]:
-    glosses = translate_all(receipts, llm)
-    return glosses, [classify(r, glosses, llm, context=context, run=run) for r in receipts]
+def needs_model(receipts: list[ReceiptInput], lookup) -> list[ReceiptInput]:
+    """The receipts the lookup can't fully decide: only these are translated and sent to the model."""
+    if lookup is None:
+        return receipts
+    return [r for r in receipts if not (r.itemized and (d := lookup.decide_receipt(r)) and all(x.decided for x in d.values()))]
+
+
+def classify_all(receipts: list[ReceiptInput], llm: LLM, *, context: bool = True, run: str = "", lookup=None) -> tuple[dict[str, str], list[Classification]]:
+    lookup = default_lookup() if lookup is None else lookup
+    glosses = translate_all(needs_model(receipts, lookup), llm)
+    return glosses, [classify(r, glosses, llm, context=context, run=run, lookup=lookup) for r in receipts]
 
 
 def decide_all(classified: list[ClassifiedReceipt], threshold: float = CONFIDENCE_THRESHOLD,
@@ -61,10 +70,11 @@ def decide_all(classified: list[ClassifiedReceipt], threshold: float = CONFIDENC
 def run(llm: LLM, receipts: list[ReceiptInput] | None = None) -> Run:
     receipts = receipts if receipts is not None else load_receipts()
     seconds, translations, engine = {}, {}, {}
+    lookup = default_lookup()
     with timed(seconds, "translate"):
-        glosses = translate_all(receipts, llm, translations)
+        glosses = translate_all(needs_model(receipts, lookup), llm, translations)
     with timed(seconds, "classify"):
-        classifications = [classify(r, glosses, llm) for r in receipts]
+        classifications = [classify(r, glosses, llm, lookup=lookup) for r in receipts]
     by_id = {c.receipt.receipt.receipt_id: c for c in classifications}
     with timed(seconds, "retrieve_and_decide"):
         retrievals, decisions = decide_all([c.receipt for c in classifications], trace=engine)

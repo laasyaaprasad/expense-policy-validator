@@ -46,7 +46,9 @@ def receipt_trace(c: Classification, glosses: dict[str, str], translation: dict 
             "confidence_fallback": c.confidence_fallback,
             "lines": [{"line_id": line.line_id, "category": c.receipt.items[line.line_id].category,
                        "confidence": c.receipt.items[line.line_id].confidence,
-                       "alternatives": c.alternatives.get(line.line_id, [])} for line in receipt.line_items],
+                       "alternatives": c.alternatives.get(line.line_id, []),
+                       **(c.decided_by.get(line.line_id) or {"decided_by": "model" if c.cache_key else "code (not itemized)"})}
+                      for line in receipt.line_items],
         },
         "retrieve": {"rules": list(retrieval.rule_ids)},
         "engine": _without_names(engine),

@@ -105,6 +105,7 @@ class Classification:
     retried_after: tuple[str, ...] = ()
     confidence_fallback: str | None = None  # why every line got confidence 0, when they did
     alternatives: dict[str, list[dict]] = field(default_factory=dict)  # line ID → the next most likely categories
+    decided_by: dict[str, dict] = field(default_factory=dict)  # line ID → who decided it and why (validator/lookup.py)
 
 
 def _messages(receipt: ReceiptInput, glosses: dict[str, str], context: bool) -> list[dict]:
@@ -182,11 +183,19 @@ def category_alternatives(completion: Completion, start: int, chosen: str) -> li
 
 
 def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, context: bool = True, run: str = "",
-             temperature: float | None = None) -> Classification:
+             temperature: float | None = None, lookup=None) -> Classification:
     """`context=False` leaves out the merchant and expense type (the merchant ablation).
     `run` names a repeat of the same request, so it is a fresh call rather than a cache hit.
-    `temperature` overrides CALL's, so experiment 5 can replay its calls at 1."""
+    `temperature` overrides CALL's, so experiment 5 can replay its calls at 1.
+    `lookup` (validator/lookup.py) decides the lines it can first; the model gets the receipt only if any line is
+    left, and its answers are used for those lines alone. Without it, the model classifies every line."""
     prompt_version = PROMPT_VERSION + ("" if context else "-nocontext") + (f"-{run}" if run else "")
+    decisions = lookup.decide_receipt(receipt) if lookup is not None else {}
+    decided_by = {line_id: d.trace() for line_id, d in decisions.items()}
+    if decisions and all(d.decided for d in decisions.values()):
+        items = {line_id: ClassifiedItem(line_id=line_id, category=d.category, restricted=TAXONOMY[d.category], confidence=d.confidence,
+                                         reason=d.reason) for line_id, d in decisions.items()}
+        return Classification(ClassifiedReceipt(receipt=receipt, items=items), prompt_version, None, None, decided_by=decided_by)
     if not receipt.itemized:
         items = {
             line.line_id: ClassifiedItem(line_id=line.line_id, category="other", restricted=TAXONOMY["other"], confidence=1.0,
@@ -214,6 +223,10 @@ def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, contex
         )
         for line, confidence in zip(reply.items, confidences)
     }
+    for line_id, d in decisions.items():
+        if d.decided:
+            items[line_id] = ClassifiedItem(line_id=line_id, category=d.category, restricted=TAXONOMY[d.category],
+                                            confidence=d.confidence, reason=d.reason)
     return Classification(ClassifiedReceipt(receipt=receipt, items=items), prompt_version, completion.cache_key[:24], completion.model,
                           cached=completion.cached, retried_after=completion.retried_after,
-                          confidence_fallback=fallback, alternatives=alternatives)
+                          confidence_fallback=fallback, alternatives=alternatives, decided_by=decided_by)

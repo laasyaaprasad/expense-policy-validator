@@ -58,6 +58,13 @@ result_tab, trace_tab = st.tabs([":material/fact_check: Result vs the correct an
 with result_tab:
     # --- line items ---------------------------------------------------------------------------------
     st.subheader("Line items")
+    trace_lines = {x["line_id"]: x for x in (data.traces().get(rid) or {}).get("classify", {}).get("lines", [])} if source == data.DEFAULT_SOURCE else {}
+    threshold = record.get("confidence_threshold") or 0.5
+
+    def decided_by(line: dict) -> str:
+        who = trace_lines.get(line["line_id"], {}).get("decided_by", "")
+        return f"{who} → human review (EXC-03)" if who.startswith("model") and line["confidence"] < threshold else who
+
     lines = pd.DataFrame([{
         "line": line["line_id"],
         "text": line["description_raw"],
@@ -66,6 +73,7 @@ with result_tab:
         "correct category": answer.items[line["line_id"]].category,
         "restricted": line["restricted"],
         "confidence": line["confidence"],
+        **({"decided by": decided_by(line)} if trace_lines else {}),
         "recipient": f"{line['recipient_name']} ({line['recipient_type']})" if line.get("recipient_name") else "",
         "reason": line.get("reason") or "",
     } for line in record["line_items"]])
@@ -76,7 +84,9 @@ with result_tab:
 
 
     st.dataframe(lines.style.apply(tint, axis=1).format({"confidence": "{:.3f}"}), hide_index=True, width="stretch")
-    st.caption(f"Confidence below {record.get('confidence_threshold') or 0.5} raises EXC-03 and keeps the item out of every rule.")
+    st.caption(f"Each line is decided by the semantic lookup when it is a near-repeat of a reviewed line or a clear, safe match to the "
+               f"curated library; otherwise by the model. A model confidence below {threshold} raises EXC-03 (human review) and keeps "
+               "the item out of every rule. The lookup never decides a restricted category.")
 
     # --- exceptions and signals ---------------------------------------------------------------------
     gold_lines = {e.rule_id: sorted(e.line_ids) for e in answer.exceptions}
@@ -131,17 +141,24 @@ with trace_tab:
     else:
         engine = trace["engine"]
         translated = trace["translate"]["lines"] if trace.get("translate") else []
+        no_call = trace["classify"]["call"] is None and all(x.get("decided_by", "").startswith("lookup") for x in trace["classify"]["lines"])
         st.markdown("**1 · Translate** (model). " + (
             f"Glossed into English: {', '.join(translated)}; the gloss is in the line items above." if translated
+            else "Not needed: the lookup decided every line, so nothing was sent." if no_call
             else "Every line was already in English, so nothing was sent."))
 
-        st.markdown("**2 · Classify** (model). The category, its probability, and the runners-up the model weighed.")
+        st.markdown("**2 · Classify** (semantic lookup first, then the model). " + (
+            "The lookup decided every line, so the model was never called." if no_call
+            else "Lines the lookup didn't decide went to the model, with the whole receipt; its confidence is the category's probability."))
         st.dataframe(pd.DataFrame([{
             "line": line["line_id"],
+            "decided by": line.get("decided_by", "model"),
             "category": line["category"],
             "confidence": line["confidence"],
-            "runners-up": ", ".join(f"{a['category']} {a['p']:.2g}" for a in line.get("alternatives", [])),
-            "below threshold": "yes, left out (EXC-03)" if line["line_id"] in engine["uncertain_lines"] else "",
+            "why": line.get("why", ""),
+            "closest match": (lambda n: f"{n[0][0]} ({n[0][1]}, {n[0][2]:.3f})" if n else "")(line.get("nearest")),
+            "runners-up (model)": ", ".join(f"{a['category']} {a['p']:.2g}" for a in line.get("alternatives", [])) if line.get("decided_by", "model").startswith("model") else "",
+            "below threshold": "yes, human review (EXC-03)" if line["line_id"] in engine["uncertain_lines"] else "",
         } for line in trace["classify"]["lines"]]).style.format({"confidence": "{:.6f}"}), hide_index=True, width="stretch")
 
         reasons = data.retrieval_reasons().get(rid, {})

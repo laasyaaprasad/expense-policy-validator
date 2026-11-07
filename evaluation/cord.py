@@ -150,12 +150,17 @@ def disagreements(system: dict[str, dict], labels: dict[str, dict]) -> list[dict
             for i in labels if system[i]["category"] != labels[i]["category"]]
 
 
+def _translation_keys(path: Path = OUT_DIR / "traces.jsonl") -> set[str]:
+    return {t["translate"]["call"] for t in read_jsonl(path) if t.get("translate")}
+
+
 def usage(system: dict[str, dict], receipts: int) -> dict:
     """Tokens and cost of the calls behind the run, read from the committed cache, as OpenRouter billed them."""
     keys = {row["cache_key"] for row in system.values() if row["cache_key"]}
     calls = {"classify": [json.loads(p.read_text(encoding="utf-8")) for key in sorted(keys) for p in (CACHE_DIR / "classify").glob(f"{key}.json")],
-             "translate": [r for p in sorted((CACHE_DIR / "translate").glob("*.json"))
-                           if '"CORD-V' in (r := json.loads(p.read_text(encoding="utf-8")))["request"]["params"]["messages"][1]["content"]]}
+             # The translations the run used, named in its traces: receipts the lookup decided fully were never translated.
+             "translate": [json.loads(p.read_text(encoding="utf-8")) for key in sorted(_translation_keys())
+                           for p in (CACHE_DIR / "translate").glob(f"{key}.json")]}
     out = {}
     for purpose, rows in calls.items():
         out[purpose] = {"calls": len(rows), "usd": sum(cost_usd(r["response"]["usage"]) for r in rows)}

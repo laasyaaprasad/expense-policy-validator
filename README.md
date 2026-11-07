@@ -13,10 +13,10 @@ Before writing any code, I spent 45 minutes studying how real expense tools divi
 
 ```mermaid
 flowchart LR
-    R["receipt<br/>labels dropped"] --> N["normalise<br/>normaliser.py"] --> T["translate<br/>translate.py"] --> K["classify<br/>classifier.py"] --> P["retrieve<br/>retriever.py"] --> E["engine<br/>engine/, rules.yaml"] --> O["report<br/>reporter.py"]
+    R["receipt<br/>labels dropped"] --> N["normalise<br/>normaliser.py"] --> L["semantic lookup<br/>lookup.py"] --> T["translate<br/>translate.py"] --> K["classify<br/>classifier.py"] --> P["retrieve<br/>retriever.py"] --> E["engine<br/>engine/, rules.yaml"] --> O["report<br/>reporter.py"]
 ```
 
-Each component is its own module in [`validator/`](validator); only translation and classification call the model, and every call is cached.
+Each component is its own module in [`validator/`](validator); only translation and classification call the model, and every call is cached. A local semantic lookup ([`lookup.py`](validator/lookup.py)) decides the lines it can first: near-repeats of reviewed lines, and clear, familiar, unrestricted matches to a curated library. It never decides a restricted category. Only receipts with a line left go to the model, and the model's unsure lines go to a human. On the 32 receipts it decides 35 of 79 lines, and 4 receipts need no model call. Its design and tests are experiments 6–8 ([DECISIONS.md, section 12](DECISIONS.md)).
 
 **End to end, RCP-011:** Cellar Door Fine Wines (MCC 5921), Client Entertainment, pre-approval PA-2026-0431: "Vino tinto Rioja Reserva 750ml" is glossed "Rioja Reserva red wine 750ml" and classified `alcohol` (restricted) at 0.99996. Of 12 retrieved rules, the engine raises ALC-03 on L1 (alcohol bought where it isn't served) and MCC-01 (high-risk merchant), which the pre-approval doesn't waive: **flag**, as in the answer key. Each step is in [`outputs/traces.jsonl`](outputs/traces.jsonl).
 
@@ -44,7 +44,7 @@ The labelled receipts are the only test set, so the frozen config's first run wa
 | Receipts exactly right | 28 / 28 (88–100%) | 20 / 28 |
 | False positives · missed violations | 0 / 9 (0–30%) · 0 / 16 (0–19%) | 2 / 9 · 2 / 16 |
 
-This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real Indonesian receipts ([CORD](cord/README.md)), against the assistant's labels (57 hand-checked), it got 93% of lines right but flagged or reviewed 12 of 98 clean ones (with one restricted line and one made-up context, it tests the classifier more than the rules).
+This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real Indonesian receipts ([CORD](cord/README.md)), against the assistant's labels (57 hand-checked), it got 95% of lines right but flagged or reviewed 7 of 98 clean ones (with one restricted line and one made-up context, it tests the classifier more than the rules).
 
 ## AI collaboration
 

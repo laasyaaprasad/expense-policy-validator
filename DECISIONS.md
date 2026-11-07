@@ -112,6 +112,22 @@ The research done before building, on 2026-10-30. For each decision the brief le
 - **AWS:** API Gateway HTTP API with a Cognito JWT authorizer, SQS between two Lambdas, and DynamoDB for the cross-receipt totals. HTTP APIs are cheaper and simpler than REST APIs, and AWS advises against API keys for authentication. The full design and costs are in `docs/aws-design.md`.
 - **Viewer:** Streamlit, whose multipage navigation gives the brief's three views in one small app. Gradio is aimed at model input/output demos rather than browsing results.
 
+## 12. Semantic lookup before the model
+
+- **Options:** the model on every line; a lookup first, with the model as fallback; a fine-tuned small classifier (no data to train it).
+- **Picked:** a local semantic lookup first ([`validator/lookup.py`](validator/lookup.py), settings and data in `rules/lookup/`).
+  - **Code checks** send to the model any line that may name a recipient, a phone, prescription or event ticket, has no real words, or comes from a package store, pharmacy or supermarket.
+  - **Memory:** a near-repeat of a line a person reviewed takes its category. A line enters memory only with two keys: the reviewer's label and the model agreeing at 0.9 or more.
+  - **The curated library** decides an unrestricted category only when the line is familiar, clear and far from every restricted reference.
+  - **Restricted categories always go to the model,** and the model's unsure lines to a human (EXC-03).
+- **Why:**
+  - Experiment 6 (a hosted embedding model, hand-written examples) decided 30% of lines, but failed on disputed CORD labels and wasn't repeatable.
+  - Experiment 7 (local and repeatable) decided only 6%. Learning lifted that to 67%, but then called makgeolli food.
+  - Experiment 8 recognised near-repeats only, fenced off restricted categories and required two keys. Streamed over 400 fresh receipts, learning after each 50, it called no restricted item safe, got 1,123 lines right against the model's 1,115, and grew to 54–56% of lines, with a third or more of receipts needing no model call. It failed one bar as written: the share fell 1.6 points in the last block.
+- **As built:** the memory is the 813 lines and 14 risk references experiment 8 learned from the reviewed CORD training receipts. Nothing comes from the 32 receipts or the other test sets. The thresholds were calibrated on CORD validation and test (`rules/lookup/config.yaml`). "tiket" was added to the ticket check after experiment 8's one real miss.
+  - **Results:** on the 32 receipts, every result is unchanged, with 35 of 79 lines decided by the lookup. On CORD validation: 256 of 270 lines (was 252), 7 false alarms (was 12), and 37 of 100 receipts with no model call. Those receipts were part of the calibration set, so that last figure is not an independent test.
+  - **A known weakness to fix before production:** the near-repeat threshold (0.855) was calibrated as "pairs above it agree on category". Since about 93% of CORD lines are food, that is easy to satisfy, so it admits similar items, not only repeats. On CORD validation, "\*Rhum" (a rum flavouring) was decided as food because it resembles "BANANA RHUM RAISIN" at 0.90. That's right by its label, but by resemblance, not identity, and the nearest restricted reference was a cigar at 0.81. The fix is a stricter, separately tested near-repeat rule, recalibrated on the company's reviewed receipts.
+
 ## Sources
 
 **Industry practice and the engine**
