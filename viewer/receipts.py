@@ -30,7 +30,7 @@ for rid in sorted(results):
     })
 table = pd.DataFrame(rows)
 wrong = int((table["match"] == "✗").sum())
-unscored = int((table["match"] == "not scored").sum())
+unscored = int(table["match"].str.endswith("(not scored)").sum())
 scored = len(table) - unscored
 
 right, mismatched, out = st.columns(3)
@@ -40,7 +40,8 @@ out.metric("Not scored (timing rules)", unscored)
 
 st.caption(
     "✗ (tinted) means the receipt differs from the correct answer: a wrong disposition, a missing or extra exception "
-    "or signal, or wrong line items cited. Findings list the exceptions raised, with review signals in brackets. "
+    "or signal, or wrong line items cited. The four timing receipts are out of scope on this track: they show whether "
+    "they match, but don't count toward the score. Findings list the exceptions raised, with review signals in brackets. "
     "**Click a row to open the receipt.**"
 )
 if st.toggle("Show only mismatches"):
@@ -54,7 +55,7 @@ def tint(row: pd.Series) -> list[str]:
     return [f"background-color: {data.MISMATCH}" if row["match"] == "✗" else ""] * len(row)
 
 
-widths = {"receipt": 75, "match": 55, "ours": 50, "correct": 60, "merchant": 175, "expense type": 145,
+widths = {"receipt": 75, "match": 110, "ours": 50, "correct": 60, "merchant": 175, "expense type": 145,
           "our findings": 195, "correct findings": 195}
 narrow = {name: st.column_config.TextColumn(width=width) for name, width in widths.items()}
 event = st.dataframe(table.style.apply(tint, axis=1), hide_index=True, width="stretch", height=35 * (len(table) + 1) + 3,

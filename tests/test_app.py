@@ -33,7 +33,16 @@ def test_the_list_shows_all_32_and_tints_the_mismatches_metrics_counts(source):
     table = at.dataframe[0].value
     assert len(table) == 32
     assert int((table["match"] == "✗").sum()) == 28 - EXACT[source]
-    assert int((table["match"] == "not scored").sum()) == 4
+    assert int(table["match"].str.endswith("(not scored)").sum()) == 4
+
+
+def test_the_timing_receipts_show_whether_they_match_without_counting():
+    at = page("viewer/receipts.py", source="System")
+    table = at.dataframe[0].value
+    table = table.data if hasattr(table, "data") else table
+    marks = dict(zip(table["receipt"], table["match"]))
+    assert {marks[r] for r in ("RCP-020", "RCP-021", "RCP-029", "RCP-030")} == {"✓ (not scored)"}
+    assert at.metric[0].value == "28 / 28"
 
 
 @pytest.mark.parametrize("source", list(SOURCES))

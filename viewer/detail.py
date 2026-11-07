@@ -43,8 +43,9 @@ ours, correct = st.columns(2)
 ours.metric(f"Ours ({source})", record["disposition"])
 correct.metric("Correct answer", answer.disposition)
 match = data.match_label(rid, record)
-if match == "not scored":
-    st.info("Out of scope on this track (timing rules), so not scored.")
+if match.endswith("(not scored)"):
+    st.info(f"Out of scope on this track (timing rules), so not counted in the score. "
+            f"{'It matches' if match.startswith('✓') else 'It differs from'} the correct answer.")
 elif match == "✓":
     st.success("Matches the correct answer: the same disposition, exceptions, signals and line items cited.")
 else:

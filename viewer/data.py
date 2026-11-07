@@ -72,6 +72,6 @@ def evaluation_section(heading: str) -> str:
 
 
 def match_label(receipt_id: str, record: dict) -> str:
-    if not in_scope(receipt_id):
-        return "not scored"
-    return "✓" if receipt_matches(record, gold()[receipt_id]) else "✗"
+    """✓ or ✗ against the correct answer; the out-of-scope timing receipts say so and never count as mismatches."""
+    mark = "✓" if receipt_matches(record, gold()[receipt_id]) else "✗"
+    return mark if in_scope(receipt_id) else f"{mark} (not scored)"
