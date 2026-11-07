@@ -49,6 +49,23 @@ TRANSPORT = re.compile(r"\b(?:flights?|airline|airfare|plane|avion|flug\w*|vuelo
 WORD = re.compile(r"[^\W\d_]{3,}|[぀-ヿ㐀-鿿]")
 
 
+LETTERS = re.compile(r"[^\W\d_]+")
+
+
+def words(text: str) -> frozenset[str]:
+    return frozenset(LETTERS.findall(normalise(text).lower()))
+
+
+def same_words(a: str, b: str, overlap: float) -> bool:
+    """The word test for "the same item" (experiment 9): Jaccard of at least `overlap`, or a set of two or more words
+    inside the other. A single shared word ("*Rhum" in "BANANA RHUM RAISIN") isn't enough."""
+    wa, wb = words(a), words(b)
+    if not wa or not wb:
+        return False
+    small, big = sorted((wa, wb), key=len)
+    return (len(small) >= 2 and small <= big) or len(wa & wb) / len(wa | wb) >= overlap
+
+
 def code_check(text: str, mcc: str | None) -> str | None:
     """Step 0: why the line must go to the model before any lookup, or None."""
     t = normalise(text)
@@ -126,8 +143,8 @@ class Embedder:
 
 
 class Lookup:
-    def __init__(self, directory: Path = LOOKUP_DIR):
-        self.config = yaml.safe_load((directory / "config.yaml").read_text(encoding="utf-8"))
+    def __init__(self, directory: Path = LOOKUP_DIR, overrides: dict | None = None):
+        self.config = {**yaml.safe_load((directory / "config.yaml").read_text(encoding="utf-8")), **(overrides or {})}
         self.embedder = Embedder(self.config["model"], directory / "vectors.npz")
         with (directory / "library.csv").open(encoding="utf-8", newline="") as f:
             self.library = [(row["text"], row["category"]) for row in csv.DictReader(f)]
@@ -172,12 +189,20 @@ class Lookup:
         risk = (*self.restricted_refs[r], round(float(risk_sims[r]), 4))
         if len(self.memory):
             sims = self.mem_vectors @ v
-            j = int(np.argmax(sims))
-            if sims[j] >= c["tau_mem"]:
+            if c.get("memory_rule") == "same_item":  # experiment 9: close in meaning and sharing the words
+                tau = c["tau_same"]
+                candidates = [k for k in np.argsort(-sims) if sims[k] >= tau and same_words(text, self.memory[k][0], c["word_overlap"])]
+                j = int(candidates[0]) if candidates else int(np.argmax(sims))
+                hit = bool(candidates)
+            else:
+                tau, j = c["tau_mem"], int(np.argmax(sims))
+                hit = sims[j] >= tau
+            if hit:
                 near = ((*self.memory[j], round(float(sims[j]), 4)), risk)
-                if risk_sims[r] >= c["tau_mem"]:
-                    return LineDecision(False, "model", None, None, "a restricted reference is also a near-repeat", near)
-                return LineDecision(True, "memory", self.memory[j][1], c["memory_confidence"], f"close to a reviewed line (similarity {sims[j]:.3f}, threshold {c['tau_mem']:.3f})", near)
+                if risk_sims[r] >= tau:
+                    return LineDecision(False, "model", None, None, "a restricted reference is as close as the reviewed line", near)
+                what = "the same item as a reviewed line" if c.get("memory_rule") == "same_item" else "close to a reviewed line"
+                return LineDecision(True, "memory", self.memory[j][1], c["memory_confidence"], f"{what} (similarity {sims[j]:.3f}, threshold {tau:.3f})", near)
         lib_sims = self.lib_vectors @ v
         scores = {cat: float(lib_sims[cols].max()) for cat, cols in self.columns.items()}
         best, second = sorted(scores, key=scores.get, reverse=True)[:2]
@@ -194,6 +219,29 @@ class Lookup:
         if scores[best] - risk_sims[r] < c["delta"]:
             return LineDecision(False, "model", None, None, f"too close to a restricted line ({risk[0]}, {risk[1]})", near)
         return LineDecision(True, "library", best, c["curated_confidence"], "familiar, clear and far from restricted lines", near)
+
+
+    def learn(self, text: str, label: str, sure: bool, model_category: str | None, model_confidence: float | None) -> str:
+        """After a person reviews a line: remember it (two keys), keep it as a risk reference (restricted), or leave it out."""
+        self._load_vectors()
+        text = normalise(text)
+        if not sure:
+            return "left out: unsure label"
+        if not TAXONOMY[label] and (model_category != label or (model_confidence or 0) < self.config["two_key_confidence"]):
+            return "left out: the model disagrees or isn't sure (two keys)"
+        if any(t == text for t, _ in self.memory + self.risk):
+            return "left out: already known"
+        [v] = self.embedder.embed([text])
+        if v is None:
+            return "left out: no embedding"
+        if TAXONOMY[label]:
+            self.risk.append((text, label))
+            self.restricted_refs.append((text, label))
+            self.restricted_vectors = np.vstack([self.restricted_vectors, v])
+            return "risk"
+        self.memory.append((text, label))
+        self.mem_vectors = np.vstack([self.mem_vectors, v])
+        return "memory"
 
 
 @lru_cache(maxsize=1)

@@ -26,6 +26,10 @@ A restricted reference blocks a memory decision if it is the same item as the li
 - **Pairs:** those on different receipts that pass the word test.
 - **Rule:** the lowest similarity at which **every** such pair at or above it agrees on category (100%, not 99.5%), with no restricted-flag disagreement above it.
 
+## Amendment, before any embedding or model call on the new receipts
+
+As written, "or one set contains the other" lets a single word count as the same item: {rhum} sits inside {banana, rhum, raisin}. That contradicts the example above, which says "\*Rhum" fails. **Amended:** containment counts only when the smaller word set has at least two words. "teh manis" in "ES TEH MANIS" still passes, and "\*Rhum" in "BANANA RHUM RAISIN" now fails (Jaccard 0.33). Nothing had been run on the new receipts when this was changed.
+
 ## Arms, on the 200 fresh receipts (CORD training R400–R599)
 
 The stream continues from where experiment 8 ended: memory starts as `rules/lookup/memory.csv` (813 lines and 14 risk references from R000–R399) and keeps learning after every 50 receipts, under the two-key rule.
