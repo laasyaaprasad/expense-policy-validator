@@ -4,7 +4,7 @@ A language model says what each receipt line is; plain code checks it against th
 
 ## Research first
 
-Before writing any code, I spent [TIME] studying how real expense tools divide the work. [Expensify](https://help.expensify.com/articles/new-expensify/workspaces/Workspace-Rules), [Navan](https://navan.com/blog/audit-engine) and [SAP Concur](https://www.sap.com/products/spend-management/concur-expense-configuration-for-audit-rules.html) apply limits, category lists and merchant-code rules as configuration; even [Ramp's](https://support.ramp.com/policy-agent-overview) LLM-led Policy Agent layers fixed rules on top. The pattern: AI reads the receipt, rules decide. Of three designs:
+Before writing any code, I spent 45 minutes studying how real expense tools divide the work. [Expensify](https://help.expensify.com/articles/new-expensify/workspaces/Workspace-Rules), [Navan](https://navan.com/blog/audit-engine) and [SAP Concur](https://www.sap.com/products/spend-management/concur-expense-configuration-for-audit-rules.html) apply limits, category lists and merchant-code rules as configuration; even [Ramp's](https://support.ramp.com/policy-agent-overview) LLM-led Policy Agent layers fixed rules on top. The pattern: AI reads the receipt, rules decide. Of three designs:
 - **An LLM judges each receipt:** rejected; caps and precedence done by a model can't be tested or repeated, and the brief bars it from deciding EXC-01.
 - **Keywords and rules, no model:** free and repeatable, but misleading names beat it; kept as the baseline (20 / 28).
 - **The model reads, code judges:** picked; the industry pattern, testable and traceable (28 / 28). Later choices and their alternatives: [DECISIONS.md](DECISIONS.md).
