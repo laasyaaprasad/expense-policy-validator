@@ -20,6 +20,7 @@ from pathlib import Path
 IDR_PER_USD = Decimal(16000)
 FX_RATE_TO_USD = 1 / IDR_PER_USD  # 0.0000625, exact
 CENT = Decimal("0.01")
+SPLIT_LETTER = {"train": "R"}  # train and test both start with T; validation stays V, test T
 CONTEXT = {
     "employee_country": "US",
     "entity": "GLOBAL",
@@ -97,7 +98,7 @@ def line(receipt_id: str, number: int, item: dict) -> dict:
 def convert(row: dict, index: int) -> dict:
     truth = json.loads(row["ground_truth"])
     parse, meta = truth["gt_parse"], truth["meta"]
-    receipt_id = f"CORD-{meta['split'][0].upper()}{meta['image_id']:03d}"
+    receipt_id = f"CORD-{SPLIT_LETTER.get(meta['split'], meta['split'][0].upper())}{meta['image_id']:03d}"
     items, dropped = [], 0
     for menu in as_list(parse.get("menu")):
         for item in [menu, *as_list(menu.get("sub"))]:
