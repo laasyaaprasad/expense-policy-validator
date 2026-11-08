@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first semantic-v2 semantic-v3 semantic-v31 semantic-v32 app
+.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first semantic-v2 semantic-v3 semantic-v31 semantic-v32 semantic-v33 app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -91,6 +91,11 @@ semantic-v31:
 # (experiments/semantic_v32/PLAN.md).
 semantic-v32:
 	uv run --group semantic python -m experiments.semantic_v32
+
+# Experiment 11: version 3.3 of the lookup, on a look-alike trap set and a replay of experiment 10's stream
+# (experiments/semantic_v33/PLAN.md).
+semantic-v33:
+	uv run --group semantic python -m experiments.semantic_v33
 
 # Results viewer: receipt list, receipt detail, metrics. Reads committed outputs; no model calls.
 app:

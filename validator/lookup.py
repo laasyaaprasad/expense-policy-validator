@@ -80,6 +80,13 @@ def code_check(text: str, mcc: str | None) -> str | None:
     return None
 
 
+def restricted_word(text: str):
+    """Experiment 11: the first restricted term of the keyword baseline's frozen list (rules/keywords.yaml) in the line, or None."""
+    from validator.baseline import load_terms, match
+    hit = match(text, tuple(t for t in load_terms() if t.restricted))
+    return hit
+
+
 @dataclass(frozen=True)
 class LineDecision:
     decided: bool
@@ -182,6 +189,8 @@ class Lookup:
         c = self.config
         if (reason := code_check(text, mcc)) is not None:
             return LineDecision(False, "code check", None, None, reason)
+        if c.get("restricted_words") and (term := restricted_word(text)) is not None:  # experiment 11
+            return LineDecision(False, "code check", None, None, f'a restricted word ("{term.text}", {term.category})')
         if v is None:
             return LineDecision(False, "model", None, None, "no embedding (the local model isn't installed): sent to the model")
         risk_sims = self.restricted_vectors @ v
@@ -199,12 +208,25 @@ class Lookup:
                 hit = sims[j] >= tau
             if hit:
                 near = ((*self.memory[j], round(float(sims[j]), 4)), risk)
-                if risk_sims[r] >= tau:
+                if risk_sims[r] >= c.get("block_tau", tau):
                     return LineDecision(False, "model", None, None, "a restricted reference is as close as the reviewed line", near)
+                # Experiment 11: a restricted reference that is the same item blocks too, and the library must agree.
+                if c.get("block_same_item"):
+                    same = [k for k in np.argsort(-risk_sims) if risk_sims[k] >= tau and same_words(text, self.restricted_refs[k][0], c["word_overlap"])]
+                    if same:
+                        k = int(same[0])
+                        return LineDecision(False, "model", None, None, "a restricted reference is the same item",
+                                            (near[0], (*self.restricted_refs[k], round(float(risk_sims[k]), 4))))
+                if c.get("library_agrees"):
+                    scores = self._library_scores(v)
+                    best = max(scores, key=scores.get)
+                    if best != self.memory[j][1]:
+                        return LineDecision(False, "model", None, None,
+                                            f"the library's closest category ({best}) disagrees with the reviewed line's ({self.memory[j][1]})", near)
                 what = "the same item as a reviewed line" if c.get("memory_rule") == "same_item" else "close to a reviewed line"
                 return LineDecision(True, "memory", self.memory[j][1], c["memory_confidence"], f"{what} (similarity {sims[j]:.3f}, threshold {tau:.3f})", near)
         lib_sims = self.lib_vectors @ v
-        scores = {cat: float(lib_sims[cols].max()) for cat, cols in self.columns.items()}
+        scores = self._library_scores(v, lib_sims)
         best, second = sorted(scores, key=scores.get, reverse=True)[:2]
         top = int(np.argmax(lib_sims))
         near = ((*self.library[top], round(float(lib_sims[top]), 4)), risk)
@@ -219,6 +241,11 @@ class Lookup:
         if scores[best] - risk_sims[r] < c["delta"]:
             return LineDecision(False, "model", None, None, f"too close to a restricted line ({risk[0]}, {risk[1]})", near)
         return LineDecision(True, "library", best, c["curated_confidence"], "familiar, clear and far from restricted lines", near)
+
+    def _library_scores(self, v: np.ndarray, lib_sims: np.ndarray | None = None) -> dict[str, float]:
+        """Each library category's score: its best similarity to the line."""
+        lib_sims = self.lib_vectors @ v if lib_sims is None else lib_sims
+        return {cat: float(lib_sims[cols].max()) for cat, cols in self.columns.items()}
 
 
     def learn(self, text: str, label: str, sure: bool, model_category: str | None, model_confidence: float | None) -> str:
