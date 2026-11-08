@@ -12,6 +12,7 @@ from evaluation.evaluate import BASELINE_PATH, METRICS_PATH, load_results, recei
 from evaluation.gold import GoldReceipt, in_scope, load_gold
 from validator.data import ROOT, ReceiptInput, load_receipts
 from validator.pipeline import OUTPUT_DIR
+from validator.rules_config import load_rules
 
 SOURCES = {"System": OUTPUT_DIR / "results.jsonl", "Keyword baseline": BASELINE_PATH}
 DEFAULT_SOURCE = "System"
@@ -56,6 +57,12 @@ def retrieval_reasons() -> dict[str, dict[str, str]]:
     """Rule ID → why the retriever chose it, per receipt."""
     with (OUTPUT_DIR / "retrieval.jsonl").open(encoding="utf-8") as f:
         return {row["receipt_id"]: row["reasons"] for row in map(json.loads, f)}
+
+
+@st.cache_data
+def rule_texts() -> dict[str, str]:
+    """Rule ID → the policy's own words for it (the `evidence` quote in rules/rules.yaml)."""
+    return {rule.id: " ".join(rule.evidence.split()) for rule in load_rules().rules}
 
 
 @st.cache_data

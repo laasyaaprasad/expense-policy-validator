@@ -225,9 +225,15 @@ with trace_tab:
 
         # 5 · Retrieve ------------------------------------------------------------------------------------------
         reasons = data.retrieval_reasons().get(rid, {})
-        st.markdown(f"**5 · Retrieve** (code). {len(trace['retrieve']['rules'])} of the policy rules could apply, each for this reason:")
-        st.dataframe(pd.DataFrame([{"rule": rule_id, "why it was retrieved": reasons.get(rule_id, "")}
-                                   for rule_id in trace["retrieve"]["rules"]]), hide_index=True, width="stretch")
+        rule_text = data.rule_texts()
+        st.markdown(f"**5 · Retrieve** (code). {len(trace['retrieve']['rules'])} of the policy rules could apply, each for this "
+                    "reason. Click a cell to read the whole rule.")
+        st.dataframe(pd.DataFrame([{"rule": rule_id, "why it was retrieved": reasons.get(rule_id, ""),
+                                    "what the rule says": rule_text.get(rule_id, "")}
+                                   for rule_id in trace["retrieve"]["rules"]]), hide_index=True, width="stretch",
+                     column_config={"rule": st.column_config.TextColumn(width="small"),
+                                    "why it was retrieved": st.column_config.TextColumn(width="medium"),
+                                    "what the rule says": st.column_config.TextColumn(width="large")})
 
         # 6 · Engine --------------------------------------------------------------------------------------------
         st.markdown("**6 · Engine** (code). Each rule in the order it ran, and what its check found.")

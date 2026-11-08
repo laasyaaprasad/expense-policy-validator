@@ -92,6 +92,9 @@ def test_the_detail_page_shows_each_step_of_the_trace_in_the_diagrams_order():
 
 def test_the_trace_shows_the_code_checks_and_where_each_line_goes():
     at = page("viewer/detail.py", source="System", selected="RCP-011")
+    retrieved = table_with(at, "rule", "why it was retrieved", "what the rule says")
+    says = dict(zip(retrieved["rule"], retrieved["what the rule says"]))
+    assert says["ALC-03"].startswith("Alcohol purchased from a package store") and all(says.values())
     checks = dict(zip(*(lambda t: (t["line"], t["code check"]))(table_with(at, "code check"))))
     assert checks["RCP-011-L1"].startswith("straight to the model: the merchant is a package store")
     routing = table_with(at, "goes to", "why")
