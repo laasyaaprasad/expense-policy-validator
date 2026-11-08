@@ -12,13 +12,33 @@ Before writing any code, I spent 45 minutes studying how real expense tools divi
 ## Architecture
 
 ```mermaid
-flowchart LR
-    R["receipt<br/>labels dropped"] --> N["normalise<br/>normaliser.py"] --> L["semantic lookup<br/>lookup.py"] --> T["translate<br/>translate.py"] --> K["classify<br/>classifier.py"] --> P["retrieve<br/>retriever.py"] --> E["engine<br/>engine/, rules.yaml"] --> O["report<br/>reporter.py"]
-    L -. "lines it decides skip the model" .-> P
-    O --> V["review page<br/>viewer/review.py"] --> G["make learn<br/>learn.py"] -. "two keys" .-> L
+flowchart TB
+    subgraph offline["offline, once: the rulebook"]
+        direction LR
+        D["policy docs"] --> Y1["LLM drafts"] --> Y2["person reviews<br/>quotes tested"] --> Y[("rules.yaml")]
+    end
+    R["receipt, labels dropped"] --> N["normalise<br/>clean up and code checks · normaliser.py"]
+    N --> L{"seen it before?<br/>semantic lookup · lookup.py"}
+    L -- "no" --> T["translate<br/>to English, non-English lines only · translate.py"]
+    T --> K["classify<br/>AI classifier, temp 0 · classifier.py"]
+    K --> P["retrieve<br/>rules whose applies_to match · retriever.py"]
+    L -- "yes: reuse the answer, skip the AI" --> P
+    P --> E["engine<br/>one Python check per rule, no AI · engine/"]
+    Y -.-> P
+    Y -.-> E
+    E --> O["report<br/>pass, flag or review, with policy quotes · reporter.py"]
+    O -- "high confidence, no flag" --> A["done automatically"]
+    O -- "AI unsure · behind a flag or review ·<br/>2% audit of the lookup · lookup and AI disagree" --> Q["review queue<br/>a person decides · viewer/review.py"]
+    Q --> G["↻ make learn fills the lookup's memory<br/>two keys, one table per client · learn.py"]
+    classDef ai fill:#FAECE7,stroke:#993C1D,color:#712B13
+    classDef lookup fill:#EEEDFE,stroke:#534AB7,color:#3C3489
+    classDef people fill:#E1F5EE,stroke:#0F6E56,color:#085041
+    class Y1,T,K ai
+    class L lookup
+    class Y2,Q,G people
 ```
 
-Each component is its own module in [`validator/`](validator); only translation and classification call the model, and every call is cached. A local, semi-deterministic semantic lookup ([`lookup.py`](validator/lookup.py)) decides a line first only when every word of it matches, by meaning, a line a person has reviewed, and no restricted line is close. It never decides a restricted category: anything it is unsure of goes to the model, and the model's unsure lines go to a human. On a blind set of look-alike traps it let none through. On the 32 receipts it decides 1 line (a cold start: its memory holds CORD's Indonesian café lines), and every result is the same as with the model alone. The model's answer is kept as a second opinion, 2% of its decisions are marked for a person to audit, `make lookup-report` checks it, and `mode: shadow` turns it off. It learns from receipts people review (two keys), one table per client. Its design and tests are experiments 6–12 ([DECISIONS.md, section 12](DECISIONS.md)).
+Each component is its own module in [`validator/`](validator); only translation and classification call the model, and every call is cached. A local, semi-deterministic semantic lookup ([`lookup.py`](validator/lookup.py)) decides a line first only when every word of it matches, by meaning, a line a person has reviewed, and no restricted line is close. It never decides a restricted category: anything it is unsure of goes to the model, and the model's unsure lines go to a human. On a blind set of look-alike traps it let none through. On the 32 receipts it decides 1 line (a cold start: its memory holds CORD's Indonesian café lines), and every result is the same as with the model alone. The model's answer is kept as a second opinion, `make lookup-report` checks it, and `mode: shadow` turns it off. After the report, a line needs no person if it is confident and behind no flag; it goes to the review queue (the viewer's Review page) if the model was unsure (EXC-03), a flag or review cites it, it is in the 2% audit of the lookup's decisions, or the lookup and the model disagree. People's decisions there fill the lookup's memory through `make learn` (two keys), one table per client. Its design and tests are experiments 6–12 ([DECISIONS.md, section 12](DECISIONS.md)).
 
 **End to end, RCP-011:** Cellar Door Fine Wines (MCC 5921), Client Entertainment, pre-approval PA-2026-0431: "Vino tinto Rioja Reserva 750ml" is glossed "Rioja Reserva red wine 750ml" and classified `alcohol` (restricted) at 0.99996. Of 12 retrieved rules, the engine raises ALC-03 on L1 (alcohol bought where it isn't served) and MCC-01 (high-risk merchant), which the pre-approval doesn't waive: **flag**, as in the answer key. Each step is in [`outputs/traces.jsonl`](outputs/traces.jsonl).
 
