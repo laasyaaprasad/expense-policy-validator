@@ -66,6 +66,14 @@ def same_words(a: str, b: str, overlap: float) -> bool:
     return (len(small) >= 2 and small <= big) or len(wa & wb) / len(wa | wb) >= overlap
 
 
+UNITS = frozenset({"ml", "gr", "kg", "pcs", "pc", "pkt", "ltr", "oz", "cl"})
+
+
+def item_words(text: str) -> tuple[str, ...]:
+    """Experiment 12's words: runs of two or more letters, lower-cased, without units. Size codes ("[L]") drop out."""
+    return tuple(sorted({w for w in LETTERS.findall(normalise(text).lower()) if len(w) >= 2 and w not in UNITS}))
+
+
 def code_check(text: str, mcc: str | None) -> str | None:
     """Step 0: why the line must go to the model before any lookup, or None."""
     t = normalise(text)
@@ -176,6 +184,8 @@ class Lookup:
         self.restricted_vectors = np.stack(restricted)
         self.columns = {c: np.array([i for i, (_, cat) in enumerate(self.library) if cat == c]) for c in sorted({c for _, c in self.library})}
         self.ready = True
+        if self.config.get("memory_rule") == "word_by_word":
+            self.prepare_words([t for t, _ in self.memory + self.restricted_refs])
 
     def decide_receipt(self, receipt: ReceiptInput) -> dict[str, LineDecision]:
         """A decision for every line of an itemized receipt (an empty dict otherwise)."""
@@ -191,11 +201,15 @@ class Lookup:
             return LineDecision(False, "code check", None, None, reason)
         if c.get("restricted_words") and (term := restricted_word(text)) is not None:  # experiment 11
             return LineDecision(False, "code check", None, None, f'a restricted word ("{term.text}", {term.category})')
+        if c.get("memory_rule") == "exact_words":  # experiment 12's non-semantic baseline
+            return self._decide_exact(text)
         if v is None:
             return LineDecision(False, "model", None, None, "no embedding (the local model isn't installed): sent to the model")
         risk_sims = self.restricted_vectors @ v
         r = int(np.argmax(risk_sims))
         risk = (*self.restricted_refs[r], round(float(risk_sims[r]), 4))
+        if c.get("memory_rule") == "word_by_word":
+            return self._decide_words(text, v, risk_sims, risk)
         if len(self.memory):
             sims = self.mem_vectors @ v
             if c.get("memory_rule") == "same_item":  # experiment 9: close in meaning and sharing the words
@@ -241,6 +255,71 @@ class Lookup:
         if scores[best] - risk_sims[r] < c["delta"]:
             return LineDecision(False, "model", None, None, f"too close to a restricted line ({risk[0]}, {risk[1]})", near)
         return LineDecision(True, "library", best, c["curated_confidence"], "familiar, clear and far from restricted lines", near)
+
+    # Experiment 12: every word accounted for, by meaning (experiments/semantic_v4/PLAN.md).
+    def word_score(self, a: tuple[str, ...], b: tuple[str, ...]) -> float:
+        """The highest τ_word at which a and b account for each other's words: every word on each side has a word on
+        the other side at least that similar. 0 if either side has no words or a word can't be embedded."""
+        if not a or not b:
+            return 0.0
+        va, vb = self._word_vectors(a), self._word_vectors(b)
+        if va is None or vb is None:
+            return 1.0 if a == b else 0.0
+        s = va @ vb.T
+        return float(min(s.max(axis=1).min(), s.max(axis=0).min()))
+
+    def prepare_words(self, texts: list[str]) -> None:
+        """Embed every word of these texts in one batch (the embedder saves its cache once per batch)."""
+        self._word_vectors(tuple(dict.fromkeys(w for t in texts for w in item_words(t))))
+
+    def _word_vectors(self, words: tuple[str, ...]) -> np.ndarray | None:
+        cache = self.__dict__.setdefault("_wv", {})
+        missing = [w for w in words if w not in cache]
+        if missing:
+            for w, vec in zip(missing, self.embedder.embed(missing)):
+                cache[w] = vec
+        vecs = [cache[w] for w in words]
+        return None if any(x is None for x in vecs) else np.stack(vecs)
+
+    def _decide_words(self, text: str, v: np.ndarray, risk_sims: np.ndarray, risk: tuple) -> LineDecision:
+        c, words = self.config, item_words(text)
+        if not words:
+            return LineDecision(False, "model", None, None, "no words left once units and size codes are set aside")
+        tau = c["tau_word"]
+        if risk_sims.max() >= c["block_tau"]:
+            return LineDecision(False, "model", None, None, f"close to a restricted line ({risk[0]}, {risk[1]}, similarity {risk[2]:.3f})", (risk, risk))
+        if c.get("risk_words"):  # the reported-only arm: any word like a word of a reviewed restricted line
+            risk_words = tuple(dict.fromkeys(w for t, _ in self.risk for w in item_words(t)))
+            lv, rv = self._word_vectors(words), self._word_vectors(risk_words) if risk_words else None
+            if lv is not None and rv is not None and (lv @ rv.T).max() >= tau:
+                i, j = np.unravel_index(int(np.argmax(lv @ rv.T)), (len(words), len(risk_words)))
+                return LineDecision(False, "model", None, None, f'a word like one in a reviewed restricted line ("{words[i]}" ~ "{risk_words[j]}")', (risk,))
+        for k, (ref, cat) in enumerate(self.restricted_refs):
+            if self.word_score(words, item_words(ref)) >= tau:
+                hit = (ref, cat, round(float(risk_sims[k]), 4))
+                return LineDecision(False, "model", None, None, f"has the same words as a restricted line ({ref}, {cat})", (hit, hit))
+        if len(self.memory):
+            sims = self.mem_vectors @ v
+            for j in np.argsort(-sims)[:20]:
+                score = self.word_score(words, item_words(self.memory[j][0]))
+                if score >= tau:
+                    near = ((*self.memory[j], round(float(sims[j]), 4)), risk)
+                    return LineDecision(True, "memory", self.memory[j][1], c["memory_confidence"],
+                                        f"every word matches a reviewed line (word similarity {score:.3f}, threshold {tau:.3f})", near)
+        return LineDecision(False, "model", None, None, "no reviewed line has every word accounted for", (risk,) if not len(self.memory) else
+                            ((*self.memory[int(np.argmax(sims))], round(float(sims.max()), 4)), risk))
+
+    def _decide_exact(self, text: str) -> LineDecision:
+        words = item_words(text)
+        if not words:
+            return LineDecision(False, "model", None, None, "no words left once units and size codes are set aside")
+        for ref, cat in self.risk + [(t, c) for t, c in self.library if TAXONOMY[c]]:
+            if item_words(ref) == words:
+                return LineDecision(False, "model", None, None, f"the same words as a restricted line ({ref}, {cat})")
+        for t, cat in self.memory:
+            if item_words(t) == words:
+                return LineDecision(True, "memory", cat, self.config["memory_confidence"], "the same words as a reviewed line", ((t, cat, 1.0),))
+        return LineDecision(False, "model", None, None, "no reviewed line has the same words")
 
     def _library_scores(self, v: np.ndarray, lib_sims: np.ndarray | None = None) -> dict[str, float]:
         """Each library category's score: its best similarity to the line."""
