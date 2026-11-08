@@ -21,12 +21,14 @@ flowchart TB
         direction LR
         GIT["git<br/>policies, rules.yaml"] --> CI["CI<br/>quotes, oracle and synthetic suites"] --> DEP["deploy<br/>on merge"]
     end
+    classDef default fill:#F7F7F5,stroke:#B4B2A9,color:#2C2C2A
     classDef ai fill:#FAECE7,stroke:#993C1D,color:#712B13
     classDef lookup fill:#EEEDFE,stroke:#534AB7,color:#3C3489
     classDef people fill:#E1F5EE,stroke:#0F6E56,color:#085041
     class OR ai
     class LK,MEM lookup
     class RQ,LJ people
+    style release fill:#FFFFFF,stroke:#B4B2A9,stroke-dasharray:4 4,color:#2C2C2A
     linkStyle 8 stroke:#D85A30
     linkStyle 13 stroke:#1D9E75
 ```

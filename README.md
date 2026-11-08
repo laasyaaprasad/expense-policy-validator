@@ -31,12 +31,14 @@ flowchart TB
     end
     Y -.-> P
     Y -.-> E
+    classDef default fill:#F7F7F5,stroke:#B4B2A9,color:#2C2C2A
     classDef ai fill:#FAECE7,stroke:#993C1D,color:#712B13
     classDef lookup fill:#EEEDFE,stroke:#534AB7,color:#3C3489
     classDef people fill:#E1F5EE,stroke:#0F6E56,color:#085041
     class Y1,T,K ai
     class L lookup
     class Y2,Q,G people
+    style offline fill:#FFFFFF,stroke:#B4B2A9,stroke-dasharray:4 4,color:#2C2C2A
     linkStyle 5 stroke:#7F77DD
     linkStyle 11 stroke:#1D9E75
 ```
