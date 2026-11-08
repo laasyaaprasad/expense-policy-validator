@@ -31,7 +31,7 @@ flowchart TB
     linkStyle 13 stroke:#1D9E75
 ```
 
-Coral: the model, outside AWS. Purple: the lookup. Teal: people. The [pipeline diagram](../README.md#architecture) shows what runs inside the lookup and worker Lambdas. As an image: [aws-deployment.png](aws-deployment.png).
+Coral: the model, outside AWS. Purple: the lookup. Teal: people. The [pipeline diagram](../README.md#architecture) shows what runs inside the lookup and worker Lambdas. As an image: [aws-deployment-clean.png](aws-deployment-clean.png) (or the Mermaid render, [aws-deployment.png](aws-deployment.png)).
 
 **Architecture:** caller → API Gateway → ingest Lambda → SQS → lookup Lambda → worker Lambda (the five pipeline stages) → DynamoDB and S3.
 - **API: API Gateway HTTP API** (cheaper than REST APIs, with a built-in JWT authorizer): `POST /receipts` returns `202` and an ID, `GET /receipts/{id}` the result.

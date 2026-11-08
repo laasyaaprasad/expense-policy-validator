@@ -41,7 +41,7 @@ flowchart TB
     linkStyle 11 stroke:#1D9E75
 ```
 
-Coral: the model. Purple: the lookup. Teal: people. Dotted: the rulebook feeds retrieval and the engine. As an image: [docs/architecture.png](docs/architecture.png).
+Coral: the model. Purple: the lookup. Teal: people. Dotted: the rulebook feeds retrieval and the engine. As an image: [docs/architecture-clean.png](docs/architecture-clean.png) (or the Mermaid render, [docs/architecture.png](docs/architecture.png)).
 
 Each component is its own module in [`validator/`](validator); only translation and classification call the model, and every call is cached. A local, semi-deterministic semantic lookup ([`lookup.py`](validator/lookup.py)) decides a line first only when every word of it matches, by meaning, a line a person has reviewed, and no restricted line is close. It never decides a restricted category: anything it is unsure of goes to the model, and the model's unsure lines go to a human. On a blind set of look-alike traps it let none through. On the 32 receipts it decides 1 line (a cold start: its memory holds CORD's Indonesian café lines), and every result is the same as with the model alone. The model's answer is kept as a second opinion, `make lookup-report` checks it, and `mode: shadow` turns it off. After the report, a line needs no person if it is confident and behind no flag; it goes to the review queue (the viewer's Review page) if the model was unsure (EXC-03), a flag or review cites it, it is in the 2% audit of the lookup's decisions, or the lookup and the model disagree. People's decisions there fill the lookup's memory through `make learn` (two keys), one table per client. Its design and tests are experiments 6–12 ([DECISIONS.md, section 12](DECISIONS.md)).
 
