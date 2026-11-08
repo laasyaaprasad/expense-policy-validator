@@ -1,9 +1,11 @@
 """Receipt detail: the line items with category and confidence, the exceptions with the policy text
-they cite, and the correct answer alongside."""
+they cite, and the correct answer alongside; and the trace, every pipeline step in the architecture diagram's order."""
 
 import pandas as pd
 import streamlit as st
 
+from validator.normaliser import normalise
+from validator.reviews import review_queue
 from viewer import data
 
 source = data.current_source()
@@ -137,50 +139,98 @@ with result_tab:
         st.caption(f"policy {record.get('policy_version')} · {record.get('provider')} / {record.get('model')} · {record.get('prompt_version')}")
 
 with trace_tab:
-    # --- the trace: how each stage got there ---------------------------------------------------------
+    # --- the trace: every step in the order the pipeline runs it, as in the README's architecture diagram -------
     trace = data.traces().get(rid) if source == data.DEFAULT_SOURCE else None
     if trace is None:
-        st.info("The stage-by-stage trace is recorded for the system's run only (outputs/traces.jsonl). "
+        st.info("The step-by-step trace is recorded for the system's run only (outputs/traces.jsonl). "
                 "Switch Results to System in the sidebar to see it.")
     else:
-        engine = trace["engine"]
-        translated = trace["translate"]["lines"] if trace.get("translate") else []
-        no_call = trace["classify"]["call"] is None and all(x.get("decided_by", "").startswith("lookup") for x in trace["classify"]["lines"])
-        st.markdown("**1 · Translate** (model). " + (
-            f"Glossed into English: {', '.join(translated)}; the gloss is in the line items above." if translated
-            else "Not needed: the lookup decided every line, so nothing was sent." if no_call
-            else "Every line was already in English, so nothing was sent."))
-
-        decided_by_lookup = any(x.get("decided_by", "").startswith("lookup") for x in trace["classify"]["lines"])
+        engine, trace_lines_all = trace["engine"], trace["classify"]["lines"]
+        texts = {line.line_id: line.description_raw for line in receipt.line_items}
         in_shadow = data.lookup_in_shadow()
-        st.markdown("**2 · Classify** (semantic lookup, then the model). " + (
-            "The lookup decided every line, so the model was never called." if no_call
-            else "The lookup runs in shadow mode: it only records what it would have decided (the lookup (shadow) column), and the model "
-                 "decided every line, with the whole receipt; its confidence is the category's probability." if in_shadow
-            else "Lines the lookup didn't decide went to the model, with the whole receipt; its confidence is the category's probability. "
-                 "For the lookup's lines, the model's own answer is kept as a second opinion." if decided_by_lookup
-            else "No reviewed line accounts for every word of these lines, so the lookup decided none, and the model decided them all, "
-                 "with the whole receipt; its confidence is the category's probability."))
-        st.dataframe(pd.DataFrame([{
-            "line": line["line_id"],
-            "decided by": line.get("decided_by", "model") + (" · audit sample" if line.get("audit") else ""),
-            **({"lookup (shadow)": line.get("shadow", "")} if in_shadow else
-               {"model's second opinion": (lambda s: f"{s[0]} {s[1]:.3f}" if s else "")(line.get("model_said"))}),
-            "category": line["category"],
-            "confidence": line["confidence"],
-            "why": line.get("why", ""),
-            "closest match": (lambda n: f"{n[0][0]} ({n[0][1]}, {n[0][2]:.3f})" if n else "")(line.get("nearest")),
-            "runners-up (model)": ", ".join(f"{a['category']} {a['p']:.2g}" for a in line.get("alternatives", [])) if line.get("decided_by", "model").startswith("model") else "",
-            "below threshold": "yes, human review (EXC-03)" if line["line_id"] in engine["uncertain_lines"] else "",
-        } for line in trace["classify"]["lines"]]).style.format({"confidence": "{:.6f}"}), hide_index=True, width="stretch",
-            column_config={"line": st.column_config.TextColumn(width=110), "decided by": st.column_config.TextColumn(width=130)})
+        who = lambda x: x.get("decided_by", "model")
+        closest = lambda x: (lambda n: f"{n[0][0]} ({n[0][1]}, {n[0][2]:.3f})" if n else "")(x.get("nearest"))
+        st.caption("Every step in the order the pipeline runs it, as in the architecture diagram: normalise, lookup, translate, "
+                   "classify, retrieve, engine, report and routing.")
 
+        # 1 · Normalise -----------------------------------------------------------------------------------------
+        cleaned = {line_id: normalise(text) for line_id, text in texts.items()}
+        changed = [line_id for line_id in cleaned if cleaned[line_id] != texts[line_id]]
+
+        def code_check(x: dict) -> str:
+            if who(x) == "code (not itemized)":
+                return "not itemized: the receipt shows only a total, so code records the line as other"
+            if who(x) == "model (code check)":
+                return f"straight to the model: {x.get('why', '')}"
+            return "passed, on to the lookup"
+
+        st.markdown("**1 · Normalise** (code). Each line's text is cleaned up (full-width characters folded, spaces collapsed); "
+                    "then code checks send a line straight to the model if it may name a recipient, may be a phone, prescription "
+                    "or event ticket, has no real words, or comes from a merchant where context decides. "
+                    + (f"Cleaned: {', '.join(changed)}." if changed else "Nothing needed cleaning on this receipt."))
+        st.dataframe(pd.DataFrame([{
+            "line": x["line_id"],
+            "text": texts.get(x["line_id"], ""),
+            **({"after clean-up": cleaned.get(x["line_id"], "")} if changed else {}),
+            "code check": code_check(x),
+        } for x in trace_lines_all]), hide_index=True, width="stretch")
+
+        # 2 · Lookup --------------------------------------------------------------------------------------------
+        reached = [x for x in trace_lines_all if who(x) in ("model", "lookup (memory)")]
+        by_lookup = [x for x in reached if who(x).startswith("lookup")]
+        st.markdown("**2 · Lookup: seen it before?** (semantic lookup). A line is decided here only when every word matches, by "
+                    "meaning, a line a person reviewed, and no restricted line is close; it never decides a restricted category. " + (
+                        "No line reached the lookup." if not reached
+                        else "It runs in shadow mode: it only records what it would decide, and every line goes on to the model."
+                        if in_shadow
+                        else f"It decided {len(by_lookup)} of {len(reached)} lines; the rest go on to the model."))
+        if reached:
+            st.dataframe(pd.DataFrame([{
+                "line": x["line_id"],
+                "result": (f"would decide: {x['shadow']}" if x.get("shadow") else "not seen before, to the model") if in_shadow
+                          else f"seen before: {x['category']}" if who(x).startswith("lookup") else "not seen before, to the model",
+                "why": x.get("why", ""),
+                "closest reviewed line": closest(x),
+                "audit sample": "yes, a person spot-checks it" if x.get("audit") else "",
+            } for x in reached]), hide_index=True, width="stretch")
+
+        # 3 · Translate -----------------------------------------------------------------------------------------
+        translated = trace["translate"]["lines"] if trace.get("translate") else []
+        no_call = trace["classify"]["call"] is None
+        st.markdown("**3 · Translate** (model). " + (
+            "Lines the lookup didn't decide that aren't in English are glossed into English for the classifier." if translated
+            else "Not needed: no line went to the model." if no_call
+            else "Not needed: every line the model reads is already in English."))
+        if translated:
+            st.dataframe(pd.DataFrame([{"line": line_id, "text": texts.get(line_id, ""), "English gloss": glosses.get(line_id, "")}
+                                       for line_id in translated]), hide_index=True, width="stretch")
+
+        # 4 · Classify ------------------------------------------------------------------------------------------
+        model_rows = []
+        for x in trace_lines_all:
+            if who(x).startswith("model"):
+                model_rows.append({"line": x["line_id"], "model's answer": x["category"], "confidence": x["confidence"], "used as": "the decision",
+                                   "runners-up": ", ".join(f"{a['category']} {a['p']:.2g}" for a in x.get("alternatives", [])),
+                                   "below 0.5": "yes, to a person (EXC-03)" if x["line_id"] in engine["uncertain_lines"] else ""})
+            elif x.get("model_said"):
+                model_rows.append({"line": x["line_id"], "model's answer": x["model_said"][0], "confidence": x["model_said"][1],
+                                   "used as": "a second opinion on the lookup", "runners-up": "", "below 0.5": ""})
+        st.markdown("**4 · Classify** (model, temperature 0). " + (
+            "The model wasn't called: " + ("the receipt isn't itemized." if any(who(x) == "code (not itemized)" for x in trace_lines_all)
+                                           else "the lookup decided every line.") if no_call
+            else "The model reads the whole receipt and names each line's category; its confidence is the category's probability. "
+                 "For lines the lookup decided, its answer is kept as a second opinion."))
+        if model_rows:
+            st.dataframe(pd.DataFrame(model_rows).style.format({"confidence": "{:.6f}"}), hide_index=True, width="stretch")
+
+        # 5 · Retrieve ------------------------------------------------------------------------------------------
         reasons = data.retrieval_reasons().get(rid, {})
-        st.markdown(f"**3 · Retrieve** (code). {len(trace['retrieve']['rules'])} of the policy rules could apply, each for this reason:")
+        st.markdown(f"**5 · Retrieve** (code). {len(trace['retrieve']['rules'])} of the policy rules could apply, each for this reason:")
         st.dataframe(pd.DataFrame([{"rule": rule_id, "why it was retrieved": reasons.get(rule_id, "")}
                                    for rule_id in trace["retrieve"]["rules"]]), hide_index=True, width="stretch")
 
-        st.markdown("**4 · Engine** (code). Each rule in the order it ran, and what its check found.")
+        # 6 · Engine --------------------------------------------------------------------------------------------
+        st.markdown("**6 · Engine** (code). Each rule in the order it ran, and what its check found.")
         notes = []
         if engine["overridden_by_region"]:
             notes.append(f"Regional rules replace {', '.join(engine['overridden_by_region'])} for this employee's region, so those never ran.")
@@ -208,9 +258,26 @@ with trace_tab:
             "what it found": found(step),
         } for rule_id, step in engine["rules"].items()]), hide_index=True, width="stretch")
 
+        # 7 · Report --------------------------------------------------------------------------------------------
         severities = sorted({step["severity"] for step in engine["rules"].values() if step["result"] == "raised"})
         has_signals = any(step["result"] == "signal" for step in engine["rules"].values())
         why = (f"an exception of {'/'.join(severities)} severity" if severities and set(severities) - {"low"}
                else "only low exceptions or review signals" if severities or has_signals else "no exceptions or signals")
-        st.markdown(f"**5 · Disposition** (EXC-01): **{record['disposition']}**, from {why}. "
-                    "Critical, high or medium means flag; only low exceptions or signals mean review; nothing means pass.")
+        st.markdown(f"**7 · Report** (EXC-01). Disposition **{record['disposition']}**, from {why}. "
+                    "Critical, high or medium means flag; only low exceptions or signals mean review; nothing means pass. "
+                    f"{len(record['exceptions'])} exception(s) and {len(record['review_signals'])} signal(s), each with the policy "
+                    "text it quotes, are on the Result tab.")
+
+        # 8 · Routing -------------------------------------------------------------------------------------------
+        routed = review_queue([trace], [record], texts, every_line=True)
+        queued = [q for q in routed if q["reasons"]]
+        st.markdown("**8 · Routing** (code). A line goes to the review queue (the Review page) if the AI was unsure (EXC-03), a flag or "
+                    "review cites it, it is in the lookup's 2% audit, or the lookup and the AI disagree; otherwise it needs no "
+                    f"person. Here {len(queued)} of {len(routed)} lines go to the review queue. People's decisions there feed the "
+                    "lookup's memory through `make learn`.")
+        st.dataframe(pd.DataFrame([{
+            "line": q["line_id"],
+            "text": q["text"],
+            "goes to": "review queue" if q["reasons"] else "done automatically",
+            "why": "; ".join(q["reasons"]) or "confident, and no flag or review cites it",
+        } for q in routed]), hide_index=True, width="stretch")

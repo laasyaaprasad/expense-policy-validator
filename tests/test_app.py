@@ -59,23 +59,48 @@ def test_the_metrics_page_runs():
     assert any("Classification" in h.value for h in at.subheader)
 
 
-def test_the_detail_page_shows_each_stage_of_the_trace():
+def tables(at) -> list:
+    return [t.data if hasattr(t, "data") else t for t in (d.value for d in at.dataframe)]
+
+
+def table_with(at, *columns):
+    return next(t for t in tables(at) if set(columns) <= set(t.columns))
+
+
+def test_the_detail_page_shows_each_step_of_the_trace_in_the_diagrams_order():
     at = page("viewer/detail.py", source="System", selected="RCP-020")
     assert not at.exception
     assert any("Trace" in t.label for t in at.tabs)
-    engine = at.dataframe[-1].value
-    engine = engine.data if hasattr(engine, "data") else engine
+    titles = [m.value.split("**")[1] for m in at.markdown if m.value.startswith("**") and " · " in m.value.split("**")[1]]
+    assert [t.split(" · ")[1].split(":")[0] for t in titles] == [
+        "Normalise", "Lookup", "Translate", "Classify", "Retrieve", "Engine", "Report", "Routing"]
+    engine = table_with(at, "rule", "result")
     steps = dict(zip(engine["rule"], engine["result"]))
     assert steps["TIME-03"] == "raised" and steps["MEAL-01"] == "replaced"
-    assert any("Disposition" in m.value and "flag" in m.value for m in at.markdown)
-    # The lookup decides: on RCP-020 it decided none of the lines, and the classify step says so (not "shadow mode").
-    assert any("2 · Classify" in m.value and "the lookup decided none" in m.value for m in at.markdown)
+    assert any("7 · Report" in m.value and "Disposition **flag**" in m.value for m in at.markdown)
+    # The lookup decides: on RCP-020 it decided none of the lines (not "shadow mode").
+    assert any("2 · Lookup" in m.value and "It decided 0 of" in m.value for m in at.markdown)
     assert not any("shadow mode" in m.value for m in at.markdown)
+
     at = page("viewer/detail.py", source="System", selected="RCP-021")
-    assert any("2 · Classify" in m.value and "second opinion" in m.value for m in at.markdown)
+    assert any("2 · Lookup" in m.value and "It decided 1 of" in m.value for m in at.markdown)
+    assert "a second opinion on the lookup" in set(table_with(at, "model's answer", "used as")["used as"])
 
     at = page("viewer/detail.py", source="System", selected="RCP-016")
     assert any("ALC-01" in m.value and "Regional rules replace" in m.value for m in at.markdown)
+
+
+def test_the_trace_shows_the_code_checks_and_where_each_line_goes():
+    at = page("viewer/detail.py", source="System", selected="RCP-011")
+    checks = dict(zip(*(lambda t: (t["line"], t["code check"]))(table_with(at, "code check"))))
+    assert checks["RCP-011-L1"].startswith("straight to the model: the merchant is a package store")
+    routing = table_with(at, "goes to", "why")
+    goes = dict(zip(routing["line"], zip(routing["goes to"], routing["why"])))
+    assert goes["RCP-011-L1"] == ("review queue", "cited by a flag or review (ALC-03)")
+    assert goes["RCP-011-L2"][0] == "done automatically"
+
+    at = page("viewer/detail.py", source="System", selected="RCP-023")  # not itemized: no model call at all
+    assert any("4 · Classify" in m.value and "isn't itemized" in m.value for m in at.markdown)
 
 
 def test_the_mismatch_filter_keeps_only_the_mismatches():
