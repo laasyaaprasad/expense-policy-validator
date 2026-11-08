@@ -1,14 +1,19 @@
-"""The semantic lookup that runs before the model (experiments 6–8; DECISIONS.md, section 12).
+"""The semantic lookup that runs before the model (experiments 6–12; DECISIONS.md, section 12).
 
-For each line of an itemized receipt, in order:
+The pipeline's rule (rules/lookup/config.yaml, `memory_rule: word_by_word`, experiment 12). For each line of an
+itemized receipt, in order:
 0. Code checks send the line to the model: a possible recipient, a phone, prescription or event ticket, no real
    words, or a merchant where context decides (package store, pharmacy, supermarket).
-1a. Memory: a near-repeat of a reviewed line (similarity ≥ tau_mem) takes its category, if that category is
-    unrestricted and no restricted reference is as close.
-1b. The curated library may decide an unrestricted category the model isn't needed for, only if the line is
-    familiar (≥ tau_fam), clear (margin ≥ safe_cutoff) and far from every restricted reference (gap ≥ delta).
+1. Restricted lines block: a restricted reference at sentence similarity ≥ block_tau, or one whose words match the
+   line's by meaning, sends it to the model.
+2. Every word accounted for, by meaning: a reviewed line decides only if each of its words matches a word of the
+   line, and each word of the line matches one of its words, at word similarity ≥ tau_word.
 Everything else goes to the model (validator/classifier.py), and the model's unsure lines to a human (EXC-03).
-The lookup never decides a restricted category.
+The lookup never decides a restricted category. Memory grows only with two keys: a person's decision and the model
+agreeing (`learn`), never from the model alone.
+
+The earlier rules stay selectable for the experiments: V3's near-repeat memory and curated library (no
+`memory_rule`), the same-item rule (`same_item`, experiments 9–11) and exact word sets (`exact_words`).
 
 The embeddings come from a local open model (rules/lookup/config.yaml), cached by text in rules/lookup/vectors.npz.
 Without the model installed (`uv sync --group semantic`), a line whose vector isn't cached goes to the model.

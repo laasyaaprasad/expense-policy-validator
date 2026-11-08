@@ -21,7 +21,7 @@ def test_the_restricted_word_check_uses_the_frozen_keyword_list(text, category):
 
 def test_the_pipeline_config_leaves_version_3_3_switched_off():
     config = Lookup().config
-    assert not any(config.get(k) for k in ("restricted_words", "block_same_item", "library_agrees", "block_tau"))
+    assert not any(config.get(k) for k in ("restricted_words", "block_same_item", "library_agrees"))
 
 
 def test_the_trap_set_is_what_build_py_writes_and_copies_no_seen_line():

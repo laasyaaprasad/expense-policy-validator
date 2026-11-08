@@ -114,19 +114,65 @@ The research done before building, on 2026-10-30. For each decision the brief le
 
 ## 12. Semantic lookup before the model
 
-- **Options:** the model on every line; a lookup first, with the model as fallback; a fine-tuned small classifier (no data to train it).
-- **Picked:** a local semantic lookup first ([`validator/lookup.py`](validator/lookup.py), settings and data in `rules/lookup/`).
-  - **Code checks** send to the model any line that may name a recipient, a phone, prescription or event ticket, has no real words, or comes from a package store, pharmacy or supermarket.
-  - **Memory:** a near-repeat of a line a person reviewed takes its category. A line enters memory only with two keys: the reviewer's label and the model agreeing at 0.9 or more.
-  - **The curated library** decides an unrestricted category only when the line is familiar, clear and far from every restricted reference.
-  - **Restricted categories always go to the model,** and the model's unsure lines to a human (EXC-03).
-- **Why:**
-  - Experiment 6 (a hosted embedding model, hand-written examples) decided 30% of lines, but failed on disputed CORD labels and wasn't repeatable.
-  - Experiment 7 (local and repeatable) decided only 6%. Learning lifted that to 67%, but then called makgeolli food.
-  - Experiment 8 recognised near-repeats only, fenced off restricted categories and required two keys. Streamed over 400 fresh receipts, learning after each 50, it called no restricted item safe, got 1,123 lines right against the model's 1,115, and grew to 54–56% of lines, with a third or more of receipts needing no model call. It failed one bar as written: the share fell 1.6 points in the last block.
-- **As built:** the memory is the 813 lines and 14 risk references experiment 8 learned from the reviewed CORD training receipts. Nothing comes from the 32 receipts or the other test sets. The thresholds were calibrated on CORD validation and test (`rules/lookup/config.yaml`). "tiket" was added to the ticket check after experiment 8's one real miss.
-  - **Results:** on the 32 receipts, every result is unchanged, with 35 of 79 lines decided by the lookup. On CORD validation: 256 of 270 lines (was 252), 7 false alarms (was 12), and 37 of 100 receipts with no model call. Those receipts were part of the calibration set, so that last figure is not an independent test.
-  - **A known weakness to fix before production:** the near-repeat threshold (0.855) was calibrated as "pairs above it agree on category". Since about 93% of CORD lines are food, that is easy to satisfy, so it admits similar items, not only repeats. On CORD validation, "\*Rhum" (a rum flavouring) was decided as food because it resembles "BANANA RHUM RAISIN" at 0.90. That's right by its label, but by resemblance, not identity, and the nearest restricted reference was a cigar at 0.81. Experiment 9 tested a stricter rule, close in meaning **and** sharing the words, on 200 fresh receipts. It was safe (122/122, nothing restricted called safe), but decided only 21% of lines against its 35% bar, so it was not adopted. Its 100%-agreement calibration was decided by a single mislabelled pair ("TAKE AWAY CHARGE"). On the same receipts, the lookup as built decided 59%, with no error on a sure label and 515 lines right against the model's 505; but 41% of its memory decisions were resemblance, not repetition. The rule is in the code, switched off (`memory_rule: same_item`). Experiment 10 corrected that label, recalibrated with a 99.9% tolerance and tested on CORD's last 200 fresh receipts. The same-item rule decided only 3.6% of lines, because its blocking rule, written for a high threshold, blocks nearly everything at 0.665. **And the lookup as built called a restricted item safe:** "Night cream Soybean" was decided as food from "Cream [L]", so the system missed a violation the model caught (5 missed against 4). So the lookup is not safe enough for main as it stands; main keeps the model on every line. Experiment 11 tested a version 3.3 (same-item memory, blocking back at 0.855, a second vote from the library, and the keyword baseline's restricted word list) on 66 restricted look-alikes written to resemble the memory. It failed narrowly: one trap ("Makgeolli Original", via "ORIGINAL") was called safe after more learning, and it decided 33.5% of lines against 35%. **The lookup as built called three alcoholic drinks food on the same traps** ("Arak Bali", "Hite Jinro Grapefruit", "Bintang Radler Lemon"), all of which the model alone got right. Experiment 12 tested "every word accounted for, by meaning" on a blind trap set written by an agent that had not seen the design. It called no restricted trap safe, but failed its bar that meaning must add something. In this embedding model, single words sit so close together ("cerveza" and "lemonade" at 0.92) that the safe threshold (0.934) is nearly exact matching. Exact word sets, with no embeddings, decided more lines (41% of the replay against 39%), as safely. The lookup as built let four of the blind traps through ("LONG ISLAND ICED TEA" via "THAI ICED TEA", "Kahlua Milk", "BINTANG PILSENER", "Creambath Alpukat").
+- **Options:**
+  - the model on every line (main);
+  - a lookup first, with the model as fallback;
+  - a fine-tuned small classifier (no data to train it).
+- **Picked:** a local, semi-deterministic semantic lookup first ([`validator/lookup.py`](validator/lookup.py), settings and data in `rules/lookup/`). Every line it is unsure of goes to the model, and the model's unsure lines go to a person (EXC-03). For each line of an itemized receipt:
+  1. **Code checks** send the line to the model if it may name a recipient; may be a phone, prescription or event ticket; has no real words; or comes from a package store, pharmacy or supermarket.
+  2. **Restricted lines block.** The line goes to the model if it is close to a restricted line a person reviewed, or to one of the library's restricted examples (sentence similarity of at least 0.855), or if it has the same words as one by meaning.
+  3. **Every word accounted for, by meaning.** The lookup decides only if some reviewed line accounts for every word of this line, and this line accounts for every word of that one. Two words count as the same if their embeddings are at least τ_word = 0.934 alike. A single unexplained word sends the line to the model.
+  4. **Everything else goes to the model.** The lookup never decides a restricted category; it can only say "safe, a person approved these words" or "ask the model".
+- **Why this approach:**
+  - **Every looser version let look-alikes through.** Matching a whole line by overall similarity called restricted items food whenever they resembled a reviewed line:
+    - "Night cream Soybean" via "Cream [L]" (experiment 10);
+    - "Arak Bali" via "Nasi Campur ala Bali" (experiment 11);
+    - "LONG ISLAND ICED TEA" via "THAI ICED TEA" (experiment 12).
+  - **Each trap adds a word that nothing in the reviewed line explains.** Requiring every word on both sides to be accounted for closes that hole, while similarity still accepts typos and size words ("Soaghetti" ≈ "Spaghetti", "LARGE" ≈ "Grande").
+  - **It is semi-deterministic.** The lookup gives the same answer for the same line every time, and each decision names the reviewed line it copied. Only the model's half varies.
+- **How it was tested (experiment 12, [experiments/semantic_v4](experiments/semantic_v4/README.md)):**
+  - **What was committed first:** the plan, the bar and a blind trap set, before the rule ran on any of them. The trap set was written by an agent that saw neither the design, the lookup's memory nor the CORD receipts.
+  - **The traps:**
+    - **What the lookup did:** it called **no** restricted trap safe: 0 of 57 blind and 0 of 66 from experiment 11, with the memory as shipped and after learning from 1,000 more receipts.
+    - **What the previous lookup did:** it let 2 to 4 through in each set.
+  - **A replay of 200 CORD receipts:**
+    - every one of its 248 decisions was right, with no restricted item called safe;
+    - it decided 39% of lines;
+    - it was as accurate as the model (605 lines right against 599, the same false alarms and misses).
+  - **The project's own sets:** identical to the model.
+  - **It failed one bar as written:** exact word matching, with no embeddings, decided slightly more lines (41%) just as safely. So meaning adds little with this embedding model, which puts single words close together ("cerveza" and "lemonade" at 0.92), forcing a strict threshold. It was adopted anyway, as the user's choice: equally safe, a semantic matcher that tolerates spelling, and 2 points fewer lines decided.
+- **Why a cold start is fine:**
+  - **An empty table sends every line to the model,** which is exactly what main does: the same cost, accuracy and safety.
+  - **The lookup only ever removes model calls.** It adds no risk on day one, and its savings grow as reviewed lines arrive.
+  - **On the 32 receipts it is cold.** Its memory holds Indonesian café lines from CORD, not English business receipts, so it decides 1 of 79 lines ("Soup of the day"), and every result is unchanged.
+- **How the table fills, and why it must be from people:**
+  - **Two keys:** a line enters memory only when a person's decision on it (a reviewer resolving a flag or an unsure line, an audit sample, an approver signing off the report) agrees with the model at confidence 0.9 or more.
+  - **Lines a person confirms as restricted become restricted references,** which block from then on.
+  - **The table never learns from the model alone.** Otherwise it would freeze the model's mistakes: in experiment 12 the model called a body lotion ("MARINA HBL SUSU") food, and memory would then copy that answer forever.
+- **One table per client, with danger shared:**
+  - **Safe memory per client:** a client's staff keep going to the same cafés, hotels, airlines and taxi apps, so their receipts repeat far more within the client than across clients. Experiment 12 shows the effect:
+    - on CORD receipts, memory from earlier CORD receipts decided 39% of lines;
+    - on the project's English receipts, the same memory decided 1 line.
+  - **Separate tables also mean** one client's receipts never decide another's.
+  - **Restricted references can be shared across clients,** as item text with no names: once any reviewer confirms "BINTANG PILSENER" is beer, every client should block it, and sharing caution can't cause a miss. Lines that may name a recipient are never stored.
+  - **Not built here,** since the project has one data set; in the AWS design.
+- **As built:**
+  - **The memory:** the 813 lines and 14 restricted references learned from the reviewed CORD training receipts, R000–R399. Nothing comes from the 32 receipts or the test sets.
+  - **τ_word (0.934):**
+    - **The floor:** it is set above the most similar restricted/unrestricted word pair in the frozen keyword list, so no drink word stands in for another.
+    - **The calibration:** it was checked on 800 CORD receipts, where 2,398 of 2,399 matched pairs agreed. The one that didn't was a known mislabel.
+  - **Offline replay:** `rules/lookup/vectors.npz` holds every sentence and word vector the pipeline needs, so the pipeline replays offline without the embedding model. Any line or word missing from it goes to the model.
+  - **Results:**
+    - **The 32 receipts:** every verdict, exception and category is unchanged (28/28), and the model is called for 31 of 32 receipts.
+    - **CORD validation:** 255 of 270 lines right (the model alone: 250), 10 false alarms (13), both violations caught, and 23 of 100 receipts needing no model call. Those receipts were in τ_word's calibration set, so this is not an independent test.
+- **History:** experiments 6–12 ([experiments/README.md](experiments/README.md)).
+  - **6:** a hosted embedding model with hand-written examples decided 30% of lines, but wasn't repeatable.
+  - **7:** local and repeatable.
+  - **8:** near-repeats and two keys, 54–56% of lines on fresh receipts.
+  - **9 and 10:** stricter same-item rules were safe but decided too little, and the near-repeat lookup called a skincare product food.
+  - **11:** a version 3.3 failed narrowly, and the traps showed the near-repeat lookup calling alcoholic drinks food.
+  - **12:** this rule.
+- **Before production:** recalibrate τ_word and the 0.855 block on the company's own reviewed receipts, and run the lookup in shadow mode first, deciding nothing and logging where it would have disagreed with the model, before letting it decide.
 
 ## Sources
 

@@ -23,7 +23,8 @@ st.subheader("Classification (65 line items)")
 who = Counter(line.get("decided_by", "model") for trace in data.traces().values() for line in trace["classify"]["lines"])
 calls = sum(trace["classify"]["call"] is not None for trace in data.traces().values())
 st.caption(f"Who decided the {sum(who.values())} lines of the 32 receipts: " + ", ".join(f"{k} {v}" for k, v in sorted(who.items(), key=lambda kv: -kv[1]))
-           + f". The model was called for {calls} of 32 receipts; the semantic lookup decided the rest of the lines (validator/lookup.py).")
+           + f". The model was called for {calls} of 32 receipts. The semantic lookup (validator/lookup.py) decides a line only when every word "
+           "matches, by meaning, a line a person reviewed; its memory holds CORD's Indonesian café lines, so on these receipts it is a cold start.")
 st.dataframe(pd.DataFrame({name: {
     "macro F1": f"{s['items']['macro_f1']:.3f} over {s['items']['categories']} categories",
     "restricted F1": f"{s['items']['restricted_f1']:.3f}",

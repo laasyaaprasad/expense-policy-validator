@@ -104,7 +104,7 @@ def test_the_run_log_counts_the_calls_and_names_the_commit(tmp_path):
     record = run_record(started=datetime.now(timezone.utc), seconds=result.seconds, provider="openrouter", model="deepseek/deepseek-v4.1-flash",
                         dispositions=[r.disposition for r in result.results], classifications=result.classifications,
                         translations=result.translations, traces=b"")
-    assert record["calls"] == {"translate": {"cached": 6, "live": 0}, "classify": {"cached": 28, "live": 0}}  # the lookup decides three receipts whole
+    assert record["calls"] == {"translate": {"cached": 6, "live": 0}, "classify": {"cached": 31, "live": 0}}  # RCP-023 isn't itemized; the lookup decides no receipt whole
     assert record["retries"] == 0 and record["confidence_fallbacks"] == 0
     assert record["dispositions"] == {"flag": 18, "review": 5, "pass": 9}
     assert set(record["stage_seconds"]) == {"translate", "classify", "retrieve_and_decide", "report"}

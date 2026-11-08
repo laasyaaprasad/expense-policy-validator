@@ -84,8 +84,8 @@ with result_tab:
 
 
     st.dataframe(lines.style.apply(tint, axis=1).format({"confidence": "{:.3f}"}), hide_index=True, width="stretch")
-    st.caption(f"Each line is decided by the semantic lookup when it is a near-repeat of a reviewed line or a clear, safe match to the "
-               f"curated library; otherwise by the model. A model confidence below {threshold} raises EXC-03 (human review) and keeps "
+    st.caption(f"Each line is decided by the semantic lookup only when every word matches, by meaning, a line a person reviewed and "
+               f"no restricted line is close; otherwise by the model. A model confidence below {threshold} raises EXC-03 (human review) and keeps "
                "the item out of every rule. The lookup never decides a restricted category.")
 
     # --- exceptions and signals ---------------------------------------------------------------------
