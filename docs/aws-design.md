@@ -7,6 +7,7 @@
   - **Memory: one table per client** (a DynamoDB table keyed by client and word set), since a client's receipts repeat its own cafés, hotels and airlines. A line enters it only when a person's decision and the model agree (two keys), never from the model alone. It starts empty: a new client's lines all go to the model, as on main.
   - **Restricted references: shared across clients,** as item text without names, so one reviewer confirming a beer blocks it everywhere. Sharing caution can't cause a miss.
   - **Thresholds and the embedding model** are versioned files, released like `rules.yaml`.
+  - **Reviews:** a review queue (the Review page's lines: unsure, flagged, audit sample, disagreements) feeds a nightly learning job per client under the two-key rule, writing that client's memory table.
   - **Safeguards:** the model's answer is kept as a second opinion whenever it reads the receipt; 2% of the lookup's decisions go to an audit queue for a person; `mode: shadow` turns the lookup off per client if a check in the lookup report fails (DECISIONS.md, section 12).
 - **State: DynamoDB** keeps cross-receipt totals (meal days, trip OTC, baggage, same-merchant days), written once per receipt ID so redeliveries aren't double-counted; a receipt that tips a day over a cap re-decides the earlier ones. Results go to S3.
 - **Logs: CloudWatch Logs**, one trace per receipt, with no line text or names.

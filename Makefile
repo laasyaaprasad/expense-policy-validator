@@ -1,4 +1,4 @@
-.PHONY: test lookup-report oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first semantic-v2 semantic-v3 semantic-v31 semantic-v32 semantic-v33 semantic-v4 app
+.PHONY: test lookup-report learn learn-dry reset-reviews oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first semantic-v2 semantic-v3 semantic-v31 semantic-v32 semantic-v33 semantic-v4 app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -34,6 +34,22 @@ eval:
 # sample, and whether to keep it deciding (evaluation/lookup_report.py). Offline.
 lookup-report:
 	uv run python -m evaluation.lookup_report
+
+# Teach the lookup from people's reviews (the viewer's Review page) under the two-key rule (validator/learn.py).
+# Text with no committed vector needs the embedding model (uv sync --group semantic); without it, it refuses and changes
+# nothing. CLIENT picks a client's own memory.
+CLIENT ?= default
+learn:
+	uv run python -m validator.learn --client $(CLIENT)
+
+learn-dry:
+	uv run python -m validator.learn --client $(CLIENT) --dry-run
+
+# Undo a demo: drop the reviews and the learn log, and restore the committed memory and vectors.
+reset-reviews:
+	rm -f rules/lookup/reviews.jsonl rules/lookup/learn_log.jsonl
+	rm -rf rules/lookup/clients
+	git checkout -- rules/lookup/memory.csv rules/lookup/vectors.npz
 
 # Keyword baseline through the same engine: outputs/baseline.jsonl. No model calls.
 baseline:

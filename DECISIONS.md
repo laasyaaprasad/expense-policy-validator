@@ -110,7 +110,7 @@ The research done before building, on 2026-10-30. For each decision the brief le
 ## 11. AWS and the viewer
 
 - **AWS:** API Gateway HTTP API with a Cognito JWT authorizer, SQS between two Lambdas, and DynamoDB for the cross-receipt totals. HTTP APIs are cheaper and simpler than REST APIs, and AWS advises against API keys for authentication. The full design and costs are in `docs/aws-design.md`.
-- **Viewer:** Streamlit, whose multipage navigation gives the brief's three views in one small app. Gradio is aimed at model input/output demos rather than browsing results.
+- **Viewer:** Streamlit, whose multipage navigation gives the brief's three views in one small app, plus a Review page where a person records corrections for the lookup to learn from (section 12). Gradio is aimed at model input/output demos rather than browsing results.
 
 ## 12. Semantic lookup before the model
 
@@ -149,13 +149,28 @@ The research done before building, on 2026-10-30. For each decision the brief le
   - **Two keys:** a line enters memory only when a person's decision on it (a reviewer resolving a flag or an unsure line, an audit sample, an approver signing off the report) agrees with the model at confidence 0.9 or more.
   - **Lines a person confirms as restricted become restricted references,** which block from then on.
   - **The table never learns from the model alone.** Otherwise it would freeze the model's mistakes: in experiment 12 the model called a body lotion ("MARINA HBL SUSU") food, and memory would then copy that answer forever.
+  - **As built, in two steps:**
+    1. **The viewer's Review page** ([`viewer/review.py`](viewer/review.py), [`validator/reviews.py`](validator/reviews.py)) queues the lines worth a person's look:
+       - lines the model was unsure of (EXC-03);
+       - lines a flag or review cites;
+       - the lookup's audit sample;
+       - lines where the lookup and the model disagree.
+
+       A person picks the right category, says whether they're sure and gives their name. The review is appended to `rules/lookup/reviews.jsonl`, and no result changes.
+    2. **`make learn`** ([`validator/learn.py`](validator/learn.py)) applies each new review under the two-key rule, writes `memory.csv` and the new vectors, and logs every outcome in `learn_log.jsonl`. `make learn-dry` shows the outcomes first and writes nothing. `make run` then uses the new memory.
+  - **Why learning is a separate step,** not instant on save: a wrong click is caught in the dry run before it decides lines, and every change to the memory is logged and visible in git.
+  - **Two safety rules in the learning step:**
+    - **A correction removes a wrong memory.** A review contradicting a remembered line (same words) drops it, even if the new label doesn't enter memory, so that line goes back to the model.
+    - **Restricted is never turned safe by a review.** A line once confirmed restricted stays a restricted reference; removing one is done by hand.
+  - **What it needs:** learning new text needs the embedding model (`uv sync --group semantic`). Without it, `make learn` refuses before changing anything. The rest of the pipeline still runs offline.
+  - **The committed lookup has no reviews.** `reviews.jsonl`, `learn_log.jsonl` and `clients/` are git-ignored, so reviews made in a demo can't change the committed results. `make reset-reviews` undoes a demo. A test checks that the committed memory holds only CORD training lines.
 - **One table per client, with danger shared:**
   - **Safe memory per client:** a client's staff keep going to the same cafés, hotels, airlines and taxi apps, so their receipts repeat far more within the client than across clients. Experiment 12 shows the effect:
     - on CORD receipts, memory from earlier CORD receipts decided 39% of lines;
     - on the project's English receipts, the same memory decided 1 line.
   - **Separate tables also mean** one client's receipts never decide another's.
   - **Restricted references can be shared across clients,** as item text with no names: once any reviewer confirms "BINTANG PILSENER" is beer, every client should block it, and sharing caution can't cause a miss. Lines that may name a recipient are never stored.
-  - **Not built here,** since the project has one data set; in the AWS design.
+  - **As built:** the default client's memory is `rules/lookup/memory.csv`; another client's is `rules/lookup/clients/<name>/memory.csv` (`make learn CLIENT=<name>`), starting empty. Every client's restricted references are loaded by every other client; safe lines stay with their own client.
 - **As built:**
   - **The memory:** the 813 lines and 14 restricted references learned from the reviewed CORD training receipts, R000–R399. Nothing comes from the 32 receipts or the test sets.
   - **τ_word (0.934):**
