@@ -81,3 +81,8 @@ def match_label(receipt_id: str, record: dict) -> str:
     """✓ or ✗ against the correct answer; the out-of-scope timing receipts say so and never count as mismatches."""
     mark = "✓" if receipt_matches(record, gold()[receipt_id]) else "✗"
     return mark if in_scope(receipt_id) else f"{mark} (not scored)"
+
+
+def lookup_in_shadow() -> bool:
+    """Whether the committed run had the semantic lookup in shadow mode (it records answers in `shadow`, decides none)."""
+    return any(line.get("shadow") for trace in traces().values() for line in trace["classify"]["lines"])

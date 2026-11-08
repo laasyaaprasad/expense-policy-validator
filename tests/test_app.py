@@ -68,9 +68,11 @@ def test_the_detail_page_shows_each_stage_of_the_trace():
     steps = dict(zip(engine["rule"], engine["result"]))
     assert steps["TIME-03"] == "raised" and steps["MEAL-01"] == "replaced"
     assert any("Disposition" in m.value and "flag" in m.value for m in at.markdown)
-    # In shadow mode the classify step says the lookup only records its answers, never that it decided lines.
-    assert any("2 · Classify" in m.value and "shadow mode" in m.value for m in at.markdown)
-    assert not any("Lines the lookup didn't decide" in m.value for m in at.markdown)
+    # The lookup decides: on RCP-020 it decided none of the lines, and the classify step says so (not "shadow mode").
+    assert any("2 · Classify" in m.value and "the lookup decided none" in m.value for m in at.markdown)
+    assert not any("shadow mode" in m.value for m in at.markdown)
+    at = page("viewer/detail.py", source="System", selected="RCP-021")
+    assert any("2 · Classify" in m.value and "second opinion" in m.value for m in at.markdown)
 
     at = page("viewer/detail.py", source="System", selected="RCP-016")
     assert any("ALC-01" in m.value and "Regional rules replace" in m.value for m in at.markdown)
@@ -98,5 +100,5 @@ def test_the_metrics_page_answers_the_failure_and_base_rate_questions():
     assert any("base-rate" in h.value for h in at.subheader)
     assert any("CORD" in h.value for h in at.subheader)
     tiles = {m.label: m.value for m in at.metric}
-    assert tiles["Lines right"] == "252 / 270" and tiles["False alarms"] == "12 / 98" and tiles["Violations caught"] == "2 / 2"
+    assert tiles["Lines right"] == "255 / 270" and tiles["False alarms"] == "10 / 98" and tiles["Violations caught"] == "2 / 2"
     assert any("TALAM UNGU" in m.value for m in at.markdown)

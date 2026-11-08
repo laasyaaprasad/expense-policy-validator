@@ -13,7 +13,7 @@ The rule is experiment 12's (experiments/semantic_v4/PLAN.md), unchanged:
    whether the line is restricted. τ_word is the higher of the two.
 
 It refuses (and writes nothing) with fewer than 1,000 sure reviewed lines or 300 matched pairs: too little to trust,
-so the lookup stays in shadow mode. With `--write` it replaces `tau_word` in config.yaml and records the calibration in
+so τ_word stays as it is. With `--write` it replaces `tau_word` in config.yaml and records the calibration in
 calibration.json; it never changes `mode` and never touches the restricted block (block_tau), which
 is a margin of caution: lowering it is always safe, raising it needs its own evidence.
 """
@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     lines = [{"receipt_id": r["receipt_id"], "text": r["text"], "category": r["category"]}
              for r in read_jsonl(args.reviewed) if r.get("sure", True) and r["category"] in TAXONOMY]
     if len(lines) < MIN_LINES:
-        print(f"refused: {len(lines)} sure reviewed lines, fewer than {MIN_LINES}. Stay in shadow mode and collect more reviews.")
+        print(f"refused: {len(lines)} sure reviewed lines, fewer than {MIN_LINES}. τ_word is unchanged; collect more reviews.")
         return 2
     emb = Embedder(config["model"], args.cache or args.directory / "calibration-cache.npz")
     texts = list(dict.fromkeys([normalise(x["text"]) for x in lines] + [w for x in lines for w in item_words(x["text"])]))
@@ -109,10 +109,10 @@ def main(argv: list[str] | None = None) -> int:
     tau, info = calibrate(lines, emb.embed, tau_floor)
     print(json.dumps({"tau_word": tau, "floor_pairs": closest, **{k: v for k, v in info.items() if k != "disagreeing_pairs"}}, ensure_ascii=False))
     if tau is None:
-        print(f"refused: {info['refused']}. Stay in shadow mode.")
+        print(f"refused: {info['refused']}. τ_word is unchanged.")
         return 2
     if info["pairs_at_or_above"] < MIN_PAIRS:
-        print(f"refused: only {info['pairs_at_or_above']} matched pairs, fewer than {MIN_PAIRS}. Stay in shadow mode.")
+        print(f"refused: only {info['pairs_at_or_above']} matched pairs, fewer than {MIN_PAIRS}. τ_word is unchanged.")
         return 2
     print(f"τ_word {tau:.6f} (was {config.get('tau_word')})")
     if args.write:

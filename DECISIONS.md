@@ -162,21 +162,21 @@ The research done before building, on 2026-10-30. For each decision the brief le
     - **The floor:** it is set above the most similar restricted/unrestricted word pair in the frozen keyword list, so no drink word stands in for another.
     - **The calibration:** it was checked on 800 CORD receipts, where 2,398 of 2,399 matched pairs agreed. The one that didn't was a known mislabel.
   - **Offline replay:** `rules/lookup/vectors.npz` holds every sentence and word vector the pipeline needs, so the pipeline replays offline without the embedding model. Any line or word missing from it goes to the model.
-  - **It runs in shadow mode** (`mode: shadow` in `rules/lookup/config.yaml`):
-    - **What it does:** the lookup works out every answer and records it in the trace (`shadow`), but the model decides every line. So every category, confidence and result is main's: all 79 lines of the 32 receipts and all 270 CORD lines match.
-    - **Why:** τ_word was calibrated on CORD, not a client's receipts, and the traps and the replay are not fresh evidence.
-  - **The shadow report** (`make shadow`, [`evaluation/shadow.py`](evaluation/shadow.py), `outputs/shadow.json`) compares what the lookup would have decided with what the model and a person decided.
-    - **The 32 receipts:** it would decide 1 line ("Soup of the day"), correctly.
-    - **CORD validation:** it would decide 80 of 270 lines, all 80 matching the labels, with no restricted line called safe. It disagreed with the model 3 times, and the lookup was right each time: the model called two food lines and a service charge `other`.
-    - **What deciding would give on CORD:** 255 lines right and 10 false alarms, against the model's 252 and 12, with 23 of 100 receipts needing no model call. Those receipts were in τ_word's calibration set, so this is not an independent test.
-  - **The switch to `mode: decide` is earned, not assumed.** The criteria, fixed in `evaluation/shadow.py` before any client data:
-    1. at least 500 would-be decisions checked against a client reviewer's label;
-    2. none calling a restricted line safe;
-    3. at least 99.5% agreeing with the label;
-    4. every disagreement with the model looked at by a person;
-    5. τ_word recalibrated on the client's reviewed receipts.
-    
-    Here 2 and 3 hold; 1, 4 and 5 can't, without a client's reviews.
+  - **It decides** (`mode: decide` in `rules/lookup/config.yaml`):
+    - **The 32 receipts:** it decides 1 line ("Soup of the day", from a reviewed "Soup Of The Day"), and every verdict, exception and category is the same as with the model alone (28/28). It's a cold start here: its memory holds CORD's Indonesian café lines.
+    - **CORD validation:** it decides 80 of 270 lines, all 80 matching the labels, with no restricted line called safe. The system gets 255 lines right with 10 false alarms, against the model alone's 252 and 12, and 23 of 100 receipts need no model call. Those receipts were in τ_word's calibration set, so this is not an independent test.
+  - **Three safeguards come with deciding:**
+    - **A second opinion:** whenever any line of a receipt goes to the model, the model reads the whole receipt, so its answer for the lookup's lines is kept in the trace (`model_said`). On CORD it disagreed 3 times out of 43, and the lookup was right each time: the model called two food lines and a service charge `other`.
+    - **An audit sample:** a fixed, repeatable 2% of the lookup's decisions (`audit_rate`, chosen by a hash of the line) are marked in the trace for a person to spot-check. The decision stands meanwhile. On CORD that was 1 line, which was right.
+    - **A kill switch:** `mode: shadow` makes the lookup decide nothing. It records what it would decide, and the model decides every line, giving exactly the model's answers (a test checks this on the 32 receipts).
+  - **The lookup report** (`make lookup-report`, [`evaluation/lookup_report.py`](evaluation/lookup_report.py), `outputs/lookup_report.json`) lists every lookup answer against the labels, the model's second opinion and the audit sample. Its checks, fixed before any client data:
+    1. no lookup answer calls a line safe that a person labelled restricted;
+    2. at least 99.5% of lookup answers checked against a label agree with it;
+    3. every disagreement with the model and every audit line is looked at by a person;
+    4. τ_word recalibrated on the client's own reviewed receipts.
+
+    If 1 or 2 fails, switch to shadow mode. Here 1 to 3 hold; 4 can't until a client's reviews exist, so τ_word is still CORD's.
+  - **Why decide now, rather than wait in shadow mode:** the user's choice. The evidence is that it let no trap through (0 of 123), it was right on every line it decided on CORD, and every limit stays: the restricted block, the code checks, two-key memory, human review of the model's unsure lines, the audit sample and the kill switch.
   - **Recalibration:** [`validator/calibrate.py`](validator/calibrate.py) takes a client's reviewed lines and applies experiment 12's rule unchanged.
     - **On CORD's 2,079 sure lines** it reproduces τ_word = 0.934288 exactly.
     - **It refuses, and writes nothing,** with fewer than 1,000 sure reviewed lines or 300 matched pairs.
@@ -189,10 +189,10 @@ The research done before building, on 2026-10-30. For each decision the brief le
   - **11:** a version 3.3 failed narrowly, and the traps showed the near-repeat lookup calling alcoholic drinks food.
   - **12:** this rule.
 - **Before production:** per client:
-  1. start in shadow mode, with an empty memory and the shared restricted references;
+  1. start with an empty memory and the shared restricted references, so every line goes to the model;
   2. fill memory by two keys from that client's reviews;
   3. recalibrate τ_word on those reviews (`python -m validator.calibrate --reviewed … --client-reviewed --write`);
-  4. switch to `mode: decide` only when `make shadow` shows every criterion met.
+  4. watch `make lookup-report` and the audit sample, and switch to `mode: shadow` if a check fails.
 
 ## Sources
 

@@ -9,9 +9,10 @@ itemized receipt, in order:
 2. Every word accounted for, by meaning: a reviewed line decides only if each of its words matches a word of the
    line, and each word of the line matches one of its words, at word similarity ≥ tau_word.
 Everything else goes to the model (validator/classifier.py), and the model's unsure lines to a human (EXC-03).
-The lookup never decides a restricted category. With `mode: shadow` (the pipeline's setting until the lookup is
-recalibrated on a client's reviews) it decides nothing: each would-be decision is kept in the trace as `shadow`, and
-the model decides the line (evaluation/shadow.py reports them). Memory grows only with two keys: a person's decision and the model
+The lookup never decides a restricted category. With `mode: decide` (the pipeline's setting) a fixed share of its
+decisions (`audit_rate`) is marked `audit` for a person to spot-check. `mode: shadow` is the kill switch: it decides
+nothing, each would-be decision is kept in the trace as `shadow`, and the model decides the line. The lookup report
+(evaluation/lookup_report.py) checks both. Memory grows only with two keys: a person's decision and the model
 agreeing (`learn`), never from the model alone.
 
 The earlier rules stay selectable for the experiments: V3's near-repeat memory and curated library (no
@@ -24,7 +25,7 @@ Without the model installed (`uv sync --group semantic`), a line whose vector is
 import csv
 import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 
@@ -111,10 +112,12 @@ class LineDecision:
     why: str
     nearest: tuple[tuple[str, str, float], ...] = ()  # (text, category, similarity): best match, then nearest restricted reference
     shadow: str | None = None  # shadow mode: the category the lookup would have decided; the model decides the line
+    audit: bool = False  # in the audit sample: a person should check this lookup decision (it stands meanwhile)
 
     def trace(self) -> dict:
         return {"decided_by": f"lookup ({self.step})" if self.decided else ("model (code check)" if self.step == "code check" else "model"),
-                "why": self.why, "nearest": [list(n) for n in self.nearest], **({"shadow": self.shadow} if self.shadow else {})}
+                "why": self.why, "nearest": [list(n) for n in self.nearest], **({"shadow": self.shadow} if self.shadow else {}),
+                **({"audit": True} if self.audit else {})}
 
     @property
     def reason(self) -> str:
@@ -123,8 +126,14 @@ class LineDecision:
         return f"Semantic lookup: matches {source}, \"{best[0]}\" ({best[1]}, similarity {best[2]:.3f})."
 
 
+def in_audit_sample(line_id: str, text: str, rate: float) -> bool:
+    """A fixed, repeatable share of the lookup's decisions for a person to spot-check. Keyed on the line, not only the
+    text, so a line that repeats across receipts is still sampled now and then."""
+    return int(hashlib.sha256(f"{line_id}\n{text}".encode()).hexdigest()[:8], 16) / 2**32 < rate
+
+
 def shadowed(d: LineDecision) -> LineDecision:
-    """Shadow mode: the model decides the line; the lookup's answer is kept in the trace for the shadow report."""
+    """Shadow mode: the model decides the line; the lookup's answer is kept in the trace for the lookup report."""
     if not d.decided:
         return d
     return LineDecision(False, "shadow", None, None, f"shadow mode: would have decided {d.category} ({d.why})", d.nearest, shadow=d.category)
@@ -210,8 +219,10 @@ class Lookup:
         vectors = self.embedder.embed([normalise(line.description_raw) for line in receipt.line_items]) if self.ready else [None] * len(receipt.line_items)
         decisions = {line.line_id: self._decide(line.description_raw, v, receipt.mcc) for line, v in zip(receipt.line_items, vectors)}
         if self.config.get("mode") == "shadow":
-            decisions = {k: shadowed(d) for k, d in decisions.items()}
-        return decisions
+            return {k: shadowed(d) for k, d in decisions.items()}
+        rate = self.config.get("audit_rate", 0.0)
+        texts = {line.line_id: line.description_raw for line in receipt.line_items}
+        return {k: replace(d, audit=True) if d.decided and in_audit_sample(k, texts[k], rate) else d for k, d in decisions.items()}
 
     def _decide(self, text: str, v: np.ndarray | None, mcc: str | None) -> LineDecision:
         c = self.config

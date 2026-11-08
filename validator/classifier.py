@@ -225,6 +225,8 @@ def classify(receipt: ReceiptInput, glosses: dict[str, str], llm: LLM, *, contex
     }
     for line_id, d in decisions.items():
         if d.decided:
+            # The model read the whole receipt anyway: keep its answer as a second opinion for the lookup report.
+            decided_by[line_id]["model_said"] = [items[line_id].category, items[line_id].confidence]
             items[line_id] = ClassifiedItem(line_id=line_id, category=d.category, restricted=TAXONOMY[d.category],
                                             confidence=d.confidence, reason=d.reason)
     return Classification(ClassifiedReceipt(receipt=receipt, items=items), prompt_version, completion.cache_key[:24], completion.model,

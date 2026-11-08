@@ -23,10 +23,14 @@ st.subheader("Classification (65 line items)")
 who = Counter(line.get("decided_by", "model") for trace in data.traces().values() for line in trace["classify"]["lines"])
 calls = sum(trace["classify"]["call"] is not None for trace in data.traces().values())
 shadow = sum(bool(line.get("shadow")) for trace in data.traces().values() for line in trace["classify"]["lines"])
+lookup = sum(n for k, n in who.items() if k.startswith("lookup"))
 st.caption(f"Who decided the {sum(who.values())} lines of the 32 receipts: " + ", ".join(f"{k} {v}" for k, v in sorted(who.items(), key=lambda kv: -kv[1]))
-           + f". The model was called for {calls} of 32 receipts. The semantic lookup (validator/lookup.py) runs in shadow mode: it records what it "
-           f"would have decided ({shadow} line{'s' if shadow != 1 else ''} here) while the model decides every line, until it is recalibrated on a "
-           "client's reviewed receipts (DECISIONS.md, section 12).")
+           + f". The model was called for {calls} of 32 receipts. " + (
+               f"The semantic lookup (validator/lookup.py) runs in shadow mode: it records what it would have decided ({shadow} line"
+               f"{'s' if shadow != 1 else ''} here) while the model decides every line." if shadow else
+               f"The semantic lookup (validator/lookup.py) decided {lookup} line{'s' if lookup != 1 else ''}: it decides only when every word matches, "
+               "by meaning, a line a person reviewed. Its memory holds CORD's Indonesian café lines, so on these receipts it is a cold start "
+               "(DECISIONS.md, section 12)."))
 st.dataframe(pd.DataFrame({name: {
     "macro F1": f"{s['items']['macro_f1']:.3f} over {s['items']['categories']} categories",
     "restricted F1": f"{s['items']['restricted_f1']:.3f}",

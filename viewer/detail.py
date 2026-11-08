@@ -63,7 +63,7 @@ with result_tab:
 
     def decided_by(line: dict) -> str:
         t = trace_lines.get(line["line_id"], {})
-        who = t.get("decided_by", "") + (f" (lookup in shadow: {t['shadow']})" if t.get("shadow") else "")
+        who = t.get("decided_by", "") + (f" (lookup in shadow: {t['shadow']})" if t.get("shadow") else "") + (" · audit sample" if t.get("audit") else "")
         return f"{who} → human review (EXC-03)" if who.startswith("model") and line["confidence"] < threshold else who
 
     lines = pd.DataFrame([{
@@ -85,9 +85,12 @@ with result_tab:
 
 
     st.dataframe(lines.style.apply(tint, axis=1).format({"confidence": "{:.3f}"}), hide_index=True, width="stretch")
-    st.caption(f"The semantic lookup runs in shadow mode: it records what it would decide (a line whose every word matches, by meaning, a "
-               f"line a person reviewed, with no restricted line close), and the model decides every line. A model confidence below {threshold} raises EXC-03 (human review) and keeps "
-               "the item out of every rule. The lookup never decides a restricted category.")
+    st.caption(("The semantic lookup runs in shadow mode: it records what it would decide, and the model decides every line. "
+                if data.lookup_in_shadow() else
+                "Each line is decided by the semantic lookup when every word matches, by meaning, a line a person reviewed and no restricted "
+                "line is close; otherwise by the model. A fixed 2% of the lookup's decisions are marked as an audit sample for a person to check. ")
+               + f"A model confidence below {threshold} raises EXC-03 (human review) and keeps the item out of every rule. "
+               "The lookup never decides a restricted category.")
 
     # --- exceptions and signals ---------------------------------------------------------------------
     gold_lines = {e.rule_id: sorted(e.line_ids) for e in answer.exceptions}
@@ -149,16 +152,20 @@ with trace_tab:
             else "Every line was already in English, so nothing was sent."))
 
         decided_by_lookup = any(x.get("decided_by", "").startswith("lookup") for x in trace["classify"]["lines"])
+        in_shadow = data.lookup_in_shadow()
         st.markdown("**2 · Classify** (semantic lookup, then the model). " + (
             "The lookup decided every line, so the model was never called." if no_call
-            else "Lines the lookup didn't decide went to the model, with the whole receipt; its confidence is the category's probability."
-            if decided_by_lookup
             else "The lookup runs in shadow mode: it only records what it would have decided (the lookup (shadow) column), and the model "
-                 "decided every line, with the whole receipt; its confidence is the category's probability."))
+                 "decided every line, with the whole receipt; its confidence is the category's probability." if in_shadow
+            else "Lines the lookup didn't decide went to the model, with the whole receipt; its confidence is the category's probability. "
+                 "For the lookup's lines, the model's own answer is kept as a second opinion." if decided_by_lookup
+            else "No reviewed line accounts for every word of these lines, so the lookup decided none, and the model decided them all, "
+                 "with the whole receipt; its confidence is the category's probability."))
         st.dataframe(pd.DataFrame([{
             "line": line["line_id"],
-            "decided by": line.get("decided_by", "model"),
-            "lookup (shadow)": line.get("shadow", ""),
+            "decided by": line.get("decided_by", "model") + (" · audit sample" if line.get("audit") else ""),
+            **({"lookup (shadow)": line.get("shadow", "")} if in_shadow else
+               {"model's second opinion": (lambda s: f"{s[0]} {s[1]:.3f}" if s else "")(line.get("model_said"))}),
             "category": line["category"],
             "confidence": line["confidence"],
             "why": line.get("why", ""),

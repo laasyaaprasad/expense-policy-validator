@@ -18,7 +18,10 @@ two_key_confidence: 0.9
 memory_rule: word_by_word
 tau_word: 0.934288
 block_tau: 0.854605
-# shadow: the lookup works out every answer and records it in the trace (`shadow`), but the model decides every
-# line. Switch to `decide` only after the lookup's τ_word is recalibrated on the client's own reviewed receipts
-# (python -m validator.calibrate) and the shadow report (python -m evaluation.shadow) meets its switch criteria.
-mode: shadow
+# decide: the lookup decides the lines it can (every word accounted for, by meaning, a line a person reviewed, and no
+# restricted line close); the model decides the rest. `shadow` is the kill switch: the lookup then only records what
+# it would decide and the model decides every line. Recalibrate τ_word on each client's own reviewed receipts
+# (python -m validator.calibrate) and watch the lookup report (make lookup-report).
+mode: decide
+# The share of the lookup's decisions marked in the trace for a person to spot-check (`audit`). The decision stands.
+audit_rate: 0.02

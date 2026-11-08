@@ -71,40 +71,49 @@ def test_the_pipeline_replays_offline_every_vector_it_needs_is_committed():
     assert all(lookup.embedder.key(t) in lookup.embedder._cache for t in texts)
 
 
-def test_in_shadow_mode_the_lookup_decides_nothing_and_records_soup_of_the_day():
-    from validator.lookup import default_lookup
-    assert default_lookup().config["mode"] == "shadow"
-    decisions = {lid: d for r in load_receipts() for lid, d in default_lookup().decide_receipt(r).items()}
-    assert not any(d.decided for d in decisions.values())
-    shadow = {lid: d.shadow for lid, d in decisions.items() if d.shadow}
-    assert shadow == {"RCP-021-L2": "food_beverage"}
-    assert decisions["RCP-021-L2"].trace() | {"why": "", "nearest": []} == {"decided_by": "model", "why": "", "nearest": [], "shadow": "food_beverage"}
-    deciding = Lookup(overrides={"mode": "decide"})
-    assert [lid for r in load_receipts() for lid, d in deciding.decide_receipt(r).items() if d.decided] == ["RCP-021-L2"]
+def test_the_lookup_decides_with_an_audit_sample_and_shadow_mode_is_the_kill_switch():
+    from validator.lookup import default_lookup, in_audit_sample
+    config = default_lookup().config
+    assert config["mode"] == "decide" and config["audit_rate"] == 0.02
+    decided = {lid: d for r in load_receipts() for lid, d in default_lookup().decide_receipt(r).items() if d.decided}
+    assert list(decided) == ["RCP-021-L2"] and decided["RCP-021-L2"].category == "food_beverage"
+    assert decided["RCP-021-L2"].nearest[0][0] == "Soup Of The Day"
+    # The audit sample is repeatable and close to its rate.
+    sample = [in_audit_sample(f"L{i}", "Nasi goreng", 0.02) for i in range(20000)]
+    assert sample == [in_audit_sample(f"L{i}", "Nasi goreng", 0.02) for i in range(20000)] and 0.015 < sum(sample) / len(sample) < 0.025
+    shadow = Lookup(overrides={"mode": "shadow"})
+    shadowed = {lid: d for r in load_receipts() for lid, d in shadow.decide_receipt(r).items()}
+    assert not any(d.decided for d in shadowed.values()) and shadowed["RCP-021-L2"].shadow == "food_beverage"
 
 
-def test_shadow_mode_gives_exactly_the_models_answers_on_the_32_receipts():
+def test_in_shadow_mode_the_pipeline_gives_exactly_the_models_answers():
     from validator.classifier import classify
     from validator.llm import CACHE_DIR, LLM
-    from validator.lookup import default_lookup
     from validator.pipeline import needs_model
     from validator.translate import translate_all
     llm = LLM.offline(cache_dir=CACHE_DIR, ledger_path=ROOT / "outputs" / "never-written.jsonl")
-    receipts = load_receipts()
-    assert needs_model(receipts, default_lookup()) == needs_model(receipts, None)
+    receipts, shadow = load_receipts(), Lookup(overrides={"mode": "shadow"})
+    assert needs_model(receipts, shadow) == needs_model(receipts, None)
     glosses = translate_all(receipts, llm)
     for r in receipts:
-        shadow, alone = classify(r, glosses, llm, lookup=default_lookup()), classify(r, glosses, llm)
-        assert shadow.receipt.items == alone.receipt.items, r.receipt_id
+        assert classify(r, glosses, llm, lookup=shadow).receipt.items == classify(r, glosses, llm).receipt.items, r.receipt_id
     assert not (ROOT / "outputs" / "never-written.jsonl").exists()
 
 
-def test_the_shadow_report_is_not_ready_to_decide_without_a_clients_reviews():
-    report = json.loads((ROOT / "outputs" / "shadow.json").read_text())
-    assert report["mode"] == "shadow" and report["ready_to_decide"] is False
+def test_deciding_changes_only_soup_of_the_day_and_keeps_the_models_second_opinion():
+    traces = [json.loads(x) for x in (ROOT / "outputs" / "traces.jsonl").read_text().splitlines()]
+    lines = {x["line_id"]: x for t in traces for x in t["classify"]["lines"]}
+    assert [k for k, x in lines.items() if x["decided_by"].startswith("lookup")] == ["RCP-021-L2"]
+    assert lines["RCP-021-L2"]["model_said"][0] == "food_beverage"
+
+
+def test_the_lookup_report_says_keep_deciding_with_every_answer_right():
+    report = json.loads((ROOT / "outputs" / "lookup_report.json").read_text())
+    assert report["mode"] == "decide" and report["action"] == "keep deciding"
     cord = report["sets"]["CORD validation"]
-    assert (cord["would_decide"], cord["agree_with_label"], cord["restricted_called_safe"]) == (80, 80, [])
-    assert {d["model"] for d in cord["disagree_with_model"]} == {"other"} and all(d["lookup"] == d["label"] for d in cord["disagree_with_model"])
+    assert (cord["lookup_answers"], cord["agree_with_label"], cord["restricted_called_safe"]) == (80, 80, [])
+    assert all(d["lookup"] == d["label"] for d in cord["disagree_with_model"]) and len(cord["audit_sample"]) == 1
+    assert report["checks"]["4 τ_word recalibrated on the client's own reviewed receipts"] is False
 
 
 def test_recalibration_refuses_too_few_reviewed_lines(tmp_path, capsys):
