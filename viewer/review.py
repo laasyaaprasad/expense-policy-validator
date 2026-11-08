@@ -1,6 +1,6 @@
 """Review: a person checks the lines worth a look and records the right category (validator/reviews.py).
 
-Saving a review only appends it to the client's reviews.jsonl; nothing in the results changes. `make learn` applies the
+Saving a review only appends it to reviews.jsonl; nothing in the results changes. `make learn` applies the
 reviews to the lookup's memory under the two-key rule, and `make run` then uses them.
 """
 
@@ -11,7 +11,7 @@ import streamlit as st
 
 from evaluation import cord
 from validator.data import ROOT, load_receipts
-from validator.lookup import DEFAULT_CLIENT, client_dir
+from validator.lookup import LOOKUP_DIR
 from validator.reviews import TAXONOMY, add_review, load_reviews, review_queue, reviews_path
 
 SETS = {
@@ -36,9 +36,9 @@ load, traces_path, results_path = SETS[choice]
 texts = {line.line_id: line.description_raw for r in load() for line in r.line_items}
 queue = review_queue(read_jsonl(traces_path), read_jsonl(results_path), texts, every_line=every)
 
-path = reviews_path(DEFAULT_CLIENT)
+path = reviews_path()
 saved = load_reviews(path)
-outcomes = {r["review_id"]: r["outcome"] for r in load_reviews(client_dir(DEFAULT_CLIENT) / "learn_log.jsonl")}
+outcomes = {r["review_id"]: r["outcome"] for r in load_reviews(LOOKUP_DIR / "learn_log.jsonl")}
 latest = {r["line_id"]: r for r in saved}
 
 if not queue:

@@ -120,18 +120,13 @@ def test_without_the_model_a_line_with_no_vector_is_refused_and_nothing_changes(
     assert code == 2 and digest(lookup_dir) == before
 
 
-def test_each_client_has_its_own_memory_and_restricted_lines_are_shared(lookup_dir):
-    acme = Lookup(lookup_dir, client="acme")
-    assert acme.memory == [] and {t for t, _ in acme.risk} >= {t for t, _ in Lookup(lookup_dir).risk}
-    assert not any(d.decided for d in acme.decide_receipt(RECEIPTS["RCP-021"]).values())  # a cold start: everything to the AI
-    add_review(lookup_dir / "clients" / "acme" / "reviews.jsonl", item("RCP-010-L2"), "alcohol", True, "Ana", client="acme")
-    add_review(lookup_dir / "clients" / "acme" / "reviews.jsonl", item("RCP-021-L1"), "food_beverage", True, "Ana", client="acme")
-    assert learn("acme", lookup_dir)[0] == 0
-    assert "Draft IPA 16oz" in {t for t, _ in Lookup(lookup_dir).risk}  # shared with the default client
-    assert "Dinner entree - roast chicken" not in {t for t, _ in Lookup(lookup_dir).memory}  # safe memory stays with acme
-    assert Lookup(lookup_dir, client="acme").decide_receipt(RECEIPTS["RCP-021"])["RCP-021-L1"].decided
-    with pytest.raises(ValueError):
-        Lookup(lookup_dir, client="../escape")
+def test_there_is_one_memory_shared_by_every_client(lookup_dir):
+    review(lookup_dir, "RCP-010-L2", "alcohol")
+    review(lookup_dir, "RCP-021-L1", "food_beverage")
+    assert learn(directory=lookup_dir)[0] == 0
+    rows = {(r["role"], r["text"]) for r in csv.DictReader((lookup_dir / "memory.csv").open())}
+    assert {("risk", "Draft IPA 16oz"), ("remember", "Dinner entree - roast chicken")} <= rows  # safe and restricted alike
+    assert not [p for p in lookup_dir.iterdir() if p.is_dir()]  # no per-client folders
 
 
 def test_the_review_page_saves_a_review_only_with_a_name(tmp_path, monkeypatch):
@@ -150,4 +145,3 @@ def test_the_review_page_saves_a_review_only_with_a_name(tmp_path, monkeypatch):
 
 def test_the_committed_lookup_has_no_reviews_or_learned_lines():
     assert not (LOOKUP_DIR / "reviews.jsonl").exists() and not (LOOKUP_DIR / "learn_log.jsonl").exists()
-    assert not (LOOKUP_DIR / "clients").exists()

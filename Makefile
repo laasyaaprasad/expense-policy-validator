@@ -37,18 +37,16 @@ lookup-report:
 
 # Teach the lookup from people's reviews (the viewer's Review page) under the two-key rule (validator/learn.py).
 # Text with no committed vector needs the embedding model (uv sync --group semantic); without it, it refuses and changes
-# nothing. CLIENT picks a client's own memory.
-CLIENT ?= default
+# nothing. There is one memory, shared by every client.
 learn:
-	uv run python -m validator.learn --client $(CLIENT)
+	uv run python -m validator.learn
 
 learn-dry:
-	uv run python -m validator.learn --client $(CLIENT) --dry-run
+	uv run python -m validator.learn --dry-run
 
 # Undo a demo: drop the reviews and the learn log, and restore the committed memory and vectors.
 reset-reviews:
 	rm -f rules/lookup/reviews.jsonl rules/lookup/learn_log.jsonl
-	rm -rf rules/lookup/clients
 	git checkout -- rules/lookup/memory.csv rules/lookup/vectors.npz
 
 # Keyword baseline through the same engine: outputs/baseline.jsonl. No model calls.

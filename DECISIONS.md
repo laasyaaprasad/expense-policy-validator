@@ -164,14 +164,13 @@ The research done before building, on 2026-10-30. For each decision the brief le
     - **A correction removes a wrong memory.** A review contradicting a remembered line (same words) drops it, even if the new label doesn't enter memory, so that line goes back to the model.
     - **Restricted is never turned safe by a review.** A line once confirmed restricted stays a restricted reference; removing one is done by hand.
   - **What it needs:** learning new text needs the embedding model (`uv sync --group semantic`). Without it, `make learn` refuses before changing anything. The rest of the pipeline still runs offline.
-  - **The committed lookup has no reviews.** `reviews.jsonl`, `learn_log.jsonl` and `clients/` are git-ignored, so reviews made in a demo can't change the committed results. `make reset-reviews` undoes a demo. A test checks that the committed memory holds only CORD training lines.
-- **One table per client, with danger shared:**
-  - **Safe memory per client:** a client's staff keep going to the same cafés, hotels, airlines and taxi apps, so their receipts repeat far more within the client than across clients. Experiment 12 shows the effect:
-    - on CORD receipts, memory from earlier CORD receipts decided 39% of lines;
-    - on the project's English receipts, the same memory decided 1 line.
-  - **Separate tables also mean** one client's receipts never decide another's.
-  - **Restricted references can be shared across clients,** as item text with no names: once any reviewer confirms "BINTANG PILSENER" is beer, every client should block it, and sharing caution can't cause a miss. Lines that may name a recipient are never stored.
-  - **As built:** the default client's memory is `rules/lookup/memory.csv`; another client's is `rules/lookup/clients/<name>/memory.csv` (`make learn CLIENT=<name>`), starting empty. Every client's restricted references are loaded by every other client; safe lines stay with their own client.
+  - **The committed lookup has no reviews.** `reviews.jsonl` and `learn_log.jsonl` are git-ignored, so reviews made in a demo can't change the committed results. `make reset-reviews` undoes a demo. A test checks that the committed memory holds only CORD training lines.
+- **One memory, shared by every client:**
+  - **Why:** the memory records what an item is ("Rioja Reserva red wine" is `alcohol`), which is the same at every company. What each company allows lives in `rules.yaml`, not in the lookup. So every reviewed line helps every client, and a new client doesn't start from an empty memory.
+  - **It was one table per client at first,** on the reasoning that a client's staff keep going to the same cafés, hotels and airlines. The evidence offered for that (CORD memory decided 39% of CORD lines but 1 line on the English receipts) shows that repeats follow language, region and kind of merchant rather than the client: CORD is many different shops, not one company. Per-client tables kept the cold start for every client and added nothing to safety.
+  - **The safeguards are the same for every line, shared or not:** two keys to enter, a correction from any reviewer removes a line, restricted lines are never turned safe and never decided by the lookup, lines that may name a recipient are never stored, and the 2% audit keeps spot-checking. What sharing gives up: a careless review at one client briefly affects everyone, until a correction or the audit catches it; the two-key rule (the model must also agree at 0.9 or more) makes that rare.
+  - **If a client's contract forbids sharing,** add a per-client opt-out then, not before.
+  - **As built:** one memory, `rules/lookup/memory.csv`, written by `make learn` from `rules/lookup/reviews.jsonl`.
 - **As built:**
   - **The memory:** the 813 lines and 14 restricted references learned from the reviewed CORD training receipts, R000–R399. Nothing comes from the 32 receipts or the test sets.
   - **τ_word (0.934):**
@@ -189,11 +188,11 @@ The research done before building, on 2026-10-30. For each decision the brief le
     1. no lookup answer calls a line safe that a person labelled restricted;
     2. at least 99.5% of lookup answers checked against a label agree with it;
     3. every disagreement with the model and every audit line is looked at by a person;
-    4. τ_word recalibrated on the client's own reviewed receipts.
+    4. τ_word recalibrated on the deployment's own reviewed receipts.
 
-    If 1 or 2 fails, switch to shadow mode. Here 1 to 3 hold; 4 can't until a client's reviews exist, so τ_word is still CORD's.
+    If 1 or 2 fails, switch to shadow mode. Here 1 to 3 hold; 4 can't until real reviews exist, so τ_word is still CORD's.
   - **Why decide now, rather than wait in shadow mode:** the user's choice. The evidence is that it let no trap through (0 of 123), it was right on every line it decided on CORD, and every limit stays: the restricted block, the code checks, two-key memory, human review of the model's unsure lines, the audit sample and the kill switch.
-  - **Recalibration:** [`validator/calibrate.py`](validator/calibrate.py) takes a client's reviewed lines and applies experiment 12's rule unchanged.
+  - **Recalibration:** [`validator/calibrate.py`](validator/calibrate.py) takes the deployment's reviewed lines and applies experiment 12's rule unchanged.
     - **On CORD's 2,079 sure lines** it reproduces τ_word = 0.934288 exactly.
     - **It refuses, and writes nothing,** with fewer than 1,000 sure reviewed lines or 300 matched pairs.
     - **What it never does:** change `mode`, or touch the restricted block, which is a margin of caution that may be lowered but never raised without its own evidence.
@@ -204,9 +203,9 @@ The research done before building, on 2026-10-30. For each decision the brief le
   - **9 and 10:** stricter same-item rules were safe but decided too little, and the near-repeat lookup called a skincare product food.
   - **11:** a version 3.3 failed narrowly, and the traps showed the near-repeat lookup calling alcoholic drinks food.
   - **12:** this rule.
-- **Before production:** per client:
-  1. start with an empty memory and the shared restricted references, so every line goes to the model;
-  2. fill memory by two keys from that client's reviews;
+- **Before production:**
+  1. start with an empty memory, so every line goes to the model;
+  2. fill memory by two keys from every client's reviews;
   3. recalibrate τ_word on those reviews (`python -m validator.calibrate --reviewed … --client-reviewed --write`);
   4. watch `make lookup-report` and the audit sample, and switch to `mode: shadow` if a check fails.
 

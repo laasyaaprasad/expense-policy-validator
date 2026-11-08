@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart TB
-    MEM[("lookup memory<br/>DynamoDB, one table per client")]
+    MEM[("lookup memory<br/>DynamoDB, shared by every client")]
     COG["Cognito<br/>client-credentials token, reused for an hour"] -. "token" .-> C["caller<br/>calling system"]
     C --> API["API Gateway HTTP API<br/>POST /receipts → 202 · GET /receipts/{id}"]
     API --> ING["ingest Lambda<br/>accepts and queues"]
@@ -15,8 +15,8 @@ flowchart TB
     W --> ST[("DynamoDB + S3<br/>cross-receipt totals · results")]
     W --> LOG["CloudWatch Logs<br/>one trace per receipt, no line text"]
     W --> RQ["review queue<br/>unsure, flagged, 2% audit, disagreements"]
-    RQ --> LJ["nightly learning job<br/>per client, two keys"]
-    LJ -- "↻ writes that client's memory" --> MEM
+    RQ --> LJ["nightly learning job<br/>two keys"]
+    LJ -- "↻ writes the shared memory" --> MEM
     subgraph release["release by pull request"]
         direction LR
         GIT["git<br/>policies, rules.yaml"] --> CI["CI<br/>quotes, oracle and synthetic suites"] --> DEP["deploy<br/>on merge"]
@@ -39,11 +39,10 @@ Coral: the model, outside AWS. Purple: the lookup. Teal: people. The [pipeline d
 - **API: API Gateway HTTP API** (cheaper than REST APIs, with a built-in JWT authorizer): `POST /receipts` returns `202` and an ID, `GET /receipts/{id}` the result.
 - **Compute: ingest and worker Lambdas with SQS between them**, so callers never wait on the model; worker concurrency stays under the rate limit; failures go to the dead-letter queue.
 - **Semantic lookup: its own Lambda** (a container image with the pinned open embedding model, 4 GB), so the worker isn't billed at 4 GB while it waits on the model. It decides a line only when every word matches, by meaning, a line a person reviewed, and passes the rest on; a receipt it decides whole never reaches the model.
-  - **Memory: one table per client** (a DynamoDB table keyed by client and word set), since a client's receipts repeat its own cafés, hotels and airlines. A line enters it only when a person's decision and the model agree (two keys), never from the model alone. It starts empty: a new client's lines all go to the model, as on main.
-  - **Restricted references: shared across clients,** as item text without names, so one reviewer confirming a beer blocks it everywhere. Sharing caution can't cause a miss.
+  - **Memory: one DynamoDB table shared by every client** (keyed by word set), since what an item is doesn't depend on the company; what each company allows is in `rules.yaml`. So every client's reviews help every other, and a new client starts with what the others taught it. A line enters only when a person's decision and the model agree (two keys), never from the model alone; restricted lines, stored as item text without names, only ever block. It starts empty: until reviews arrive, every line goes to the model, as on main.
   - **Thresholds and the embedding model** are versioned files, released like `rules.yaml`.
-  - **Reviews:** a review queue (the Review page's lines: unsure, flagged, audit sample, disagreements) feeds a nightly learning job per client under the two-key rule, writing that client's memory table.
-  - **Safeguards:** the model's answer is kept as a second opinion whenever it reads the receipt; 2% of the lookup's decisions go to an audit queue for a person; `mode: shadow` turns the lookup off per client if a check in the lookup report fails (DECISIONS.md, section 12).
+  - **Reviews:** a review queue (the Review page's lines: unsure, flagged, audit sample, disagreements) feeds a nightly learning job under the two-key rule, writing the shared memory table. A correction from any client's reviewer removes a remembered line for everyone.
+  - **Safeguards:** the model's answer is kept as a second opinion whenever it reads the receipt; 2% of the lookup's decisions go to an audit queue for a person; `mode: shadow` turns the lookup off if a check in the lookup report fails (DECISIONS.md, section 12).
 - **State: DynamoDB** keeps cross-receipt totals (meal days, trip OTC, baggage, same-merchant days), written once per receipt ID so redeliveries aren't double-counted; a receipt that tips a day over a cap re-decides the earlier ones. Results go to S3.
 - **Logs: CloudWatch Logs**, one trace per receipt, with no line text or names.
 
@@ -66,5 +65,5 @@ Coral: the model, outside AWS. Purple: the lookup. Teal: people. The [pipeline d
 **Before production.**
 1. **Watch the model.** Alarm on errors and latency; chart dispositions, rule hits and confidence; log reviewer verdicts for flag precision; rerun the dev and gold gates on upgrades.
 2. **Fail safe.** Retry with backoff; unclassifiable receipts go to **review, never pass**.
-3. **Start each client's lookup empty,** recalibrate its word threshold on that client's reviews (`validator/calibrate.py`), and watch the lookup report and audit sample.
+3. **Start the lookup's memory empty,** recalibrate its word threshold on the first real reviews (`validator/calibrate.py`), and watch the lookup report and audit sample.
 4. **Protect personal data.** Agree retention terms or move to Bedrock (re-validated) before real receipts reach an outside API; encrypt with KMS; expire line text once audited.

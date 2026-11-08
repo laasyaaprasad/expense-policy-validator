@@ -1,4 +1,4 @@
-"""Recalibrate the lookup's word threshold (τ_word) on a client's own reviewed receipts.
+"""Recalibrate the lookup's word threshold (τ_word) on the deployment's own reviewed receipts.
 
     uv run --group semantic python -m validator.calibrate --reviewed reviewed.jsonl [--directory rules/lookup] [--write] [--client-reviewed]
 
@@ -87,10 +87,10 @@ def calibrate(lines: list[dict], embed, tau_floor: float) -> tuple[float | None,
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--reviewed", type=Path, required=True)
-    ap.add_argument("--directory", type=Path, default=LOOKUP_DIR, help="the client's lookup directory (config.yaml, memory.csv)")
+    ap.add_argument("--directory", type=Path, default=LOOKUP_DIR, help="the lookup directory (config.yaml, memory.csv)")
     ap.add_argument("--cache", type=Path, default=None, help="where to cache the vectors (default: <directory>/calibration-cache.npz)")
     ap.add_argument("--write", action="store_true", help="write τ_word and the calibration record into config.yaml")
-    ap.add_argument("--client-reviewed", action="store_true", help="the lines are the client's own reviewers' decisions")
+    ap.add_argument("--client-reviewed", action="store_true", help="the lines are the deployment's own reviewers' decisions, not an assistant's labels")
     args = ap.parse_args(argv)
 
     path = args.directory / "config.yaml"

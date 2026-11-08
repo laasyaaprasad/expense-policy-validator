@@ -1,16 +1,16 @@
-"""Apply people's reviews to the lookup's memory: `make learn` (python -m validator.learn [--client NAME] [--dry-run]).
+"""Apply people's reviews to the lookup's memory: `make learn` (python -m validator.learn [--dry-run]).
 
-Each review not yet applied (its ID isn't in the client's learn_log.jsonl) goes through the two-key rule
-(Lookup.learn in validator/lookup.py):
+There is one memory, shared by every client. Each review not yet applied (its ID isn't in learn_log.jsonl) goes
+through the two-key rule (Lookup.learn in validator/lookup.py):
 - an unsure review is left out;
-- a line the person marks restricted becomes a restricted reference, shared by every client, which only ever blocks;
+- a line the person marks restricted becomes a restricted reference, which only ever blocks;
 - a safe line is remembered only when the model agreed with the person at confidence 0.9 or more;
 - anything else is left out, so the model's mistakes are never copied in.
 
 A review that contradicts a remembered line removes that line first (a correction). A line a person once confirmed
 restricted is never turned safe by a later review: restricted references are removed only by hand.
 
-It writes the client's memory.csv and learn_log.jsonl, and the new vectors into vectors.npz. `--dry-run` reports the
+It writes memory.csv and learn_log.jsonl, and the new vectors into vectors.npz. `--dry-run` reports the
 same outcomes and writes nothing. If a review's text or words have no vector and the embedding model isn't installed
 (uv sync --group semantic), it refuses before changing anything. Rerun the pipeline (`make run`) to use what it learned.
 """
@@ -22,24 +22,23 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from validator.lookup import DEFAULT_CLIENT, LOOKUP_DIR, MEMORY_FIELDS, TAXONOMY, Lookup, client_dir, item_words, read_memory
+from validator.lookup import LOOKUP_DIR, MEMORY_FIELDS, TAXONOMY, Lookup, item_words, read_memory
 from validator.normaliser import normalise
 from validator.reviews import load_reviews, reviews_path
 
 
-def learn(client: str = DEFAULT_CLIENT, directory: Path = LOOKUP_DIR, reviews: Path | None = None, dry_run: bool = False) -> tuple[int, list[dict]]:
+def learn(directory: Path = LOOKUP_DIR, reviews: Path | None = None, dry_run: bool = False) -> tuple[int, list[dict]]:
     """Returns (exit code, one record per review applied)."""
-    lookup = Lookup(directory, client=client)
+    lookup = Lookup(directory)
     lookup._load_vectors()
     if lookup.ready is not True:
         print("refused: the library's vectors aren't available, so the lookup can't load.")
         return 2, []
-    folder = client_dir(client, directory)
-    log_path = folder / "learn_log.jsonl"
+    log_path = directory / "learn_log.jsonl"
     applied = {r["review_id"] for r in load_reviews(log_path)}
-    pending = [r for r in load_reviews(reviews or reviews_path(client, directory)) if r["review_id"] not in applied]
+    pending = [r for r in load_reviews(reviews or reviews_path(directory)) if r["review_id"] not in applied]
     if not pending:
-        print(f"nothing to learn for client {client!r}: every review is already applied.")
+        print("nothing to learn: every review is already applied.")
         return 0, []
 
     if dry_run:
@@ -100,12 +99,11 @@ def learn(client: str = DEFAULT_CLIENT, directory: Path = LOOKUP_DIR, reviews: P
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--client", default=DEFAULT_CLIENT)
     ap.add_argument("--directory", type=Path, default=LOOKUP_DIR)
     ap.add_argument("--reviews", type=Path, default=None)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
-    code, _ = learn(args.client, args.directory, args.reviews, args.dry_run)
+    code, _ = learn(args.directory, args.reviews, args.dry_run)
     return code
 
 

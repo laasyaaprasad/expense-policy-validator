@@ -1,6 +1,6 @@
 """People's reviews of receipt lines: the queue of lines worth a person's look, and the store of their decisions.
 
-A review changes nothing by itself. It is appended to the client's `reviews.jsonl`, and `make learn`
+A review changes nothing by itself. It is appended to `reviews.jsonl`, and `make learn`
 (validator/learn.py) later applies the reviews to the lookup's memory under the two-key rule. The viewer's Review page
 (viewer/review.py) is where a person makes them.
 
@@ -17,17 +17,17 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from validator.lookup import DEFAULT_CLIENT, LOOKUP_DIR, client_dir
+from validator.lookup import LOOKUP_DIR
 from validator.taxonomy import load_taxonomy
 
 TAXONOMY = load_taxonomy()
 REASONS = ("the AI was unsure (EXC-03)", "cited by a flag or review", "audit sample", "lookup and AI disagree")
 
 
-def reviews_path(client: str = DEFAULT_CLIENT, directory: Path = LOOKUP_DIR) -> Path:
+def reviews_path(directory: Path = LOOKUP_DIR) -> Path:
     """`VALIDATOR_REVIEWS` overrides the path (the viewer's tests use it, so they never touch the real file)."""
     override = os.environ.get("VALIDATOR_REVIEWS")
-    return Path(override) if override else client_dir(client, directory) / "reviews.jsonl"
+    return Path(override) if override else directory / "reviews.jsonl"
 
 
 def load_reviews(path: Path) -> list[dict]:
@@ -41,7 +41,7 @@ def review_id(record: dict) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
-def add_review(path: Path, item: dict, category: str, sure: bool, reviewer: str, client: str = DEFAULT_CLIENT) -> dict:
+def add_review(path: Path, item: dict, category: str, sure: bool, reviewer: str) -> dict:
     """Append one person's decision on a queued line. Refuses an unknown category or an anonymous reviewer."""
     reviewer = (reviewer or "").strip()
     if not reviewer:
@@ -49,7 +49,7 @@ def add_review(path: Path, item: dict, category: str, sure: bool, reviewer: str,
     if category not in TAXONOMY:
         raise ValueError(f"unknown category {category!r}")
     record = {
-        "client": client, "receipt_id": item["receipt_id"], "line_id": item["line_id"], "text": item["text"],
+        "receipt_id": item["receipt_id"], "line_id": item["line_id"], "text": item["text"],
         "category": category, "restricted": TAXONOMY[category], "sure": bool(sure), "reviewer": reviewer,
         "reviewed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "system_category": item.get("category"), "model_category": item.get("model_category"),

@@ -181,18 +181,7 @@ class Embedder:
         np.savez_compressed(self.cache_path, keys=np.array(keys), vectors=np.stack([self._cache[k] for k in keys]))
 
 
-DEFAULT_CLIENT = "default"
 MEMORY_FIELDS = ["role", "category", "text", "reviewed_line"]
-
-
-def client_dir(client: str = DEFAULT_CLIENT, directory: Path = LOOKUP_DIR) -> Path:
-    """Where a client's own memory and reviews live: the lookup folder itself for the default client, else
-    clients/<name>/. The config, library and vectors are shared by every client."""
-    if client == DEFAULT_CLIENT:
-        return directory
-    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", client):
-        raise ValueError(f"client names are lower-case letters, digits, '-' and '_': {client!r}")
-    return directory / "clients" / client
 
 
 def read_memory(path: Path) -> list[dict]:
@@ -203,25 +192,17 @@ def read_memory(path: Path) -> list[dict]:
 
 
 class Lookup:
-    def __init__(self, directory: Path = LOOKUP_DIR, overrides: dict | None = None, client: str = DEFAULT_CLIENT):
+    def __init__(self, directory: Path = LOOKUP_DIR, overrides: dict | None = None):
         self.config = {**yaml.safe_load((directory / "config.yaml").read_text(encoding="utf-8")), **(overrides or {})}
         self.embedder = Embedder(self.config["model"], directory / "vectors.npz")
         with (directory / "library.csv").open(encoding="utf-8", newline="") as f:
             self.library = [(row["text"], row["category"]) for row in csv.DictReader(f)]
-        self.client = client
-        self.memory_path = client_dir(client, directory) / "memory.csv"
+        # One memory shared by every client: what an item is doesn't depend on the company (what each allows lives in
+        # rules.yaml), so every reviewed line helps every client (DECISIONS.md, section 12).
+        self.memory_path = directory / "memory.csv"
         rows = read_memory(self.memory_path)
         self.memory = [(r["text"], r["category"]) for r in rows if r["role"] == "remember"]
         self.risk = [(r["text"], r["category"]) for r in rows if r["role"] == "risk"]
-        # Restricted references are shared: a line any client's reviewer confirmed as restricted blocks for every client.
-        # Remembered (safe) lines stay with their own client.
-        others = [p for p in [directory / "memory.csv", *sorted((directory / "clients").glob("*/memory.csv"))] if p != self.memory_path]
-        known = {t for t, _ in self.risk}
-        for path in others:
-            for r in read_memory(path):
-                if r["role"] == "risk" and r["text"] not in known:
-                    self.risk.append((r["text"], r["category"]))
-                    known.add(r["text"])
         self.ready = False
 
     def _load_vectors(self) -> None:
