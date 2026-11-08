@@ -71,8 +71,63 @@ def test_the_pipeline_replays_offline_every_vector_it_needs_is_committed():
     assert all(lookup.embedder.key(t) in lookup.embedder._cache for t in texts)
 
 
-def test_on_the_32_receipts_the_lookup_decides_only_soup_of_the_day():
+def test_in_shadow_mode_the_lookup_decides_nothing_and_records_soup_of_the_day():
     from validator.lookup import default_lookup
-    decided = {lid: d for r in load_receipts() for lid, d in default_lookup().decide_receipt(r).items() if d.decided}
-    assert list(decided) == ["RCP-021-L2"] and decided["RCP-021-L2"].category == "food_beverage"
-    assert decided["RCP-021-L2"].nearest[0][0] == "Soup Of The Day"
+    assert default_lookup().config["mode"] == "shadow"
+    decisions = {lid: d for r in load_receipts() for lid, d in default_lookup().decide_receipt(r).items()}
+    assert not any(d.decided for d in decisions.values())
+    shadow = {lid: d.shadow for lid, d in decisions.items() if d.shadow}
+    assert shadow == {"RCP-021-L2": "food_beverage"}
+    assert decisions["RCP-021-L2"].trace() | {"why": "", "nearest": []} == {"decided_by": "model", "why": "", "nearest": [], "shadow": "food_beverage"}
+    deciding = Lookup(overrides={"mode": "decide"})
+    assert [lid for r in load_receipts() for lid, d in deciding.decide_receipt(r).items() if d.decided] == ["RCP-021-L2"]
+
+
+def test_shadow_mode_gives_exactly_the_models_answers_on_the_32_receipts():
+    from validator.classifier import classify
+    from validator.llm import CACHE_DIR, LLM
+    from validator.lookup import default_lookup
+    from validator.pipeline import needs_model
+    from validator.translate import translate_all
+    llm = LLM.offline(cache_dir=CACHE_DIR, ledger_path=ROOT / "outputs" / "never-written.jsonl")
+    receipts = load_receipts()
+    assert needs_model(receipts, default_lookup()) == needs_model(receipts, None)
+    glosses = translate_all(receipts, llm)
+    for r in receipts:
+        shadow, alone = classify(r, glosses, llm, lookup=default_lookup()), classify(r, glosses, llm)
+        assert shadow.receipt.items == alone.receipt.items, r.receipt_id
+    assert not (ROOT / "outputs" / "never-written.jsonl").exists()
+
+
+def test_the_shadow_report_is_not_ready_to_decide_without_a_clients_reviews():
+    report = json.loads((ROOT / "outputs" / "shadow.json").read_text())
+    assert report["mode"] == "shadow" and report["ready_to_decide"] is False
+    cord = report["sets"]["CORD validation"]
+    assert (cord["would_decide"], cord["agree_with_label"], cord["restricted_called_safe"]) == (80, 80, [])
+    assert {d["model"] for d in cord["disagree_with_model"]} == {"other"} and all(d["lookup"] == d["label"] for d in cord["disagree_with_model"])
+
+
+def test_recalibration_refuses_too_few_reviewed_lines(tmp_path, capsys):
+    import shutil
+    from validator.calibrate import main
+    from validator.lookup import LOOKUP_DIR
+    shutil.copy(LOOKUP_DIR / "config.yaml", tmp_path / "config.yaml")
+    reviewed = tmp_path / "reviewed.jsonl"
+    reviewed.write_text("".join(json.dumps({"receipt_id": f"R{i}", "text": "Nasi goreng", "category": "food_beverage"}) + "\n" for i in range(50)))
+    assert main(["--reviewed", str(reviewed), "--directory", str(tmp_path)]) == 2
+    assert "refused: 50 sure reviewed lines" in capsys.readouterr().out
+    assert (tmp_path / "config.yaml").read_text() == (LOOKUP_DIR / "config.yaml").read_text() and not (tmp_path / "calibration.json").exists()
+
+
+def test_recalibration_finds_the_lowest_threshold_with_999_agreement():
+    import numpy as np
+    from validator.calibrate import calibrate
+    # Hand-set vectors: "tea" and "teh" are near (0.96); "wine" sits 0.95 from "tea", above the floor.
+    v = {"tea": [1, 0, 0], "teh": [0.96, 0.28, 0], "wine": [0.95, 0, 0.312], "es": [0, 1, 0]}
+    unit = {k: np.array(x, dtype=np.float32) / np.linalg.norm(x) for k, x in v.items()}
+    embed = lambda texts: [unit.get(t.lower(), unit["tea"]) for t in texts]  # every sentence is alike, so every pair is a candidate
+    lines = [{"receipt_id": "A", "text": "Tea", "category": "food_beverage"}, {"receipt_id": "B", "text": "Teh", "category": "food_beverage"},
+             {"receipt_id": "C", "text": "Wine", "category": "alcohol"}]
+    tau, info = calibrate(lines, embed, 0.9)
+    # tea~teh agree (0.96); tea~wine and teh~wine are restricted disagreements, so τ must sit above them
+    assert info["highest_restricted_disagreement"] >= 0.94 and tau == pytest.approx(0.96, abs=1e-4)

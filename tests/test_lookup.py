@@ -21,7 +21,7 @@ def test_code_checks(text, mcc, to_model):
 
 
 def test_the_lookup_never_decides_a_restricted_category_on_the_32_receipts():
-    lookup = default_lookup()
+    lookup = Lookup(overrides={"mode": "decide"})
     from validator.taxonomy import load_taxonomy
     restricted = load_taxonomy()
     decided = [(rid, d) for rid, r in RECEIPTS.items() for d in lookup.decide_receipt(r).values() if d.decided]

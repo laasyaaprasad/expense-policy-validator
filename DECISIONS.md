@@ -144,7 +144,7 @@ The research done before building, on 2026-10-30. For each decision the brief le
 - **Why a cold start is fine:**
   - **An empty table sends every line to the model,** which is exactly what main does: the same cost, accuracy and safety.
   - **The lookup only ever removes model calls.** It adds no risk on day one, and its savings grow as reviewed lines arrive.
-  - **On the 32 receipts it is cold.** Its memory holds Indonesian café lines from CORD, not English business receipts, so it decides 1 of 79 lines ("Soup of the day"), and every result is unchanged.
+  - **On the 32 receipts it is cold.** Its memory holds Indonesian café lines from CORD, not English business receipts, so it would decide 1 of 79 lines ("Soup of the day").
 - **How the table fills, and why it must be from people:**
   - **Two keys:** a line enters memory only when a person's decision on it (a reviewer resolving a flag or an unsure line, an audit sample, an approver signing off the report) agrees with the model at confidence 0.9 or more.
   - **Lines a person confirms as restricted become restricted references,** which block from then on.
@@ -162,9 +162,25 @@ The research done before building, on 2026-10-30. For each decision the brief le
     - **The floor:** it is set above the most similar restricted/unrestricted word pair in the frozen keyword list, so no drink word stands in for another.
     - **The calibration:** it was checked on 800 CORD receipts, where 2,398 of 2,399 matched pairs agreed. The one that didn't was a known mislabel.
   - **Offline replay:** `rules/lookup/vectors.npz` holds every sentence and word vector the pipeline needs, so the pipeline replays offline without the embedding model. Any line or word missing from it goes to the model.
-  - **Results:**
-    - **The 32 receipts:** every verdict, exception and category is unchanged (28/28), and the model is called for 31 of 32 receipts.
-    - **CORD validation:** 255 of 270 lines right (the model alone: 250), 10 false alarms (13), both violations caught, and 23 of 100 receipts needing no model call. Those receipts were in τ_word's calibration set, so this is not an independent test.
+  - **It runs in shadow mode** (`mode: shadow` in `rules/lookup/config.yaml`):
+    - **What it does:** the lookup works out every answer and records it in the trace (`shadow`), but the model decides every line. So every category, confidence and result is main's: all 79 lines of the 32 receipts and all 270 CORD lines match.
+    - **Why:** τ_word was calibrated on CORD, not a client's receipts, and the traps and the replay are not fresh evidence.
+  - **The shadow report** (`make shadow`, [`evaluation/shadow.py`](evaluation/shadow.py), `outputs/shadow.json`) compares what the lookup would have decided with what the model and a person decided.
+    - **The 32 receipts:** it would decide 1 line ("Soup of the day"), correctly.
+    - **CORD validation:** it would decide 80 of 270 lines, all 80 matching the labels, with no restricted line called safe. It disagreed with the model 3 times, and the lookup was right each time: the model called two food lines and a service charge `other`.
+    - **What deciding would give on CORD:** 255 lines right and 10 false alarms, against the model's 252 and 12, with 23 of 100 receipts needing no model call. Those receipts were in τ_word's calibration set, so this is not an independent test.
+  - **The switch to `mode: decide` is earned, not assumed.** The criteria, fixed in `evaluation/shadow.py` before any client data:
+    1. at least 500 would-be decisions checked against a client reviewer's label;
+    2. none calling a restricted line safe;
+    3. at least 99.5% agreeing with the label;
+    4. every disagreement with the model looked at by a person;
+    5. τ_word recalibrated on the client's reviewed receipts.
+    
+    Here 2 and 3 hold; 1, 4 and 5 can't, without a client's reviews.
+  - **Recalibration:** [`validator/calibrate.py`](validator/calibrate.py) takes a client's reviewed lines and applies experiment 12's rule unchanged.
+    - **On CORD's 2,079 sure lines** it reproduces τ_word = 0.934288 exactly.
+    - **It refuses, and writes nothing,** with fewer than 1,000 sure reviewed lines or 300 matched pairs.
+    - **What it never does:** change `mode`, or touch the restricted block, which is a margin of caution that may be lowered but never raised without its own evidence.
 - **History:** experiments 6–12 ([experiments/README.md](experiments/README.md)).
   - **6:** a hosted embedding model with hand-written examples decided 30% of lines, but wasn't repeatable.
   - **7:** local and repeatable.
@@ -172,7 +188,11 @@ The research done before building, on 2026-10-30. For each decision the brief le
   - **9 and 10:** stricter same-item rules were safe but decided too little, and the near-repeat lookup called a skincare product food.
   - **11:** a version 3.3 failed narrowly, and the traps showed the near-repeat lookup calling alcoholic drinks food.
   - **12:** this rule.
-- **Before production:** recalibrate τ_word and the 0.855 block on the company's own reviewed receipts, and run the lookup in shadow mode first, deciding nothing and logging where it would have disagreed with the model, before letting it decide.
+- **Before production:** per client:
+  1. start in shadow mode, with an empty memory and the shared restricted references;
+  2. fill memory by two keys from that client's reviews;
+  3. recalibrate τ_word on those reviews (`python -m validator.calibrate --reviewed … --client-reviewed --write`);
+  4. switch to `mode: decide` only when `make shadow` shows every criterion met.
 
 ## Sources
 

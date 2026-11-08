@@ -47,8 +47,14 @@ def embedder(config: dict) -> Embedder:
     return Embedder(config["model"], HERE / "cache" / "vectors.npz")
 
 
+# Settings the pipeline gained after experiment 8. Each arm starts from experiment 8's lookup (V3) plus its own
+# overrides, so the experiments replay the same arms whatever rules/lookup/config.yaml now says.
+PIPELINE_ONLY = {"memory_rule", "tau_word", "block_tau", "mode"}
+
+
 def lookup(overrides: dict, emb: Embedder) -> Lookup:
-    lk = Lookup(overrides=overrides)
+    lk = Lookup()
+    lk.config = {**{k: v for k, v in lk.config.items() if k not in PIPELINE_ONLY}, "mode": "decide", **overrides}
     lk.embedder = emb
     lk._load_vectors()
     return lk

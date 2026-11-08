@@ -62,7 +62,8 @@ with result_tab:
     threshold = record.get("confidence_threshold") or 0.5
 
     def decided_by(line: dict) -> str:
-        who = trace_lines.get(line["line_id"], {}).get("decided_by", "")
+        t = trace_lines.get(line["line_id"], {})
+        who = t.get("decided_by", "") + (f" (lookup in shadow: {t['shadow']})" if t.get("shadow") else "")
         return f"{who} → human review (EXC-03)" if who.startswith("model") and line["confidence"] < threshold else who
 
     lines = pd.DataFrame([{
@@ -84,8 +85,8 @@ with result_tab:
 
 
     st.dataframe(lines.style.apply(tint, axis=1).format({"confidence": "{:.3f}"}), hide_index=True, width="stretch")
-    st.caption(f"Each line is decided by the semantic lookup only when every word matches, by meaning, a line a person reviewed and "
-               f"no restricted line is close; otherwise by the model. A model confidence below {threshold} raises EXC-03 (human review) and keeps "
+    st.caption(f"The semantic lookup runs in shadow mode: it records what it would decide (a line whose every word matches, by meaning, a "
+               f"line a person reviewed, with no restricted line close), and the model decides every line. A model confidence below {threshold} raises EXC-03 (human review) and keeps "
                "the item out of every rule. The lookup never decides a restricted category.")
 
     # --- exceptions and signals ---------------------------------------------------------------------
@@ -153,6 +154,7 @@ with trace_tab:
         st.dataframe(pd.DataFrame([{
             "line": line["line_id"],
             "decided by": line.get("decided_by", "model"),
+            "lookup (shadow)": line.get("shadow", ""),
             "category": line["category"],
             "confidence": line["confidence"],
             "why": line.get("why", ""),

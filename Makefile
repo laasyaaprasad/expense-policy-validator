@@ -1,4 +1,4 @@
-.PHONY: test oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first semantic-v2 semantic-v3 semantic-v31 semantic-v32 semantic-v33 semantic-v4 app
+.PHONY: test shadow oracle dev items smoke run eval baseline cord cascade verifier policy-config graph-retrieval paraphrase semantic-first semantic-v2 semantic-v3 semantic-v31 semantic-v32 semantic-v33 semantic-v4 app
 
 # Offline tests: no API key needed, no model calls.
 test:
@@ -29,6 +29,11 @@ eval:
 	uv run python -m evaluation.items > /dev/null
 	uv run python -m evaluation.blame > /dev/null
 	uv run python -m evaluation.evaluate
+
+# The shadow report: what the semantic lookup would have decided, against the model and the labels, and whether it has
+# earned `mode: decide` (evaluation/shadow.py). Offline.
+shadow:
+	uv run python -m evaluation.shadow
 
 # Keyword baseline through the same engine: outputs/baseline.jsonl. No model calls.
 baseline:

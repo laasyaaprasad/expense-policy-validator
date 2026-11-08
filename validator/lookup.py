@@ -9,7 +9,9 @@ itemized receipt, in order:
 2. Every word accounted for, by meaning: a reviewed line decides only if each of its words matches a word of the
    line, and each word of the line matches one of its words, at word similarity ≥ tau_word.
 Everything else goes to the model (validator/classifier.py), and the model's unsure lines to a human (EXC-03).
-The lookup never decides a restricted category. Memory grows only with two keys: a person's decision and the model
+The lookup never decides a restricted category. With `mode: shadow` (the pipeline's setting until the lookup is
+recalibrated on a client's reviews) it decides nothing: each would-be decision is kept in the trace as `shadow`, and
+the model decides the line (evaluation/shadow.py reports them). Memory grows only with two keys: a person's decision and the model
 agreeing (`learn`), never from the model alone.
 
 The earlier rules stay selectable for the experiments: V3's near-repeat memory and curated library (no
@@ -108,16 +110,24 @@ class LineDecision:
     confidence: float | None
     why: str
     nearest: tuple[tuple[str, str, float], ...] = ()  # (text, category, similarity): best match, then nearest restricted reference
+    shadow: str | None = None  # shadow mode: the category the lookup would have decided; the model decides the line
 
     def trace(self) -> dict:
         return {"decided_by": f"lookup ({self.step})" if self.decided else ("model (code check)" if self.step == "code check" else "model"),
-                "why": self.why, "nearest": [list(n) for n in self.nearest]}
+                "why": self.why, "nearest": [list(n) for n in self.nearest], **({"shadow": self.shadow} if self.shadow else {})}
 
     @property
     def reason(self) -> str:
         best = self.nearest[0] if self.nearest else ("", "", 0.0)
         source = "a reviewed line" if self.step == "memory" else "the curated library"
         return f"Semantic lookup: matches {source}, \"{best[0]}\" ({best[1]}, similarity {best[2]:.3f})."
+
+
+def shadowed(d: LineDecision) -> LineDecision:
+    """Shadow mode: the model decides the line; the lookup's answer is kept in the trace for the shadow report."""
+    if not d.decided:
+        return d
+    return LineDecision(False, "shadow", None, None, f"shadow mode: would have decided {d.category} ({d.why})", d.nearest, shadow=d.category)
 
 
 class Embedder:
@@ -198,7 +208,10 @@ class Lookup:
             return {}
         self._load_vectors()
         vectors = self.embedder.embed([normalise(line.description_raw) for line in receipt.line_items]) if self.ready else [None] * len(receipt.line_items)
-        return {line.line_id: self._decide(line.description_raw, v, receipt.mcc) for line, v in zip(receipt.line_items, vectors)}
+        decisions = {line.line_id: self._decide(line.description_raw, v, receipt.mcc) for line, v in zip(receipt.line_items, vectors)}
+        if self.config.get("mode") == "shadow":
+            decisions = {k: shadowed(d) for k, d in decisions.items()}
+        return decisions
 
     def _decide(self, text: str, v: np.ndarray | None, mcc: str | None) -> LineDecision:
         c = self.config
