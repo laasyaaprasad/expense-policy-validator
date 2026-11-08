@@ -66,13 +66,13 @@ The word list (`rules/keywords.yaml`) was committed in 2ce89b0, before its first
 
 ## Real receipts (CORD)
 
-To get more data than the 32 receipts, the system was run unchanged on 100 real receipts from CORD v2. The method was fixed before any label or model call (commit 9fc0708) and is in `cord/README.md`, with the results. The pilot found one crash (last row of "What the checks caught") and left one open question: whether a free ($0) line should raise an item exception.
+To get more data than the 32 receipts, the system was run unchanged on 100 real receipts from CORD v2. The method was fixed before any label or model call (commit 9fc0708) and is in `cord/README.md`, with the results. The pilot found one crash (the "CORD pilot" row of "What the checks caught") and left one open question: whether a free ($0) line should raise an item exception.
 
 ## What was checked by hand
 
 - **Translations.** The assistant drafted the 11 English glosses in `review/translations.csv` with the same model at temperature 0. I signed all 11 off as `ok`, and none was changed.
 - **Recipients.** The three lines in `review/item_attributes.csv` that name a recipient were annotated from the line text: one client, and two lines for a government official.
-- **Not checked: the CORD labels.** The assistant wrote them, following the guide in `cord/README.md`. I haven't checked the restricted and unsure ones in `review/cord_labels.csv`, so the CORD numbers rest on the assistant's labels.
+- **The CORD labels, in part.** The assistant wrote all 270, following the guide in `cord/README.md`. I checked the 57 the method names (every unsure or restricted one and a random 30), after the results were known; the rest rest on the assistant's labels ("The CORD label check" above).
 
 ## How I steered the assistant
 
@@ -91,12 +91,11 @@ Claude Code did most of the building. These are the points where I directed it, 
 | Before submitting | **Asked** whether a cleaner rewrite would be better. Kept the design, and **directed** it to build the timing rules cleanly. | TIME-01 to 03, on the existing engine; all four timing receipts match. TIME-04 can't apply. |
 | Before submitting | **Corrected:** asked what observability was missing, it proposed adding monitoring to the viewer, which the brief doesn't ask for and which would have shown made-up reviewer verdicts. I kept it internal. | A per-receipt trace (`outputs/traces.jsonl`); dashboards and reviewer verdicts are in the AWS page's monitoring plan. |
 | Before submitting | **Directed:** an independent check, by two fresh agents, for overfitting and against the brief. | No leakage or hardcoding found. Two engine bugs and several stale or overstated claims, all fixed (see below). |
-
 | Before submitting | **Directed:** run on the brief's OpenRouter key, keep the same model, and compare it with the first run and the baseline. **Chose** OpenRouter as the submitted run. | The smoke test caught a host that drops logprobs; the client now pins Fireworks, then Together. Decisions unchanged on all 32. |
 | Before submitting | **Checked by hand:** the 57 CORD labels the method names. **Corrected** the assistant's guess that a bare "TT" was Thai tea. | 5 labels changed, none restricted; CORD lines right 248 → 250. |
-| After submitting | **Directed:** a semi-deterministic lookup before the model that captures meaning, with unsure lines to the model and the model's unsure lines to a person; plan each version as an experiment before building. | Experiments 7 to 12, each pre-registered. |
-| After submitting | **Corrected:** when a version passed on traps written alongside its design, asked for traps it couldn't have been fitted to. | A blind trap set from an agent that saw neither the design nor the memory (experiment 12). |
-| After submitting | **Chose** the word-by-word semantic rule over exact words, and deciding over shadow mode, with an audit sample and the model's second opinion; **directed** a learning loop from people's reviews, one table per client, kept as a separate step. | The lookup decides on main; the Review page and `make learn`. |
+| Before submitting | **Directed:** a semi-deterministic lookup before the model that captures meaning, with unsure lines to the model and the model's unsure lines to a person; plan each version as an experiment before building. | Experiments 7 to 12, each pre-registered. |
+| Before submitting | **Corrected:** when a version passed on traps written alongside its design, asked for traps it couldn't have been fitted to. | A blind trap set from an agent that saw neither the design nor the memory (experiment 12). |
+| Before submitting | **Chose** the word-by-word semantic rule over exact words, and deciding over shadow mode, with an audit sample and the model's second opinion; **directed** a learning loop from people's reviews, one table per client, kept as a separate step. | The lookup decides on main; the Review page and `make learn`. |
 
 Standing rules throughout: the API key is never committed (the assistant added the OpenRouter key to `.env` at my request), labels are used only for scoring, the organisers' data and brief stay out of the repo, and downloaded files are treated as untrusted.
 
