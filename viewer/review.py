@@ -77,5 +77,6 @@ else:
     st.dataframe(pd.DataFrame([{
         "line": r["line_id"], "text": r["text"], "category": r["category"], "sure": "yes" if r["sure"] else "no",
         "reviewer": r["reviewer"], "at": r["reviewed_at"], "AI said": r.get("model_category") or "",
-        "learned": outcomes.get(r["review_id"], "waiting for make learn"),
+        "learned": {"memory": "remembered: the lookup decides it now", "risk": "kept as a restricted reference: it blocks look-alikes"}.get(
+            outcomes.get(r["review_id"], ""), outcomes.get(r["review_id"], "waiting for make learn")),
     } for r in saved]), hide_index=True, width="stretch")
