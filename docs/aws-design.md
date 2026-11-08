@@ -1,5 +1,38 @@
 # Running the validator on AWS (on paper)
 
+```mermaid
+flowchart TB
+    MEM[("lookup memory<br/>DynamoDB, one table per client")]
+    COG["Cognito<br/>client-credentials token, reused for an hour"] -. "token" .-> C["caller<br/>calling system"]
+    C --> API["API Gateway HTTP API<br/>POST /receipts → 202 · GET /receipts/{id}"]
+    API --> ING["ingest Lambda<br/>accepts and queues"]
+    ING --> Q["SQS queue<br/>paces model calls"]
+    Q -- "fails" --> DLQ["dead-letter queue<br/>failed receipts"]
+    Q --> LK["lookup Lambda<br/>embedding model, 4 GB container"]
+    MEM --> LK
+    LK --> W["worker Lambda<br/>the five pipeline stages"]
+    W -- "lines the lookup left" --> OR["OpenRouter → Fireworks<br/>the model, outside AWS · key in Secrets Manager"]
+    W --> ST[("DynamoDB + S3<br/>cross-receipt totals · results")]
+    W --> LOG["CloudWatch Logs<br/>one trace per receipt, no line text"]
+    W --> RQ["review queue<br/>unsure, flagged, 2% audit, disagreements"]
+    RQ --> LJ["nightly learning job<br/>per client, two keys"]
+    LJ -- "↻ writes that client's memory" --> MEM
+    subgraph release["release: rule changes by pull request"]
+        direction LR
+        GIT["git<br/>policies, rules.yaml"] --> CI["CI<br/>quotes, oracle and synthetic suites"] --> DEP["deploy<br/>on merge"]
+    end
+    classDef ai fill:#FAECE7,stroke:#993C1D,color:#712B13
+    classDef lookup fill:#EEEDFE,stroke:#534AB7,color:#3C3489
+    classDef people fill:#E1F5EE,stroke:#0F6E56,color:#085041
+    class OR ai
+    class LK,MEM lookup
+    class RQ,LJ people
+    linkStyle 8 stroke:#D85A30
+    linkStyle 13 stroke:#1D9E75
+```
+
+Coral: the model, outside AWS. Purple: the lookup. Teal: people. The [pipeline diagram](../README.md#architecture) shows what runs inside the lookup and worker Lambdas.
+
 **Architecture:** caller → API Gateway → ingest Lambda → SQS → lookup Lambda → worker Lambda (the five pipeline stages) → DynamoDB and S3.
 - **API: API Gateway HTTP API** (cheaper than REST APIs, with a built-in JWT authorizer): `POST /receipts` returns `202` and an ID, `GET /receipts/{id}` the result.
 - **Compute: ingest and worker Lambdas with SQS between them**, so callers never wait on the model; worker concurrency stays under the rate limit; failures go to the dead-letter queue.
