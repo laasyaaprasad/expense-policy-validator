@@ -68,6 +68,9 @@ def test_the_detail_page_shows_each_stage_of_the_trace():
     steps = dict(zip(engine["rule"], engine["result"]))
     assert steps["TIME-03"] == "raised" and steps["MEAL-01"] == "replaced"
     assert any("Disposition" in m.value and "flag" in m.value for m in at.markdown)
+    # In shadow mode the classify step says the lookup only records its answers, never that it decided lines.
+    assert any("2 · Classify" in m.value and "shadow mode" in m.value for m in at.markdown)
+    assert not any("Lines the lookup didn't decide" in m.value for m in at.markdown)
 
     at = page("viewer/detail.py", source="System", selected="RCP-016")
     assert any("ALC-01" in m.value and "Regional rules replace" in m.value for m in at.markdown)

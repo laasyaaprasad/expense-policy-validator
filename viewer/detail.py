@@ -148,9 +148,13 @@ with trace_tab:
             else "Not needed: the lookup decided every line, so nothing was sent." if no_call
             else "Every line was already in English, so nothing was sent."))
 
-        st.markdown("**2 · Classify** (semantic lookup first, then the model). " + (
+        decided_by_lookup = any(x.get("decided_by", "").startswith("lookup") for x in trace["classify"]["lines"])
+        st.markdown("**2 · Classify** (semantic lookup, then the model). " + (
             "The lookup decided every line, so the model was never called." if no_call
-            else "Lines the lookup didn't decide went to the model, with the whole receipt; its confidence is the category's probability."))
+            else "Lines the lookup didn't decide went to the model, with the whole receipt; its confidence is the category's probability."
+            if decided_by_lookup
+            else "The lookup runs in shadow mode: it only records what it would have decided (the lookup (shadow) column), and the model "
+                 "decided every line, with the whole receipt; its confidence is the category's probability."))
         st.dataframe(pd.DataFrame([{
             "line": line["line_id"],
             "decided by": line.get("decided_by", "model"),
