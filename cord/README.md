@@ -62,15 +62,15 @@ The 32 receipts are 57% violations, and nothing in them is unseen or messy. This
 
 ## Results
 
-`make cord` writes `outputs/cord/metrics.json`. The committed run is the system with the semantic lookup first (DECISIONS.md, section 12), then the model at temperature 0 through OpenRouter (Fireworks). It made 126 calls for $0.0203, about $0.00020 a receipt; 37 receipts were decided by the lookup and never sent. The lookup's thresholds were calibrated on these receipts, so the lookup column is not an independent test. Before the lookup, the model ran on every line at temperature 0: 200 calls for $0.0276. The run at temperature 1 and the first run (200 calls, $0.0394) are in the other columns; their outputs are in git history.
+`make cord` writes `outputs/cord/metrics.json`. The committed run is the system with the semantic lookup first (DECISIONS.md, section 12), then the model at temperature 0 through OpenRouter (Fireworks). The lookup is experiment 12's rule (every word accounted for, by meaning). It decided 80 lines, all matching the labels, and 23 receipts never reached the model; the run made 154 calls for $0.0233, about $0.00023 a receipt. The lookup's word threshold was calibrated on these receipts among others, so the lookup column is not an independent test. Before the lookup, the model ran on every line at temperature 0: 200 calls for $0.0276. The run at temperature 1 and the first run (200 calls, $0.0394) are in the other columns; their outputs are in git history.
 
 | | Lookup first (committed) | Temperature 0, model on every line | Temperature 1, through OpenRouter | First run |
 |---|---|---|---|---|
-| Lines right | 256 / 270 (95%); 242 / 245 on sure labels | 252 / 270 (93%); 239 / 245 on sure labels (98%) | 250 / 270; 241 / 245 | 252 / 270; 240 / 245 |
-| Restricted lines | 1 / 1 found; 6 wrongly restricted | 1 / 1 found; 9 wrongly restricted | 1 / 1 found; 9 wrongly restricted | 1 / 1 found; 7 wrongly restricted |
-| False flags | 5 / 98 | 6 / 98 (95% CI 2.8–12.7%) | 6 / 98 | 6 / 98 |
-| False reviews (EXC-03) | 2 / 98 | 6 / 98 | 7 / 98 | 5 / 98 |
-| Flag precision | 2 / 7; 7 / 7 if the unsure labels go the system's way | 2 / 8 (7–59%); 8 / 8 if the unsure labels go the system's way | the same | the same |
+| Lines right | 255 / 270 (94%); 241 / 245 on sure labels | 252 / 270 (93%); 239 / 245 on sure labels (98%) | 250 / 270; 241 / 245 | 252 / 270; 240 / 245 |
+| Restricted lines | 1 / 1 found; 9 wrongly restricted | 1 / 1 found; 9 wrongly restricted | 1 / 1 found; 9 wrongly restricted | 1 / 1 found; 7 wrongly restricted |
+| False flags | 6 / 98 | 6 / 98 (95% CI 2.8–12.7%) | 6 / 98 | 6 / 98 |
+| False reviews (EXC-03) | 4 / 98 | 6 / 98 | 7 / 98 | 5 / 98 |
+| Flag precision | 2 / 8; 8 / 8 if the unsure labels go the system's way | 2 / 8 (7–59%); 8 / 8 if the unsure labels go the system's way | the same | the same |
 | Missed flags | 0 / 2 | 0 / 2 | 0 / 2 | 0 / 2 |
 
 The labels give 98 pass and 2 flag. At temperature 0 the system gives 86 pass, 8 flag and 6 review, and its 8 flags include both real ones. The one restricted line it found is a rice soap. 15 of the 270 lines changed category from temperature 1 to 0, almost all unreadable codes and packaging. One is a new restricted error on a sure label: "EL KEUN HWANGTAE", a Korean dried-pollock dish, read as alcohol at 0.73, on a receipt already flagged for a real violation, so no decision changed.

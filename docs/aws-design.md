@@ -31,4 +31,5 @@
 **Before production.**
 1. **Watch the model.** Alarm on errors and latency; chart dispositions, rule hits and confidence; log reviewer verdicts for flag precision; rerun the dev and gold gates on upgrades.
 2. **Fail safe.** Retry with backoff; unclassifiable receipts go to **review, never pass**.
-3. **Protect personal data.** Agree retention terms or move to Bedrock (re-validated) before real receipts reach an outside API; encrypt with KMS; expire line text once audited.
+3. **Start each client's lookup empty,** recalibrate its word threshold on that client's reviews (`validator/calibrate.py`), and watch the lookup report and audit sample.
+4. **Protect personal data.** Agree retention terms or move to Bedrock (re-validated) before real receipts reach an outside API; encrypt with KMS; expire line text once audited.

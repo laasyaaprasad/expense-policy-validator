@@ -13,6 +13,7 @@ The research done before building, on 2026-10-30. For each decision the brief le
 | Evidence | The policy text stored word for word, explanations from templates | A stored quote can't be invented |
 | Model | DeepSeek V4.1 Flash | Strong with reasoning off, logprobs, low cost |
 | Evaluation | A plain script with Wilson intervals | Exact labels need no LLM-eval framework |
+| Semantic lookup | A local lookup decides lines a person approved, every word matched by meaning; the model the rest | Repeats are common; looser matching let look-alike traps through |
 
 ## 1. Where AI sits
 

@@ -1,4 +1,7 @@
-"""The pipeline: normalise → translate → classify → retrieve → engine → report, for all 32 receipts.
+"""The pipeline: normalise → semantic lookup → translate → classify → retrieve → engine → report, for all 32 receipts.
+
+The lookup (validator/lookup.py) decides the lines it can; only receipts with a line left are translated and sent to
+the model.
 
 Every stage reads only the receipt and the stages before it. All 32 receipts go through, because the
 engine's cross-receipt totals need the out-of-scope ones too.

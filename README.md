@@ -14,6 +14,8 @@ Before writing any code, I spent 45 minutes studying how real expense tools divi
 ```mermaid
 flowchart LR
     R["receipt<br/>labels dropped"] --> N["normalise<br/>normaliser.py"] --> L["semantic lookup<br/>lookup.py"] --> T["translate<br/>translate.py"] --> K["classify<br/>classifier.py"] --> P["retrieve<br/>retriever.py"] --> E["engine<br/>engine/, rules.yaml"] --> O["report<br/>reporter.py"]
+    L -. "lines it decides skip the model" .-> P
+    O --> V["review page<br/>viewer/review.py"] --> G["make learn<br/>learn.py"] -. "two keys" .-> L
 ```
 
 Each component is its own module in [`validator/`](validator); only translation and classification call the model, and every call is cached. A local, semi-deterministic semantic lookup ([`lookup.py`](validator/lookup.py)) decides a line first only when every word of it matches, by meaning, a line a person has reviewed, and no restricted line is close. It never decides a restricted category: anything it is unsure of goes to the model, and the model's unsure lines go to a human. On a blind set of look-alike traps it let none through. On the 32 receipts it decides 1 line (a cold start: its memory holds CORD's Indonesian café lines), and every result is the same as with the model alone. The model's answer is kept as a second opinion, 2% of its decisions are marked for a person to audit, `make lookup-report` checks it, and `mode: shadow` turns it off. It learns from receipts people review (two keys), one table per client. Its design and tests are experiments 6–12 ([DECISIONS.md, section 12](DECISIONS.md)).
@@ -44,7 +46,7 @@ The labelled receipts are the only test set, so the frozen config's first run wa
 | Receipts exactly right | 28 / 28 (88–100%) | 20 / 28 |
 | False positives · missed violations | 0 / 9 (0–30%) · 0 / 16 (0–19%) | 2 / 9 · 2 / 16 |
 
-This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real Indonesian receipts ([CORD](cord/README.md)), against the assistant's labels (57 hand-checked), it got 95% of lines right but flagged or reviewed 7 of 98 clean ones (with one restricted line and one made-up context, it tests the classifier more than the rules).
+This proves less than it looks: the traps are the taxonomy's own examples, the assistant that wrote the prompt had seen these receipts, and with nine clean receipts a 30% false-positive rate fits the interval. On 100 real Indonesian receipts ([CORD](cord/README.md)), against the assistant's labels (57 hand-checked), it got 94% of lines right but flagged or reviewed 10 of 98 clean ones (with one restricted line and one made-up context, it tests the classifier more than the rules).
 
 ## AI collaboration
 
@@ -56,4 +58,4 @@ Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the
 
 ## What I would do next
 
-Measure flag precision and calibrate the threshold on the company's own receipts; send names to the model only as placeholders; gloss dish names as the dish, not word by word ("TALAM UNGU" became "PURPLE TRAY").
+Measure flag precision and calibrate the threshold, and the lookup's word threshold (`validator/calibrate.py`), on the company's own receipts; say in the category definitions whether packaging sold with food is `other` (most CORD errors are bags and cups); send names to the model only as placeholders; gloss dish names as the dish, not word by word ("TALAM UNGU" became "PURPLE TRAY").
