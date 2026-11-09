@@ -45,6 +45,14 @@ def test_the_overview_architecture_and_aws_pages_run(name, says):
     assert any(says in m.value for m in [*at.markdown, *at.caption])
 
 
+def test_the_architecture_diagram_is_drawn_from_its_svg_source():
+    at = page("viewer/architecture_diagram.py")
+    assert not at.exception
+    drawn = next(m.value for m in at.markdown if "<svg" in m.value)
+    assert drawn.count("<svg") == 1 and "Seen it before?" in drawn and "Reviewed lines feed the lookup" in drawn
+    assert "{display:block" not in drawn.replace(".arch svg{display:block", "")  # every style rule is scoped
+
+
 def test_the_summary_and_aws_pages_show_their_numbers():
     summary = page("viewer/summary.py")
     table = next(m.value for m in summary.markdown if "| On the 28 scored receipts |" in m.value)

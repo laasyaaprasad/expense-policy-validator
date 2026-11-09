@@ -10,6 +10,7 @@ page = st.navigation({
     "Start here": [
         st.Page("viewer/overview.py", title="Expense Policy Validator", icon=":material/policy:", default=True),
         st.Page("viewer/architecture.py", title="Architecture", icon=":material/account_tree:"),
+        st.Page("viewer/architecture_diagram.py", title="Architecture diagram", icon=":material/schema:"),
     ],
     "Results": [
         st.Page("viewer/receipts.py", title="Receipt list", icon=":material/list:"),
