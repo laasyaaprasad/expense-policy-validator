@@ -192,3 +192,33 @@ def match_label(receipt_id: str, record: dict) -> str:
 def lookup_in_shadow() -> bool:
     """Whether the committed run had the semantic lookup in shadow mode (it records answers in `shadow`, decides none)."""
     return any(line.get("shadow") for trace in traces().values() for line in trace["classify"]["lines"])
+
+
+def run_cost(receipt_ids) -> float:
+    """What the model calls behind these receipts' results cost, as billed (from the committed cache)."""
+    from validator.llm import cost_usd
+    total = 0.0
+    for rid in receipt_ids:
+        t = traces()[rid]
+        for kind, step in (("classify", t["classify"]), ("translate", t["translate"])):
+            call = model_call(kind, step and step.get("call"))
+            total += cost_usd(call["response"]["usage"]) if call else 0
+    return total
+
+
+# The first run's calls went through DeepSeek's own API before the OpenRouter key arrived; their ledger
+# rows were dropped from outputs/spend.jsonl in 66ce74a (git show 44f2eab:outputs/spend.jsonl has them).
+DEEPSEEK_FIRST_RUN = (350, 0.0759)
+
+
+@st.cache_data
+def spend() -> dict[str, tuple[int, float]]:
+    """Every model call this project paid for: the submitted run's ledger, each experiment's and the first run's."""
+    out = {"OpenRouter key": [0, 0.0], "DeepSeek's own API": list(DEEPSEEK_FIRST_RUN), "other gateways": [0, 0.0]}
+    for path in [OUTPUT_DIR / "spend.jsonl", *sorted((ROOT / "experiments").glob("*/spend.jsonl"))]:
+        for row in map(json.loads, path.read_text(encoding="utf-8").splitlines()):
+            on_key = row.get("provider") in ("openrouter", "DeepInfra") or "OpenRouter" in (row.get("endpoint") or "")
+            bucket = out["OpenRouter key" if on_key else "other gateways"]
+            bucket[0], bucket[1] = bucket[0] + 1, bucket[1] + (row.get("usd") or 0)
+    out["total"] = [sum(v[0] for v in out.values()), sum(v[1] for v in out.values())]
+    return {k: tuple(v) for k, v in out.items()}

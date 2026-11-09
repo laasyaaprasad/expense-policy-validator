@@ -1,59 +1,56 @@
-"""Overview: the goal, the approach in three lines, the headline numbers and where to look next."""
+"""The first page: the problem, what makes it hard and the approach. The numbers are on the summary page, at the end."""
 
 import streamlit as st
-from streamlit.errors import StreamlitPageNotFoundError
 
 from viewer import data
 
-m, cord = data.metrics(), data.cord_metrics()
-d, items, base = m["disposition"], m["items"], m["baseline"]
+HARD = [
+    ("Names that mislead", "Beer-battered cod is food. A Moscow Mule mug is a mug."),
+    ("Six languages", "“Limpeza a seco - 2 camisas” is laundry, not clothing."),
+    ("Regional overrides", "APAC bans alcohol the global rules would allow."),
+    ("Carve-outs", "A reference waives a rule only if it is the right kind."),
+    ("Across receipts", "Two meals each under the cap, together over it."),
+    ("False alarms", "Nine receipts look suspicious and should pass."),
+]
+
 
 st.title("Expense Policy Validator")
-st.markdown(
-    "**The goal.** Northwind's audit team gets thousands of itemized expense receipts. For each one, decide **pass, flag "
-    "or review** against nine written policies: give every line a category, and raise exceptions that name the rule, "
-    "cite the lines and quote the policy. Catch the real violations without burying reviewers in false alarms, which "
-    "is where the old keyword rules failed.")
+st.header("Decide flag, review or pass for each of 32 receipts, against nine policies, quoting the policy for every "
+          "exception", divider="gray")
+for row in (HARD[:3], HARD[3:]):
+    for column, (name, example) in zip(st.columns(3), row):
+        with column.container(border=True, height="stretch"):
+            st.subheader(name)
+            st.markdown(example)
 
-st.markdown(
-    "**The approach.**\n"
-    "- **AI reads the receipt.** It only says what each line is (wine, a monitor, a gift card), in any of six languages, "
-    "with a confidence. A lookup reuses answers people already approved, so repeats skip the AI.\n"
-    "- **Plain code applies the policy.** The nine documents became 40 rules (`rules/rules.yaml`), each checked by a "
-    "small, tested Python function. Same input, same verdict, every time.\n"
-    "- **Everything traces back.** Each exception quotes the policy word for word, and each receipt keeps a trace of "
-    "every step, down to what the model was sent.")
+TOOLS = [("Expensify", "expensify.com"), ("Navan", "navan.com"), ("SAP Concur", "concur.com"), ("Ramp", "ramp.com")]
+# Each company's own site icon, loaded by the browser when the page shows (nothing is stored in the repo).
+LOGO = "https://www.google.com/s2/favicons?domain={}&sz=128"
 
-st.subheader("Headline numbers (28 scored receipts)")
-tiles = st.columns(4)
-tiles[0].metric("Receipts exactly right", f"{d['accuracy']['k']} / {d['accuracy']['n']}",
-                f"keyword baseline {base['exact_match']['k']} / {base['exact_match']['n']}", delta_color="off", delta_arrow="off")
-tiles[1].metric("Line items right", f"{items['accuracy']['k']} / {items['accuracy']['n']}",
-                f"keyword baseline {base['items']['accuracy']['k']} / {base['items']['accuracy']['n']}", delta_color="off", delta_arrow="off")
-tiles[2].metric("False alarms", f"{d['false_positives']['k']} / {d['false_positives']['n']}",
-                help="Receipts that should pass but were flagged or sent to review.")
-tiles[3].metric("Missed violations", f"{d['missed_violations']['k']} / {d['missed_violations']['n']}",
-                help="Receipts that should be flagged but were passed or sent to review.")
-lines = cord["items"]["all"]["category_correct"]
-cost = m["usage"]["classify"]["usd"] + m["usage"]["translate"]["usd"]
-st.caption(
-    f"With only 9 clean receipts, 0 false alarms still fits a real rate up to "
-    f"{d['false_positives']['ci95'][1]:.0%} (95% interval), so this proves less than it looks. On 100 real "
-    f"Indonesian receipts it never saw, it got {lines['k']} of {lines['n']} lines right. A full run of the 32 receipts "
-    f"costs about \\${cost:.4f} in model calls. The Metrics page has the rest.")
+st.subheader("Approach", text_alignment="center")
+with st.container(border=True):
+    st.markdown(
+        '<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:16px;padding:8px 0">'
+        + "".join(f'<div style="text-align:center"><img src="{LOGO.format(domain)}" alt="" '
+                  f'style="width:56px;height:56px;border-radius:12px"><div style="margin-top:6px;font-weight:600">'
+                  f"{name}</div></div>" for name, domain in TOOLS)
+        + "</div>", unsafe_allow_html=True)
+    st.markdown('<p style="text-align:center;font-size:1.2rem;margin:4px 0 8px"><b>All four work the same way: AI reads '
+                'the receipt, and the rules are applied as configuration.</b></p>', unsafe_allow_html=True)
 
-st.subheader("Where to look")
-LINKS = [
-    ("viewer/architecture.py", "Architecture: the pipeline, step by step", ":material/account_tree:"),
-    ("viewer/receipts.py", "Receipt list: every receipt against the correct answer, searchable", ":material/list:"),
-    ("viewer/detail.py", "Receipt detail: one receipt's verdict, evidence and full trace", ":material/receipt_long:"),
-    ("viewer/rules.py", "Rulebook: every rule, its code and its tests", ":material/gavel:"),
-    ("viewer/metrics.py", "Metrics: the evaluation, the baseline and the base-rate question", ":material/analytics:"),
-    ("viewer/review.py", "Review: the lines a person should check, which teach the lookup", ":material/rate_review:"),
-    ("viewer/aws.py", "AWS deployment: the design on paper and what it costs", ":material/cloud:"),
+m = data.metrics()
+ours, keywords = m["disposition"]["accuracy"], m["baseline"]["exact_match"]
+DESIGNS = [
+    (":material/smart_toy:", "An LLM judges each receipt", "Rejected", ":material/close:", "red",
+     "Can't unit-test a cap the model applies, and the brief bars it from the verdict."),
+    (":material/manage_search:", "Keywords and rules, no AI", f"Baseline · {keywords['k']} / {keywords['n']}",
+     ":material/straighten:", "gray", "Free and repeatable, but misleading names beat it."),
+    (":material/handshake:", "The model reads, code judges", f"Selected · {ours['k']} / {ours['n']}",
+     ":material/check:", "green", "The industry pattern: testable and traceable."),
 ]
-for path, label, icon in LINKS:
-    try:
-        st.page_link(path, label=label, icon=icon)
-    except StreamlitPageNotFoundError:  # the page run on its own, outside app.py's navigation
-        st.markdown(f"- {label}")
+st.markdown("#### Three designs considered", text_alignment="center")
+for column, (icon, name, verdict, badge_icon, color, why) in zip(st.columns(3), DESIGNS):
+    with column.container(border=True, height="stretch"):
+        st.markdown(f"**{icon} {name}**")
+        st.badge(verdict, icon=badge_icon, color=color)
+        st.caption(why)

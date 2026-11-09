@@ -8,7 +8,7 @@ from viewer.data import DEFAULT_SOURCE, SOURCES
 st.set_page_config(page_title="Expense Policy Validator", layout="wide")
 page = st.navigation({
     "Start here": [
-        st.Page("viewer/overview.py", title="Overview and goal", icon=":material/flag:", default=True),
+        st.Page("viewer/overview.py", title="Expense Policy Validator", icon=":material/policy:", default=True),
         st.Page("viewer/architecture.py", title="Architecture", icon=":material/account_tree:"),
     ],
     "Results": [
@@ -20,6 +20,9 @@ page = st.navigation({
     ],
     "Production": [
         st.Page("viewer/aws.py", title="AWS deployment and cost", icon=":material/cloud:"),
+    ],
+    "Wrap-up": [
+        st.Page("viewer/summary.py", title="Summary", icon=":material/summarize:"),
     ],
 })
 # The choice lives in a plain session key, not the widget's own: st.switch_page reruns without the

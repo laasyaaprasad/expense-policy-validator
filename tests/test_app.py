@@ -23,14 +23,20 @@ def page(name: str, **state) -> AppTest:
 def test_the_app_runs_with_its_navigation():
     at = page("app.py")
     assert not at.exception
-    assert [t.value for t in at.title] == ["Expense Policy Validator"]  # it opens on the overview
+    assert [t.value for t in at.title] == ["Expense Policy Validator"]  # it opens on the problem
+    assert at.header[0].value.startswith("Decide flag, review or pass for each of 32 receipts")
+    assert [s.value for s in at.subheader][:7] == ["Names that mislead", "Six languages", "Regional overrides",
+                                                   "Carve-outs", "Across receipts", "False alarms", "Approach"]
+    assert [m.value.split(": ", 1)[1].rstrip("]") for m in at.markdown if "-badge[" in m.value] == [
+        "Rejected", "Baseline · 20 / 28", "Selected · 28 / 28"]  # the three designs considered
     assert not at.sidebar.radio  # the results choice only shows where it matters
     at.switch_page("viewer/receipts.py").run()
     assert not at.exception
     assert at.sidebar.radio[0].options == list(SOURCES)
 
 
-@pytest.mark.parametrize("name, says", [("viewer/overview.py", "**The goal.**"),
+@pytest.mark.parametrize("name, says", [("viewer/overview.py", "<b>All four work the same way:"),
+                                        ("viewer/summary.py", "**The keyword baseline**"),
                                         ("viewer/architecture.py", "Coral steps call the model"),
                                         ("viewer/aws.py", "**Cost at 50,000 receipts a day:**")])
 def test_the_overview_architecture_and_aws_pages_run(name, says):
@@ -39,9 +45,16 @@ def test_the_overview_architecture_and_aws_pages_run(name, says):
     assert any(says in m.value for m in [*at.markdown, *at.caption])
 
 
-def test_the_overview_and_aws_pages_show_their_numbers():
-    tiles = {m.label: m.value for m in page("viewer/overview.py").metric}
-    assert tiles["Receipts exactly right"] == "28 / 28" and tiles["False alarms"] == "0 / 9"
+def test_the_summary_and_aws_pages_show_their_numbers():
+    summary = page("viewer/summary.py")
+    table = next(m.value for m in summary.markdown if "| On the 28 scored receipts |" in m.value)
+    assert "| Receipts exactly right | **28 / 28** | 20 / 28 |" in table
+    assert "| False alarms (should pass) | **0 / 9** | 2 / 9 |" in table
+    tiles = {m.label: m.value for m in summary.metric}
+    assert tiles["Cost of a run on the 28 scored receipts"] == "$0.0050"
+    assert tiles["Total spend on this project"] == "$0.53"
+    assert any("**The four timing receipts: all four match.**" in m.value and "**Left out: TIME-04" in m.value
+               for m in summary.markdown)
     aws = page("viewer/aws.py")
     assert {m.label: m.value for m in aws.metric}["Per month"] == "about $360"
     assert any("| Model (OpenRouter, Fireworks) |" in m.value for m in aws.markdown)  # the cost table, from the doc
