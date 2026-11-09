@@ -102,7 +102,12 @@ def test_the_trace_shows_the_code_checks_and_where_each_line_goes():
     routing = table_with(at, "goes to", "why")
     goes = dict(zip(routing["line"], zip(routing["goes to"], routing["why"])))
     assert goes["RCP-011-L1"] == ("review queue", "cited by a flag or review (ALC-03)")
-    assert goes["RCP-011-L2"][0] == "done automatically"
+    assert goes["RCP-011-L2"][0] == "no review needed"
+    # MCC-01 cites no line: the routing step names it with the receipt, not in the line table.
+    assert any("The receipt** is **flagged" in m.value and "MCC-01 (high) applies to the whole receipt" in m.value for m in at.markdown)
+
+    at = page("viewer/detail.py", source="System", selected="RCP-015")
+    assert any("MEAL-01 (medium) applies to the whole receipt" in m.value and "all 2 exception(s)" in m.value for m in at.markdown)
 
     at = page("viewer/detail.py", source="System", selected="RCP-023")  # not itemized: no model call at all
     assert any("4 · Classify" in m.value and "isn't itemized" in m.value for m in at.markdown)

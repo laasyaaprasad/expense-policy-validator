@@ -288,13 +288,23 @@ with trace_tab:
         # 8 · Routing -------------------------------------------------------------------------------------------
         routed = review_queue([trace], [record], texts, every_line=True)
         queued = [q for q in routed if q["reasons"]]
-        st.markdown("**8 · Routing** (code). A line goes to the review queue (the Review page) if the AI was unsure (EXC-03), a flag or "
-                    "review cites it, it is in the lookup's 2% audit, or the lookup and the AI disagree; otherwise it needs no "
-                    f"person. Here {len(queued)} of {len(routed)} lines go to the review queue. People's decisions there feed the "
-                    "lookup's memory through `make learn`.")
+        verdict = record["disposition"]
+        whole = ([f"{e['rule_id']} ({e['severity']})" for e in record["exceptions"] if not e.get("line_ids")]
+                 + [f"{s['rule_id']} (signal)" for s in record["review_signals"] if not s.get("line_ids")])
+        st.markdown("**8 · Routing** (code). Two things are routed: the receipt's verdict, and each line's category.")
+        st.markdown(
+            ("- **The receipt** passes, so no one needs to approve it." if verdict == "pass" else
+             f"- **The receipt** is **{'flagged' if verdict == 'flag' else 'sent for review'}**, so a person sees it with all "
+             f"{len(record['exceptions'])} exception(s) and {len(record['review_signals'])} signal(s).")
+            + (f" {', '.join(whole)} {'applies' if len(whole) == 1 else 'apply'} to the whole receipt, so "
+               f"{'it cites' if len(whole) == 1 else 'they cite'} no line and {'is' if len(whole) == 1 else 'are'} not in "
+               "the table below." if whole else "")
+            + f"\n- **Each line** goes to the review queue (the Review page) if the AI was unsure (EXC-03), a flag or review cites "
+              f"it, it is in the lookup's 2% audit, or the lookup and the AI disagree. Here {len(queued)} of {len(routed)} lines do. "
+              "People's decisions there feed the lookup's memory through `make learn`.")
         st.dataframe(pd.DataFrame([{
             "line": q["line_id"],
             "text": q["text"],
-            "goes to": "review queue" if q["reasons"] else "done automatically",
-            "why": "; ".join(q["reasons"]) or "confident, and no flag or review cites it",
+            "goes to": "review queue" if q["reasons"] else "no review needed",
+            "why": "; ".join(q["reasons"]) or "the AI was confident and no flag or review cites this line",
         } for q in routed]), hide_index=True, width="stretch")
