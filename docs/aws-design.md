@@ -47,6 +47,7 @@ Coral: the model, outside AWS. Purple: the lookup. Teal: people. The [pipeline d
 - **Logs: CloudWatch Logs**, one trace per receipt, with no line text or names.
 
 **Policy documents.** Policies and `rules/rules.yaml` live in git; a change is a reviewed pull request editing both. CI checks each quote and reruns the oracle and synthetic suites; the merge deploys. Each decision records its policy, model and prompt versions.
+- **Another option, and the common industry practice: an admin screen in the product.** Expensify, Concur, Navan and Ramp let finance admins edit limits, category lists and approval rules in a settings page; changes apply at once, with an audit log. *Pro:* the people who own the policy change it themselves, without waiting on an engineer. *Con:* testing is weaker, and a typo goes live immediately. So the screen would have to write to the same versioned `rules.yaml` and run the same checks and test suites before a change goes live.
 
 **Authentication and secrets.** Callers use Cognito client-credentials tokens (one client each, read or write scope), each reused for its hour since Cognito bills per token (one per request: $6,750 a month). The OpenRouter key sits in Secrets Manager, readable only by the worker, never in code or logs.
 
