@@ -75,7 +75,8 @@ def model_call(kind: str, key: str | None) -> dict | None:
 
 @st.cache_data
 def tests_by_rule() -> dict[str, list[str]]:
-    """Rule ID → the unit tests whose source mentions it, as "tests/<file>.py::<test>"."""
+    """Rule ID → the unit tests whose source mentions it, as "tests/<file>.py::<test>". The hand-written scenarios
+    are listed by scenarios_by_rule."""
     ids = [rule.id for rule in load_rules().rules]
     found: dict[str, list[str]] = {rule_id: [] for rule_id in ids}
     for path in sorted((ROOT / "tests").glob("test_*.py")):
@@ -88,14 +89,54 @@ def tests_by_rule() -> dict[str, list[str]]:
                 for rule_id in ids:
                     if rule_id in body:
                         found[rule_id].append(f"tests/{path.name}::{node.name}")
-    # The hand-written scenarios are data, run by one parametrized test: name each by its pytest ID.
+    return found
+
+
+@st.cache_data
+def scenarios_by_rule() -> dict[str, list[dict]]:
+    """Rule ID → the hand-written scenarios that expect it (tests/fixtures/synthetic_receipts.jsonl), each as
+    {"case", "expected"}, where expected reads like "flag: MEAL-01"."""
+    ids = [rule.id for rule in load_rules().rules]
+    found: dict[str, list[dict]] = {rule_id: [] for rule_id in ids}
     for row in (ROOT / "tests" / "fixtures" / "synthetic_receipts.jsonl").read_text(encoding="utf-8").splitlines():
-        if row.strip():
-            scenario = json.loads(row)
-            expected = json.dumps(scenario["expected"])
-            for rule_id in ids:
-                if f'"{rule_id}"' in expected:
-                    found[rule_id].append(f"tests/test_synthetic_receipts.py::test_scenario[{scenario['case']}]")
+        if not row.strip():
+            continue
+        scenario = json.loads(row)
+        several = len(scenario["expected"]) > 1
+        outcome = "; ".join(
+            f"{rid + ' ' if several else ''}{e.get('disposition', '')}"
+            + (f": {', '.join([*e.get('exceptions', {}), *e.get('signals', {})])}" if e.get("exceptions") or e.get("signals") else "")
+            for rid, e in scenario["expected"].items())
+        expected = json.dumps(scenario["expected"])
+        for rule_id in ids:
+            if f'"{rule_id}"' in expected:
+                found[rule_id].append({"case": scenario["case"], "expected": outcome})
+    return found
+
+
+@st.cache_resource
+def policies() -> dict:
+    """Rule ID → the rule as written in the policy documents: its title, section heading, full text and the rules
+    it mentions (validator/policies.py)."""
+    from validator.policies import load_policies
+    return load_policies()
+
+
+@st.cache_data
+def readings() -> dict[str, list[tuple[str, str]]]:
+    """Rule ID → how the engine reads policy text that leaves room: (decision, policy sentence) rows from the table in
+    NOTES.md. A row for "All caps" applies to every rule with a cap or threshold."""
+    caps = [rule.id for rule in load_rules().rules if any("cap" in k or "threshold" in k for k in rule.params)]
+    found: dict[str, list[tuple[str, str]]] = {}
+    lines = (ROOT / "NOTES.md").read_text(encoding="utf-8").splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("| Rule | Decision | Policy sentence |"))
+    for line in lines[start + 2:]:
+        if not line.startswith("|"):
+            break
+        rule_cell, decision, sentence = [cell.strip() for cell in line.strip("|").split("|")][:3]
+        targets = caps if rule_cell == "All caps" else [r.strip() for r in rule_cell.split(",")]
+        for rule_id in targets:
+            found.setdefault(rule_id, []).append((decision, sentence))
     return found
 
 

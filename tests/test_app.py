@@ -203,7 +203,21 @@ def test_the_trace_shows_exactly_what_the_model_was_sent_and_returned():
 def test_the_rulebook_shows_every_rule(source):
     at = page("viewer/rules.py", source=source)
     assert not at.exception
-    assert len(tables(at)[0]) == 40
+    assert len(table_with(at, "rule", "title", "what the rule says")) == 40
+
+
+def test_the_rulebook_explains_a_rule_from_policy_to_verdict():
+    at = page("viewer/rules.py", source="System", rule="ALC-02")
+    text = "\n".join(m.value for m in at.markdown)
+    assert "**ALC-02 — Alcohol per-attendee cap.**" in text  # the policy's own paragraph
+    assert "On its own it gives **flag** (medium severity)" in text and "**Where it runs:**" in text
+    assert "cites ALC-01, ALC-03" in text and "overridden by REG-01" in text
+    assert "Caps are inclusive" in text  # how we read it, from NOTES.md
+    assert {m.label: m.value for m in at.metric}["Recall"] == "100%"
+    assert "RCP-015" in text and r"\$55.00 each" in text  # a real finding
+    assert any(b.label == "Open RCP-015" for b in at.button)
+    scenarios = table_with(page("viewer/rules.py", source="System", rule="MEAL-01"), "scenario", "must give")
+    assert dict(zip(scenarios["scenario"], scenarios["must give"]))["One cent over the domestic cap"] == "flag: MEAL-01"
 
 
 def test_the_rulebook_shows_a_rules_text_check_receipts_and_tests():
