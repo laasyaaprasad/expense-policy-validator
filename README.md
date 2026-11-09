@@ -65,6 +65,7 @@ The classification prompt ([classifier.py](validator/classifier.py)) defines the
 - **`Decimal` money, inclusive caps.** *Why:* floating point can misjudge an amount at the cap, and a value at the cap is within it.
 - **Quotes stored word for word,** and a test checks each against the policy. *Why:* evidence is graded, and a stored quote can't be invented.
 - **Checked:** on the answer key's categories the engine matched all 28 in-scope receipts (the assistant that wrote it had the key to hand), and switching off any one check fails a test ([`test_check_coverage.py`](tests/test_check_coverage.py)).
+- **Unit tests for the brief's five cases** in [`tests/test_engine.py`](tests/test_engine.py): a carve-out without its evidence (RCP-027), a regional override (RCP-016), a threshold boundary (RCP-006 and RCP-026), the severity ladder (RCP-031) and a review signal on its own (RCP-028).
 - **Confidence threshold: 0.5,** pre-registered and held on the dev set (at temperature 1 its one miss scored 0.43; at 0 all 43 are right, the lowest at 0.61): a line below it raises EXC-03 and is left out of every other rule. *Why:* fixed before any output was seen, so it isn't tuned on the test set, and kept low because every EXC-03 signal is scored as wrong.
 
 ## Evaluation summary
