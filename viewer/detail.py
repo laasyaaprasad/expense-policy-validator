@@ -374,3 +374,39 @@ with trace_tab:
             "goes to": "review queue" if q["reasons"] else "no review needed",
             "why": "; ".join(q["reasons"]) or "the AI was confident and no flag or review cites this line",
         } for q in routed]), hide_index=True, width="stretch")
+
+# --- the final output, the four things the brief asks for, as recorded in outputs/results.jsonl --------
+with st.expander("Final output for this receipt", icon=":material/assignment_turned_in:"):
+    st.caption(f"Exactly what the system recorded for {rid} in `{data.SOURCES[source].relative_to(data.ROOT)}`: the "
+               "disposition, a category for every line, the exceptions and the review signals. Laid out as tables "
+               "rather than JSON.")
+    st.markdown(f"**Disposition:** {record['disposition']}")
+    st.markdown("**Categories**")
+    st.dataframe(pd.DataFrame([{
+        "line": line["line_id"],
+        "text": line["description_raw"],
+        "category": line["category"],
+        "restricted": line["restricted"],
+        "confidence": line["confidence"],
+    } for line in record["line_items"]]).style.format({"confidence": "{:.3f}"}), hide_index=True, width="stretch")
+    st.markdown("**Exceptions**")
+    if record["exceptions"]:
+        st.dataframe(pd.DataFrame([{
+            "rule": e["rule_id"],
+            "severity": e["severity"],
+            "lines": ", ".join(e["line_ids"]) or "whole receipt",
+            "policy document": e["policy_doc"],
+            "explanation": e["explanation"],
+        } for e in record["exceptions"]]), hide_index=True, width="stretch")
+    else:
+        st.write("None.")
+    st.markdown("**Review signals**")
+    if record["review_signals"]:
+        st.dataframe(pd.DataFrame([{
+            "rule": s["rule_id"],
+            "lines": ", ".join(s.get("line_ids", [])) or "whole receipt",
+            "policy document": s["policy_doc"],
+            "reason": s["reason"],
+        } for s in record["review_signals"]]), hide_index=True, width="stretch")
+    else:
+        st.write("None.")

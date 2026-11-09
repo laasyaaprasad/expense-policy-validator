@@ -229,3 +229,15 @@ def test_the_rulebook_shows_a_rules_text_check_receipts_and_tests():
     assert any("tests/test_" in m.value for m in at.markdown)
     for rule_id in ("EXC-01", "MCC-03", "REG-02", "TIME-03"):  # mechanics, overrides and takeovers render too
         assert not page("viewer/rules.py", source="System", rule=rule_id).exception
+
+
+@pytest.mark.parametrize("source", list(SOURCES))
+def test_each_receipt_ends_with_its_final_output(source):
+    at = page("viewer/detail.py", source=source, selected="RCP-015")
+    assert any(e.label == "Final output for this receipt" for e in at.expander)
+    record = {"System": "flag", "Keyword baseline": None}[source]
+    if record:
+        assert any(m.value == "**Disposition:** flag" for m in at.markdown)
+        exceptions = table_with(at, "rule", "severity", "policy document", "explanation")
+        assert dict(zip(exceptions["rule"], exceptions["lines"])) == {"MEAL-01": "whole receipt", "ALC-02": "RCP-015-L2"}
+        assert len(table_with(at, "line", "text", "category", "restricted", "confidence")) == 3
