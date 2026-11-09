@@ -35,11 +35,14 @@ record, answer, receipt = results[rid], gold[rid], receipts[rid]
 left, middle, right = st.columns(3)
 left.markdown(f"**{receipt.merchant_name}**  \nMCC {receipt.mcc} · {receipt.mcc_description}  \n"
               f"{receipt.transaction_datetime:%Y-%m-%d %H:%M} (local)")
-middle.markdown(f"**{receipt.total_amount:,.2f} {receipt.currency}** (${receipt.total_amount_usd:,.2f})  \n"
+rate = (f"  \nRate: 1 {receipt.currency} = {receipt.fx_rate_to_usd:,.6g} USD"
+        if receipt.fx_rate_to_usd is not None and receipt.currency not in (None, "USD") else "")
+middle.markdown(f"**{receipt.total_amount:,.2f} {receipt.currency}** (${receipt.total_amount_usd:,.2f}){rate}  \n"
                 f"Declared: {receipt.submitted_expense_type}  \n"
                 f"Attendees: {receipt.attendee_count if receipt.attendee_count is not None else 'not recorded'}")
+nights = f" ({receipt.trip_nights} nights)" if receipt.trip_id and receipt.trip_nights is not None else ""
 right.markdown(f"Employee {receipt.employee_id} · {receipt.employee_country} ({receipt.entity})  \n"
-               f"Trip: {receipt.trip_id or 'none'}  \nReference: {receipt.pre_approval_ref or 'none'}")
+               f"Trip: {receipt.trip_id or 'none'}{nights}  \nReference: {receipt.pre_approval_ref or 'none'}")
 
 ours, correct = st.columns(2)
 ours.metric(f"Ours ({source})", record["disposition"])
@@ -68,10 +71,16 @@ with result_tab:
         who = t.get("decided_by", "") + (f" (lookup in shadow: {t['shadow']})" if t.get("shadow") else "") + (" · audit sample" if t.get("audit") else "")
         return f"{who} → human review (EXC-03)" if who.startswith("model") and line["confidence"] < threshold else who
 
+    money = {item.line_id: item for item in receipt.line_items}
+    currency = receipt.currency or ""
     lines = pd.DataFrame([{
         "line": line["line_id"],
         "text": line["description_raw"],
         **({"English gloss": glosses.get(line["line_id"], "")} if source == data.DEFAULT_SOURCE else {}),
+        "qty": float(money[line["line_id"]].quantity),
+        f"unit price ({currency})": float(money[line["line_id"]].unit_price),
+        f"amount ({currency})": float(money[line["line_id"]].amount),
+        "amount ($)": float(money[line["line_id"]].amount_usd),
         "category": line["category"],
         "correct category": answer.items[line["line_id"]].category,
         "restricted": line["restricted"],
@@ -86,7 +95,9 @@ with result_tab:
         return [f"background-color: {data.MISMATCH}" if row["category"] != row["correct category"] else ""] * len(row)
 
 
-    st.dataframe(lines.style.apply(tint, axis=1).format({"confidence": "{:.3f}"}), hide_index=True, width="stretch")
+    st.dataframe(lines.style.apply(tint, axis=1).format({
+        "confidence": "{:.3f}", "qty": "{:g}", f"unit price ({currency})": "{:,.2f}", f"amount ({currency})": "{:,.2f}",
+        "amount ($)": "{:,.2f}"}), hide_index=True, width="stretch")
     st.caption(("The semantic lookup runs in shadow mode: it records what it would decide, and the model decides every line. "
                 if data.lookup_in_shadow() else
                 "Each line is decided by the semantic lookup when every word matches, by meaning, a line a person reviewed and no restricted "

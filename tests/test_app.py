@@ -92,6 +92,8 @@ def test_the_detail_page_shows_each_step_of_the_trace_in_the_diagrams_order():
 
 def test_the_trace_shows_the_code_checks_and_where_each_line_goes():
     at = page("viewer/detail.py", source="System", selected="RCP-011")
+    items = table_with(at, "qty", "amount ($)")
+    assert {"unit price (USD)", "amount (USD)"} <= set(items.columns) and items["amount ($)"].sum() == 79.0  # the receipt's total
     retrieved = table_with(at, "rule", "why it was retrieved", "what the rule says")
     says = dict(zip(retrieved["rule"], retrieved["what the rule says"]))
     assert says["ALC-03"].startswith("Alcohol purchased from a package store") and all(says.values())
