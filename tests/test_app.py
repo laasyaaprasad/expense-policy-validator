@@ -23,7 +23,29 @@ def page(name: str, **state) -> AppTest:
 def test_the_app_runs_with_its_navigation():
     at = page("app.py")
     assert not at.exception
+    assert [t.value for t in at.title] == ["Expense Policy Validator"]  # it opens on the overview
+    assert not at.sidebar.radio  # the results choice only shows where it matters
+    at.switch_page("viewer/receipts.py").run()
+    assert not at.exception
     assert at.sidebar.radio[0].options == list(SOURCES)
+
+
+@pytest.mark.parametrize("name, says", [("viewer/overview.py", "**The goal.**"),
+                                        ("viewer/architecture.py", "Coral steps call the model"),
+                                        ("viewer/aws.py", "**Cost at 50,000 receipts a day:**")])
+def test_the_overview_architecture_and_aws_pages_run(name, says):
+    at = page(name)
+    assert not at.exception
+    assert any(says in m.value for m in [*at.markdown, *at.caption])
+
+
+def test_the_overview_and_aws_pages_show_their_numbers():
+    tiles = {m.label: m.value for m in page("viewer/overview.py").metric}
+    assert tiles["Receipts exactly right"] == "28 / 28" and tiles["False alarms"] == "0 / 9"
+    aws = page("viewer/aws.py")
+    assert {m.label: m.value for m in aws.metric}["Per month"] == "about $360"
+    assert any("| Model (OpenRouter, Fireworks) |" in m.value for m in aws.markdown)  # the cost table, from the doc
+    assert all(m.value.replace(r"\$", "").count("$") < 2 for m in aws.markdown)  # no dollar pair renders as a formula
 
 
 @pytest.mark.parametrize("source", list(SOURCES))
