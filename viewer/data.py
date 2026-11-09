@@ -4,6 +4,8 @@ The correct answers come from the answer key through evaluation/gold.py, like ev
 evaluation; they are shown beside the results, never used to produce them.
 """
 
+import ast
+import inspect
 import json
 
 import streamlit as st
@@ -12,7 +14,7 @@ from evaluation.evaluate import BASELINE_PATH, METRICS_PATH, load_results, recei
 from evaluation.gold import GoldReceipt, in_scope, load_gold
 from validator.data import ROOT, ReceiptInput, load_receipts
 from validator.pipeline import OUTPUT_DIR
-from validator.rules_config import load_rules
+from validator.rules_config import RulesConfig, load_rules
 
 SOURCES = {"System": OUTPUT_DIR / "results.jsonl", "Keyword baseline": BASELINE_PATH}
 DEFAULT_SOURCE = "System"
@@ -57,6 +59,62 @@ def retrieval_reasons() -> dict[str, dict[str, str]]:
     """Rule ID → why the retriever chose it, per receipt."""
     with (OUTPUT_DIR / "retrieval.jsonl").open(encoding="utf-8") as f:
         return {row["receipt_id"]: row["reasons"] for row in map(json.loads, f)}
+
+
+@st.cache_resource
+def rules() -> RulesConfig:
+    return load_rules()
+
+
+@st.cache_data
+def model_call(kind: str, key: str | None) -> dict | None:
+    """One cached model call (cache/<kind>/<key>.json): exactly what was sent and what came back."""
+    path = ROOT / "cache" / kind / f"{key}.json"
+    return json.loads(path.read_text(encoding="utf-8")) if key and path.exists() else None
+
+
+@st.cache_data
+def tests_by_rule() -> dict[str, list[str]]:
+    """Rule ID → the unit tests whose source mentions it, as "tests/<file>.py::<test>"."""
+    ids = [rule.id for rule in load_rules().rules]
+    found: dict[str, list[str]] = {rule_id: [] for rule_id in ids}
+    for path in sorted((ROOT / "tests").glob("test_*.py")):
+        if path.name == "test_app.py":  # the viewer's own tests name rules as examples; they don't test them
+            continue
+        source = path.read_text(encoding="utf-8")
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+                body = ast.get_source_segment(source, node) or ""
+                for rule_id in ids:
+                    if rule_id in body:
+                        found[rule_id].append(f"tests/{path.name}::{node.name}")
+    # The hand-written scenarios are data, run by one parametrized test: name each by its pytest ID.
+    for row in (ROOT / "tests" / "fixtures" / "synthetic_receipts.jsonl").read_text(encoding="utf-8").splitlines():
+        if row.strip():
+            scenario = json.loads(row)
+            expected = json.dumps(scenario["expected"])
+            for rule_id in ids:
+                if f'"{rule_id}"' in expected:
+                    found[rule_id].append(f"tests/test_synthetic_receipts.py::test_scenario[{scenario['case']}]")
+    return found
+
+
+def check_source(rule_id: str) -> str | None:
+    """The Python that checks a rule: its registered check, with the module's helpers it calls, or for an engine
+    mechanic the code that carries it out."""
+    from validator.engine import context, disposition, engine, rules as checks
+    mechanics = {"EXC-01": [disposition.disposition], "EXC-02": [checks._needs_reference],
+                 "EXC-03": [context.ReceiptView.__init__], "EXC-04": [engine._check_evidence],
+                 "MCC-03": [context.ReceiptView.on_premises.fget], "REG-05": [context.ReceiptView.rate.fget]}
+    if rule_id in mechanics:
+        return "\n\n".join(inspect.getsource(fn) for fn in mechanics[rule_id])
+    fn = checks.CHECKS.get(rule_id)
+    if fn is None:
+        return None
+    source = inspect.getsource(fn)
+    helpers = [name for name, obj in vars(checks).items()
+               if name.startswith("_") and inspect.isfunction(obj) and f"{name}(" in source]
+    return "\n\n".join([source] + [inspect.getsource(getattr(checks, name)) for name in helpers])
 
 
 @st.cache_data

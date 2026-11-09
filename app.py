@@ -9,6 +9,7 @@ st.set_page_config(page_title="Expense Policy Validator", layout="wide")
 page = st.navigation([
     st.Page("viewer/receipts.py", title="Receipt list", icon=":material/list:", default=True),
     st.Page("viewer/detail.py", title="Receipt detail", icon=":material/receipt_long:"),
+    st.Page("viewer/rules.py", title="Rulebook", icon=":material/gavel:"),
     st.Page("viewer/metrics.py", title="Metrics", icon=":material/analytics:"),
     st.Page("viewer/review.py", title="Review", icon=":material/rate_review:"),
 ])

@@ -137,3 +137,59 @@ def test_the_metrics_page_answers_the_failure_and_base_rate_questions():
     tiles = {m.label: m.value for m in at.metric}
     assert tiles["Lines right"] == "255 / 270" and tiles["False alarms"] == "10 / 98" and tiles["Violations caught"] == "2 / 2"
     assert any("TALAM UNGU" in m.value for m in at.markdown)
+
+
+def test_the_list_says_what_each_receipt_tests_and_searches_items_and_notes():
+    at = page("viewer/receipts.py", source="System")
+    table = tables(at)[0]
+    assert table.set_index("receipt").loc["RCP-004", "what it tests (answer key)"].startswith("Keyword trap")
+    at.text_input[0].input("cooking wine").run()
+    assert list(tables(at)[0]["receipt"]) == ["RCP-014"]  # found by its line text
+    at.text_input[0].input("carve-out").run()
+    assert "RCP-027" in set(tables(at)[0]["receipt"])  # found by the answer key's note
+    at.text_input[0].input("").run()
+    at.multiselect[0].set_value(["review"]).run()
+    assert set(tables(at)[0]["ours"]) == {"review"}
+
+
+def test_the_detail_page_leads_with_the_verdict_and_the_exceptions():
+    at = page("viewer/detail.py", source="System", selected="RCP-015")
+    assert not at.exception
+    card = next(m.value for m in at.markdown if m.value.startswith("#### "))
+    assert card.startswith("#### Flagged · 2 exception(s)")
+    assert any("**MEAL-01** (medium) · whole receipt" in m.value and "**ALC-02** (medium) · L2" in m.value for m in at.markdown)
+    assert all(m.value.replace(r"\$", "").count("$") < 2 for m in at.markdown)  # no unescaped dollar pair renders as a formula
+    headings = [h.value for h in at.subheader]
+    assert headings.index("Exceptions raised") < headings.index("Line items")
+    assert [b.label for b in at.button if "Rulebook" in b.label] == ["Open MEAL-01 in the Rulebook", "Open ALC-02 in the Rulebook"]
+    items = table_with(at, "cited by", "category")
+    assert dict(zip(items["line"], items["cited by"])) == {"RCP-015-L1": "", "RCP-015-L2": "ALC-02", "RCP-015-L3": ""}
+
+
+def test_the_trace_shows_exactly_what_the_model_was_sent_and_returned():
+    at = page("viewer/detail.py", source="System", selected="RCP-011")
+    labels = [e.label for e in at.expander]
+    assert any("translation call" in label for label in labels) and any("classification call" in label for label in labels)
+    sent = next(c.value for c in at.code if '"merchant"' in c.value)  # the classification call's payload
+    returned = next(c.value for c in at.code if '"category"' in c.value and '"reason"' in c.value)
+    assert '"merchant": "Cellar Door Fine Wines"' in sent and "79" not in sent  # the payload carries no amounts
+    assert '"category": "alcohol"' in returned
+    assert any("served by **Fireworks**" in m.value and "temperature 0.0" in m.value for m in at.markdown)
+
+
+@pytest.mark.parametrize("source", list(SOURCES))
+def test_the_rulebook_shows_every_rule(source):
+    at = page("viewer/rules.py", source=source)
+    assert not at.exception
+    assert len(tables(at)[0]) == 40
+
+
+def test_the_rulebook_shows_a_rules_text_check_receipts_and_tests():
+    at = page("viewer/rules.py", source="System", rule="ALC-03")
+    assert not at.exception
+    assert "def alc_03" in at.code[0].value and "def _broken" in at.code[0].value
+    where = table_with(at, "receipt", "raised by us", "in the correct answer")
+    assert set(where["receipt"]) >= {"RCP-011", "RCP-014"} and set(where["agree"]) == {"✓"}
+    assert any("tests/test_" in m.value for m in at.markdown)
+    for rule_id in ("EXC-01", "MCC-03", "REG-02", "TIME-03"):  # mechanics, overrides and takeovers render too
+        assert not page("viewer/rules.py", source="System", rule=rule_id).exception

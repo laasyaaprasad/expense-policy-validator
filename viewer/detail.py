@@ -1,6 +1,8 @@
 """Receipt detail: the line items with category and confidence, the exceptions with the policy text
 they cite, and the correct answer alongside; and the trace, every pipeline step in the architecture diagram's order."""
 
+import json
+
 import pandas as pd
 import streamlit as st
 
@@ -44,9 +46,25 @@ nights = f" ({receipt.trip_nights} nights)" if receipt.trip_id and receipt.trip_
 right.markdown(f"Employee {receipt.employee_id} · {receipt.employee_country} ({receipt.entity})  \n"
                f"Trip: {receipt.trip_id or 'none'}{nights}  \nReference: {receipt.pre_approval_ref or 'none'}")
 
-ours, correct = st.columns(2)
-ours.metric(f"Ours ({source})", record["disposition"])
-correct.metric("Correct answer", answer.disposition)
+def md(text: str) -> str:
+    """Markdown-safe text: a pair of dollar signs would otherwise render as a formula."""
+    return text.replace("$", r"\$")
+
+
+# --- the verdict at a glance --------------------------------------------------------------------
+texts_by_line = {item.line_id: item.description_raw for item in receipt.line_items}
+with st.container(border=True):
+    n_exc, n_sig = len(record["exceptions"]), len(record["review_signals"])
+    headline = {"flag": "Flagged", "review": "Sent for review", "pass": "Passes"}[record["disposition"]]
+    st.markdown(f"#### {headline}" + (f" · {n_exc} exception(s)" if n_exc else "") + (f" · {n_sig} signal(s)" if n_sig else "")
+                + f" <small>({source}; correct answer: {answer.disposition})</small>", unsafe_allow_html=True)
+    bullets = [f"- **{e['rule_id']}** ({e['severity']}) · "
+               + (", ".join(f"{line_id.rsplit('-', 1)[-1]} “{md(texts_by_line.get(line_id, ''))}”" for line_id in e["line_ids"])
+                  or "whole receipt") + f": {md(e['explanation'])}" for e in record["exceptions"]]
+    bullets += [f"- **{s['rule_id']}** (signal): {md(s['reason'])}" for s in record["review_signals"]]
+    st.markdown("\n".join(bullets) if bullets else "Nothing breaks policy, and nothing needs a person.")
+    st.caption(f"What this receipt tests (the answer key's note; the system never sees it): {md(answer.notes)}")
+
 match = data.match_label(rid, record)
 if match.endswith("(not scored)"):
     st.info(f"Out of scope on this track (timing rules), so not counted in the score. "
@@ -57,10 +75,54 @@ else:
     st.error("Differs from the correct answer in its disposition, its exceptions or signals, or the line items cited. "
              "Any wrong category is tinted below.")
 
+
+def open_rule(rule_id: str) -> None:
+    st.session_state["rule"] = rule_id
+
+
 result_tab, trace_tab = st.tabs([":material/fact_check: Result vs the correct answer",
                                  ":material/timeline: Trace: how it was decided"])
 
 with result_tab:
+    # --- exceptions and signals, beside the correct answer ---------------------------------------------
+    gold_lines = {e.rule_id: sorted(e.line_ids) for e in answer.exceptions}
+    our_lines = {e["rule_id"]: sorted(e["line_ids"]) for e in record["exceptions"]}
+    ours, correct = st.columns(2)
+    with ours:
+        st.subheader("Exceptions raised")
+        if not record["exceptions"]:
+            st.write("None.")
+        for e in record["exceptions"]:
+            verdict = ("✓ in the correct answer" if gold_lines.get(e["rule_id"]) == sorted(e["line_ids"]) else
+                       "≈ in the correct answer, other line items" if e["rule_id"] in gold_lines else "✗ not in the correct answer")
+            with st.container(border=True):
+                st.markdown(f"**{e['rule_id']}** · {e['severity']} · {', '.join(e['line_ids']) or 'whole receipt'}  \n{verdict}")
+                st.markdown(md(e["explanation"]))
+                st.markdown("\n".join(f"> {md(line)}" for line in e["evidence"].splitlines()))
+                st.caption(e["policy_doc"])
+                if st.button(f"Open {e['rule_id']} in the Rulebook", key=f"rule-{e['rule_id']}", icon=":material/gavel:",
+                             type="tertiary", on_click=open_rule, args=(e["rule_id"],)):
+                    st.switch_page("viewer/rules.py")
+        st.subheader("Review signals")
+        for s in record["review_signals"]:
+            st.markdown(f"**{s['rule_id']}**: {md(s['reason'])}")
+        if not record["review_signals"]:
+            st.write("None.")
+    with correct:
+        st.subheader("Correct exceptions")
+        if not answer.exceptions:
+            st.write("None.")
+        for e in answer.exceptions:
+            found = "✓ raised" if our_lines.get(e.rule_id) == sorted(e.line_ids) else "≈ raised, other line items" if e.rule_id in our_lines else "✗ missed"
+            with st.container(border=True):
+                st.markdown(f"**{e.rule_id}** · {e.severity} · {', '.join(e.line_ids) or 'whole receipt'}  \n{found}")
+                st.markdown(md(e.reason))
+        st.subheader("Correct signals")
+        for s in answer.review_signals:
+            st.markdown(f"**{s.rule_id}**: {md(s.reason)}")
+        if not answer.review_signals:
+            st.write("None.")
+
     # --- line items ---------------------------------------------------------------------------------
     st.subheader("Line items")
     trace_lines = {x["line_id"]: x for x in (data.traces().get(rid) or {}).get("classify", {}).get("lines", [])} if source == data.DEFAULT_SOURCE else {}
@@ -71,20 +133,25 @@ with result_tab:
         who = t.get("decided_by", "") + (f" (lookup in shadow: {t['shadow']})" if t.get("shadow") else "") + (" · audit sample" if t.get("audit") else "")
         return f"{who} → human review (EXC-03)" if who.startswith("model") and line["confidence"] < threshold else who
 
+    cited: dict[str, list[str]] = {}
+    for finding in record["exceptions"] + record["review_signals"]:
+        for line_id in finding.get("line_ids", []):
+            cited.setdefault(line_id, []).append(finding["rule_id"])
     money = {item.line_id: item for item in receipt.line_items}
     currency = receipt.currency or ""
     lines = pd.DataFrame([{
         "line": line["line_id"],
         "text": line["description_raw"],
         **({"English gloss": glosses.get(line["line_id"], "")} if source == data.DEFAULT_SOURCE else {}),
-        "qty": float(money[line["line_id"]].quantity),
-        f"unit price ({currency})": float(money[line["line_id"]].unit_price),
-        f"amount ({currency})": float(money[line["line_id"]].amount),
-        "amount ($)": float(money[line["line_id"]].amount_usd),
+        "cited by": ", ".join(cited.get(line["line_id"], [])),
         "category": line["category"],
         "correct category": answer.items[line["line_id"]].category,
         "restricted": line["restricted"],
         "confidence": line["confidence"],
+        "qty": float(money[line["line_id"]].quantity),
+        f"unit price ({currency})": float(money[line["line_id"]].unit_price),
+        f"amount ({currency})": float(money[line["line_id"]].amount),
+        "amount ($)": float(money[line["line_id"]].amount_usd),
         **({"decided by": decided_by(line)} if trace_lines else {}),
         "recipient": f"{line['recipient_name']} ({line['recipient_type']})" if line.get("recipient_name") else "",
         "reason": line.get("reason") or "",
@@ -98,54 +165,20 @@ with result_tab:
     st.dataframe(lines.style.apply(tint, axis=1).format({
         "confidence": "{:.3f}", "qty": "{:g}", f"unit price ({currency})": "{:,.2f}", f"amount ({currency})": "{:,.2f}",
         "amount ($)": "{:,.2f}"}), hide_index=True, width="stretch")
-    st.caption(("The semantic lookup runs in shadow mode: it records what it would decide, and the model decides every line. "
-                if data.lookup_in_shadow() else
-                "Each line is decided by the semantic lookup when every word matches, by meaning, a line a person reviewed and no restricted "
-                "line is close; otherwise by the model. A fixed 2% of the lookup's decisions are marked as an audit sample for a person to check. ")
+    st.caption("*Cited by* names the exceptions and signals that cite a line; a whole-receipt exception cites none. "
+               + ("The semantic lookup runs in shadow mode: it records what it would decide, and the model decides every line. "
+                  if data.lookup_in_shadow() else
+                  "Each line is decided by the semantic lookup when every word matches, by meaning, a line a person reviewed and no "
+                  "restricted line is close; otherwise by the model. A fixed 2% of the lookup's decisions are marked as an audit "
+                  "sample for a person to check. ")
                + f"A model confidence below {threshold} raises EXC-03 (human review) and keeps the item out of every rule. "
                "The lookup never decides a restricted category.")
 
-    # --- exceptions and signals ---------------------------------------------------------------------
-    gold_lines = {e.rule_id: sorted(e.line_ids) for e in answer.exceptions}
-    our_lines = {e["rule_id"]: sorted(e["line_ids"]) for e in record["exceptions"]}
-    ours, correct = st.columns(2)
-    with ours:
-        st.subheader("Exceptions raised")
-        if not record["exceptions"]:
-            st.write("None.")
-        for e in record["exceptions"]:
-            verdict = ("✓ in the correct answer" if gold_lines.get(e["rule_id"]) == sorted(e["line_ids"]) else
-                       "≈ in the correct answer, other line items" if e["rule_id"] in gold_lines else "✗ not in the correct answer")
-            with st.container(border=True):
-                st.markdown(f"**{e['rule_id']}** · {e['severity']} · {', '.join(e['line_ids']) or 'whole receipt'}  \n{verdict}")
-                st.write(e["explanation"])
-                st.markdown("\n".join(f"> {line}" for line in e["evidence"].splitlines()))
-                st.caption(e["policy_doc"])
-        st.subheader("Review signals")
-        for s in record["review_signals"]:
-            st.markdown(f"**{s['rule_id']}**: {s['reason']}")
-        if not record["review_signals"]:
-            st.write("None.")
-    with correct:
-        st.subheader("Correct exceptions")
-        if not answer.exceptions:
-            st.write("None.")
-        for e in answer.exceptions:
-            found = "✓ raised" if our_lines.get(e.rule_id) == sorted(e.line_ids) else "≈ raised, other line items" if e.rule_id in our_lines else "✗ missed"
-            with st.container(border=True):
-                st.markdown(f"**{e.rule_id}** · {e.severity} · {', '.join(e.line_ids) or 'whole receipt'}  \n{found}")
-                st.write(e.reason)
-        st.subheader("Correct signals")
-        for s in answer.review_signals:
-            st.markdown(f"**{s.rule_id}**: {s.reason}")
-        if not answer.review_signals:
-            st.write("None.")
-
     with st.expander("Waivers, rules not evaluated, and every rule considered"):
         for w in record.get("waived", []):
-            st.markdown(f"Waived **{w['rule_id']}**: {w.get('explanation', w['reference'])}")
+            st.markdown(f"Waived **{w['rule_id']}**: {md(w.get('explanation', w['reference']))}")
         for n in record.get("not_evaluated", []):
-            st.markdown(f"Not evaluated **{n['rule_id']}**: {n['reason']}")
+            st.markdown(f"Not evaluated **{n['rule_id']}**: {md(n['reason'])}")
         st.write("Rules evaluated: " + ", ".join(record.get("rules_evaluated", [])))
         st.caption(f"policy {record.get('policy_version')} · {record.get('provider')} / {record.get('model')} · {record.get('prompt_version')}")
 
@@ -163,6 +196,37 @@ with trace_tab:
         closest = lambda x: (lambda n: f"{n[0][0]} ({n[0][1]}, {n[0][2]:.3f})" if n else "")(x.get("nearest"))
         st.caption("Every step in the order the pipeline runs it, as in the architecture diagram: normalise, lookup, translate, "
                    "classify, retrieve, engine, report and routing.")
+
+        def pretty(text: str) -> str:
+            try:
+                return json.dumps(json.loads(text), indent=2, ensure_ascii=False)
+            except (TypeError, ValueError):
+                return text
+
+        def show_call(kind: str, key: str | None, what: str) -> None:
+            """Exactly what one model call was sent and returned, from the committed cache (cache/<kind>/<key>.json)."""
+            call = data.model_call(kind, key)
+            if call is None:
+                return
+            params, response = call["request"]["params"], call["response"]
+            usage = response.get("usage") or {}
+            messages = {m["role"]: m["content"] for m in params["messages"]}
+            reasoning = (params.get("extra_body") or {}).get("reasoning", {}).get("enabled")
+            with st.expander(f"What the model was sent and what it returned: the {what} call", icon=":material/data_object:"):
+                st.markdown(
+                    f"`{params['model']}` served by **{response.get('provider')}** · temperature {params.get('temperature')} · "
+                    f"reasoning {'on' if reasoning else 'off'} · prompt `{call['request']['prompt_version']}` · "
+                    f"{usage.get('prompt_tokens')} tokens in ({(usage.get('prompt_tokens_details') or {}).get('cached_tokens') or 0} "
+                    f"cached), {usage.get('completion_tokens')} out · \\${usage.get('cost') or 0:.6f} · `cache/{kind}/{key}.json`")
+                sent, returned = st.columns(2)
+                sent.markdown("**Sent**: only the merchant, merchant category, declared expense type and line text; "
+                              "no amounts, dates or employee details.")
+                sent.code(pretty(messages.get("user", "")), language="json")
+                returned.markdown("**Returned**" + (": confidence is the probability of each category's tokens, which are "
+                                                    "stored in the same file." if params.get("logprobs") else ""))
+                returned.code(pretty(response.get("content", "")), language="json")
+                st.markdown("**Instructions** (the system prompt, the same for every receipt)")
+                st.code(messages.get("system", ""), language="markdown", height=240)
 
         # 1 · Normalise -----------------------------------------------------------------------------------------
         cleaned = {line_id: normalise(text) for line_id, text in texts.items()}
@@ -215,6 +279,7 @@ with trace_tab:
         if translated:
             st.dataframe(pd.DataFrame([{"line": line_id, "text": texts.get(line_id, ""), "English gloss": glosses.get(line_id, "")}
                                        for line_id in translated]), hide_index=True, width="stretch")
+            show_call("translate", trace["translate"].get("call"), "translation")
 
         # 4 · Classify ------------------------------------------------------------------------------------------
         model_rows = []
@@ -233,6 +298,7 @@ with trace_tab:
                  "For lines the lookup decided, its answer is kept as a second opinion."))
         if model_rows:
             st.dataframe(pd.DataFrame(model_rows).style.format({"confidence": "{:.6f}"}), hide_index=True, width="stretch")
+        show_call("classify", trace["classify"].get("call"), "classification")
 
         # 5 · Retrieve ------------------------------------------------------------------------------------------
         reasons = data.retrieval_reasons().get(rid, {})
