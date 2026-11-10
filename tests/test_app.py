@@ -209,6 +209,30 @@ def test_the_detail_page_leads_with_the_verdict_and_the_exceptions():
     assert dict(zip(items["line"], items["cited by"])) == {"RCP-015-L1": "", "RCP-015-L2": "ALC-02", "RCP-015-L3": ""}
 
 
+def test_every_receipt_says_how_to_explain_it():
+    from viewer import insights
+
+    for n in range(1, 33):
+        rid = f"RCP-{n:03d}"
+        assert insights.why_it_matters(rid), rid
+        assert [s.split(":**")[0] for s in insights.walk_through(rid)] == [
+            "**What it is", "**Reading the lines (model)", "**Rules retrieved (code)", "**What the engine found (code)",
+            "**Verdict"], rid
+    assert any("baseline gets it wrong" in p and "flag (ALC-01)" in p for p in insights.why_it_matters("RCP-004"))
+    assert any("“Beer battered cod & chips” is alcohol to keywords, food_beverage to the model" in p
+               for p in insights.why_it_matters("RCP-004"))
+    assert any("so APAC; its rules replace MEAL-01, ALC-01, ALC-02, ALC-03" in p for p in insights.why_it_matters("RCP-016"))
+    assert any("GIFT-04 takes L1, L2 from GIFT-01" in p for p in insights.why_it_matters("RCP-022"))
+    assert not any("regional rule" in p for p in insights.why_it_matters("RCP-019"))  # its replaced rules never applied
+    assert insights.why_it_matters("RCP-010")[0].startswith("**A direct case:** ALC-01 (high)")
+    at = page("viewer/detail.py", source="System", selected="RCP-016")
+    assert not at.exception
+    assert at.expander[0].label == "How to explain this receipt"
+    assert any("REG-01 (high)" in m.value for m in at.expander[0].markdown)
+    assert all(e.label != "How to explain this receipt"
+               for e in page("viewer/detail.py", source="Keyword baseline", selected="RCP-016").expander)
+
+
 def test_the_trace_shows_exactly_what_the_model_was_sent_and_returned():
     at = page("viewer/detail.py", source="System", selected="RCP-011")
     labels = [e.label for e in at.expander]

@@ -8,7 +8,7 @@ import streamlit as st
 
 from validator.normaliser import normalise
 from validator.reviews import review_queue
-from viewer import data
+from viewer import data, insights
 
 source = data.current_source()
 results, gold, receipts, glosses = data.results(source), data.gold(), data.receipts(), data.glosses()
@@ -74,6 +74,13 @@ elif match == "✓":
 else:
     st.error("Differs from the correct answer in its disposition, its exceptions or signals, or the line items cited. "
              "Any wrong category is tinted below.")
+
+# --- how to explain it: built from the system's outputs and trace, for every receipt -----------------
+if source == data.DEFAULT_SOURCE:
+    with st.expander("How to explain this receipt", expanded=True, icon=":material/lightbulb:"):
+        st.markdown("**Why it's worth a look**\n" + "\n".join(f"- {point}" for point in insights.why_it_matters(rid)))
+        st.markdown("**Walk through it**\n" + "\n".join(f"{n}. {s}" for n, s in enumerate(insights.walk_through(rid), 1)))
+        st.caption("Built from this receipt's outputs, trace and the keyword baseline's run; the Trace tab below shows each step.")
 
 
 def open_rule(rule_id: str) -> None:
