@@ -34,12 +34,25 @@ The research done before building, on 2026-10-30. For each decision the brief le
 
 ## 3. Classifier
 
-- **Options:** strict JSON-schema output; tool calling; a framework (Instructor, Pydantic AI); embeddings or fine-tuning.
+- **Options:** strict JSON-schema output; tool calling; a framework (Instructor, Pydantic AI); embeddings or fine-tuning; Jev, TypeSafe's typed-question model, as the classifier.
 - **Picked:** one structured-output call per receipt, validated in code, returning a category, item kind and recipient for each line. `restricted` is looked up in the taxonomy, so the model can't contradict itself. The policies are not sent.
 - **Why:**
   - **Pipal et al. (2026)** tested eight production models on 3,962 expert-coded texts. Six of the eight stayed within 2 points of one-item-per-call accuracy at batches of up to 100, and asking for up to 10 fields per item did no harm. A receipt is about 2.5 lines and three fields, so one call per receipt costs nothing in accuracy.
   - Fine-tuning and nearest-neighbour classifiers need labelled data, and the brief forbids using the labels as input.
   - The engine is code, so the classifier only needs the taxonomy: about 1,000 tokens a call instead of the whole policy set, and accuracy falls as input grows ("context rot").
+- **Why not Jev as the classifier:**
+
+  | | Jev | DeepSeek V4.1 Flash |
+  |---|---|---|
+  | What it is | Answers typed questions; a yes/no question (a Noul) returns the probability of yes | A general model that writes JSON, with logprobs |
+  | Confidence | Built in, trained to be calibrated | From the category's token logprobs (section 4) |
+  | Many categories (21 here) | Weak, in independent tests | 65 of 65 items right on the receipts |
+  | Non-English text (six languages) | Weak, in independent tests | Reads the original, with a gloss (section 5) |
+  | Head-to-head, one study | 72.5% | 76% |
+
+  - **The free probabilities don't make up for it.** 21 categories, six languages and misleading names that need world knowledge are exactly its weak spots, and a wrong category with a calibrated probability is still wrong. It had also launched only six weeks earlier.
+  - **Where it fits better:** confirming one category at a time, a yes/no question, rather than choosing among 21. [Experiment 2](experiments/verifier/README.md) planned it as that second-opinion verifier.
+  - **As built:** experiment 2 couldn't reach Jev without paying. OpenRouter's only TypeSafe listing is a router that answered with another model and no probabilities, and Vercel AI Gateway refuses Jev on a free account. So, before any call on the data, the verifier became Baseten's Mammoth-1, which asks the same yes/no question. It didn't help (experiment 2), and testing Jev itself is listed as the next step.
 - **As built:** the client asks for `json_object` output, not strict `json_schema`, so the category list is enforced by validation and one retry, not during decoding.
 
 ## 4. Confidence and the EXC-03 threshold
@@ -64,9 +77,25 @@ The research done before building, on 2026-10-30. For each decision the brief le
 
 ## 6. Retrieval
 
-- **Options:** a structured index; BM25 keyword search; small embeddings; passing whole documents.
+- **Options:** a structured index; BM25 keyword search; small embeddings; passing whole documents; a policy knowledge graph, extracted from the policy text by an LLM and held in a graph database such as Neo4j.
 - **Picked:** a structured index built from each rule's `applies_to` (category, MCC, expense type, region), plus cross-references and the rules that always apply. It is deterministic and logged.
 - **Why:** the engine is code, so retrieval decides which checks run. A rule it misses is a violation the engine misses, so it can't be fuzzy. It keeps 9.5 of 34 rules per receipt and missed none.
+- **Why not a knowledge graph:**
+  - **The index already is a graph.** Each rule points to the receipt facts that trigger it (a category, an MCC, a region) and to the rules it cites. So the real question is who writes the edges: a person reviewing `rules.yaml`, or an LLM reading the policies.
+  - **An LLM-written edge that's missing is a missed violation,** and nothing at runtime would notice.
+  - **A graph database is for scale.** At 40 rules it would add a server and a query language and change nothing in the results.
+- **Tested later ([experiment 4](experiments/graph_retrieval/README.md)):** the unchanged engine, with only the rules chosen per receipt differing.
+
+  | Retriever | Receipts with every needed rule, of 32 | Rules per receipt | Exactly right, of 28 |
+  |---|---|---|---|
+  | Structured index (submitted) | 32 | 9.5 | 28 |
+  | Knowledge graph extracted by an LLM | 32 | 10.0 | 28 |
+  | BM25, top 10 | 19 | 10 | 18 |
+  | Embeddings, top 10 | 21 | 10 | 18 |
+
+  - **The graph matched the index here, but partly by luck.** It had 42 trigger edges right, 11 extra and 4 missing. Other lines on these receipts happened to cover the missing ones, and a constructed receipt that needed one lost an exception.
+  - **Keyword search and embeddings can't see structured facts.** They missed the merchant-risk and timing rules, which no line text mentions.
+  - **Where a graph would pay off:** drafting the edges for a person to review, and impact analysis at thousands of rules ("which rules and past receipts does this addendum change?"). That's where a graph database like Neo4j earns its place.
 
 ## 7. Evidence and explanations
 
