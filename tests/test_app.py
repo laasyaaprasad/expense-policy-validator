@@ -241,6 +241,19 @@ def test_the_rulebook_explains_a_rule_from_policy_to_verdict():
     assert dict(zip(scenarios["scenario"], scenarios["must give"]))["One cent over the domestic cap"] == "flag: MEAL-01"
 
 
+def test_the_rulebook_lists_every_field_of_the_rule_with_its_name():
+    at = page("viewer/rules.py", source="System", rule="MEAL-01")
+    assert at.expander[1].label == "MEAL-01 in `rules.yaml`: every field"  # right below the rule picker
+    table = next(m.value for m in at.markdown if m.value.startswith("| Field | YAML key | Value |"))
+    for row in ("| **ID** | `id` | MEAL-01 |", "| **Document** | `doc` | `meals-and-entertainment-policy.md` |",
+                "| **Kind** | `kind` | exception |", "| **Severity** | `severity` | medium |",
+                "| **Numbers** | `params` | domestic_cap_usd: 75 · international_cap_usd: 100 |"):
+        assert row in table
+    assert "`requires_reference`" not in table  # only the fields the rule has
+    assert "| **Waived by** | `requires_reference` |" in next(
+        m.value for m in page("viewer/rules.py", source="System", rule="ENT-01").markdown if m.value.startswith("| Field |"))
+
+
 def test_the_rulebook_shows_a_rules_text_check_receipts_and_tests():
     at = page("viewer/rules.py", source="System", rule="ALC-03")
     assert not at.exception

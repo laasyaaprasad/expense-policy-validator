@@ -113,6 +113,29 @@ rule_id = st.selectbox("Rule", ids, index=ids.index(current if current in specs 
 st.session_state["rule"] = rule_id
 rule, written = specs[rule_id], policies.get(rule_id)
 
+# --- the rule as stored ----------------------------------------------------------------------------
+FIELDS = {  # rules.yaml field: (its name in words, how to show its value)
+    "id": ("ID", str),
+    "doc": ("Document", lambda v: f"`{v}`"),
+    "kind": ("Kind", lambda v: v.replace("_", " ")),
+    "severity": ("Severity", lambda v: severity_text(rule)),
+    "scope": ("Scope", lambda v: f"{v} ({'the whole receipt' if v == 'receipt' else 'line items'})"),
+    "tier": ("Tier", lambda v: f"{v} ({'in' if v == 1 else 'not in'} the scored answers; bookkeeping only)"),
+    "params": ("Numbers", lambda v: " · ".join(f"{k}: {n}" for k, n in v.items())),
+    "applies_to": ("Applies to", lambda v: " · ".join(
+        f"{k}: {', '.join(n) if isinstance(n, tuple) else n}" for k, n in v.model_dump(exclude_defaults=True).items())),
+    "requires_reference": ("Waived by", lambda v: f"a recorded reference of kind `{v}` (EXC-02)"),
+    "overrides": ("Overrides", ", ".join),
+    "line_overrides": ("Overrides, on the lines it cites", ", ".join),
+    "replaces": ("Can replace", ", ".join),
+    "evidence": ("Evidence (the quote)", lambda v: " ".join(v.split())),
+}
+with st.expander(f"{rule.id} in `rules.yaml`: every field", icon=":material/data_object:"):
+    rows = [(name, key, show(getattr(rule, key))) for key, (name, show) in FIELDS.items()
+            if getattr(rule, key) not in (None, "", (), {}) and (key != "applies_to" or show(rule.applies_to))]
+    st.markdown("| Field | YAML key | Value |\n|---|---|---|\n"
+                + "\n".join(f"| **{name}** | `{key}` | {md(value)} |" for name, key, value in rows))
+
 # --- the rule in full ------------------------------------------------------------------------------
 with st.container(border=True):
     st.markdown(f"### {rule.id} · {written.title if written else ''}\n"
