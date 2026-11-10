@@ -106,6 +106,52 @@ with st.expander("How to read this page", icon=":material/help:"):
         "- **Accuracy** is on the 28 scored receipts, against the answer key.\n"
         "- TIME-04 is the one policy rule not encoded: it needs trip dates, which no trip record here has.")
 
+# --- the map of all rules --------------------------------------------------------------------------
+def effect(rule) -> str:
+    """The badge colour for what the rule does to the verdict: red flags, orange sends to review, grey is a mechanic."""
+    if rule.kind == "mechanic":
+        return "gray"
+    severities = rule.severity.values() if isinstance(rule.severity, dict) else [rule.severity]
+    return "red" if rule.kind == "exception" and any(s in FLAG for s in severities) else "orange"
+
+
+def chip(rule) -> str:
+    key = ":material/key: " if rule.requires_reference else ""
+    return f":{effect(rule)}-badge[{key}{rule.id}{'*' * isinstance(rule.severity, dict)}]"
+
+
+def document_title(doc: str) -> str:
+    from validator.data import POLICY_DIR
+    first = next((line for line in (POLICY_DIR / doc).read_text(encoding="utf-8").splitlines() if line.startswith("# ")), doc)
+    return first.removeprefix("# ")
+
+
+with st.expander(f"Map of the {len(specs)} rules", icon=":material/account_tree:", expanded=True):
+    st.markdown(":red-badge[flag] critical, high or medium  ·  :orange-badge[review] low, or a review signal  ·  "
+                ":gray-badge[mechanic] how the engine works  ·  :gray-badge[:material/key: key] a recorded reference "
+                "of the right kind can waive it")
+    documents = {}
+    for r in config.rules:
+        documents.setdefault(r.doc, []).append(r)
+    docs = list(documents)
+    for row in range(0, len(docs), 3):
+        for column, doc in zip(st.columns(3), docs[row:row + 3]):
+            with column.container(border=True, height="stretch"):
+                st.markdown(f"**{document_title(doc)}**  \n" + " ".join(chip(r) for r in documents[doc]))
+    beats = []
+    for r in config.rules:
+        region = f" ({', '.join(r.applies_to.regions)} only)" if r.applies_to.regions else ""
+        for targets, how in ((r.overrides, region), (r.line_overrides, " (on the lines it cites)"),
+                             (r.replaces, " (where it is raised)")):
+            if targets:
+                beats.append(f"{chip(r)} :material/arrow_forward: {', '.join(targets)}{how}")
+    st.markdown("**Where one rule beats another.** Every other rule runs on its own; no rule triggers another.  \n"
+                + "  \n".join(beats))
+    split = [r for r in config.rules if isinstance(r.severity, dict)]
+    st.caption(" ".join(f"\\* {r.id}: " + ", ".join(f"{'flag' if v in FLAG else 'review'} for "
+                                                  f"{'over-the-counter' if k == 'otc' else k}"
+                                                  for k, v in r.severity.items()) + "." for r in split))
+
 ids = list(specs)
 current = st.session_state.get("rule", ids[0])
 rule_id = st.selectbox("Rule", ids, index=ids.index(current if current in specs else ids[0]),

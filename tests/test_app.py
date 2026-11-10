@@ -241,9 +241,22 @@ def test_the_rulebook_explains_a_rule_from_policy_to_verdict():
     assert dict(zip(scenarios["scenario"], scenarios["must give"]))["One cent over the domestic cap"] == "flag: MEAL-01"
 
 
+def test_the_rulebook_maps_every_rule_by_document_and_effect():
+    import re
+    at = page("viewer/rules.py", source="System")
+    assert at.expander[1].label == "Map of the 40 rules"
+    text = "\n".join(m.value for m in at.markdown)
+    chips = {rule: colour for colour, rule in re.findall(r":(red|orange|gray)-badge\[(?::material/key: )?([A-Z]+-\d+)", text)}
+    assert len(chips) == 40
+    assert (chips["MEAL-01"], chips["MEAL-02"], chips["MCC-02"], chips["EXC-01"]) == ("red", "orange", "orange", "gray")
+    assert ":red-badge[:material/key: ENT-01]" in text and ":red-badge[HEALTH-01*]" in text
+    assert ":red-badge[REG-01] :material/arrow_forward: ALC-01, ALC-02, ALC-03 (APAC only)" in text
+    assert ":red-badge[TIME-03] :material/arrow_forward: MEAL-01, REG-02, REG-03 (where it is raised)" in text
+
+
 def test_the_rulebook_lists_every_field_of_the_rule_with_its_name():
     at = page("viewer/rules.py", source="System", rule="MEAL-01")
-    assert at.expander[1].label == "MEAL-01 in `rules.yaml`: every field"  # right below the rule picker
+    assert at.expander[2].label == "MEAL-01 in `rules.yaml`: every field"  # right below the rule picker
     table = next(m.value for m in at.markdown if m.value.startswith("| Field | YAML key | Value |"))
     for row in ("| **ID** | `id` | MEAL-01 |", "| **Document** | `doc` | `meals-and-entertainment-policy.md` |",
                 "| **Kind** | `kind` | exception |", "| **Severity** | `severity` | medium |",
