@@ -10,43 +10,9 @@ Before coding I studied how expense tools split the work: [Expensify](https://he
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    R["receipt<br/>labels dropped"] --> N["normalise<br/>clean-up and code checks · normaliser.py"]
-    N --> L{"seen it before?<br/>semantic lookup · lookup.py"}
-    L -- "no" --> T["translate<br/>non-English lines only · translate.py"]
-    T --> K["classify<br/>AI classifier, temp 0 · classifier.py"]
-    K --> P["retrieve<br/>rules whose applies_to match · retriever.py"]
-    L -- "yes: reuse the answer, skip the AI" --> P
-    P --> E["engine<br/>one Python check per rule, no AI · engine/"]
-    E --> O["report<br/>pass, flag or review, with policy quotes · reporter.py"]
-    O -- "confident (0.5 or above)<br/>and no flag or review" --> A["done automatically<br/>no person needed"]
-    O -- "any of: AI unsure (below 0.5, EXC-03)<br/>· cited by a flag or review<br/>· in the lookup's 2% audit<br/>· lookup and AI disagree" --> Q["review queue<br/>a person decides · viewer/review.py"]
-    Q --> G["make learn<br/>two keys, one shared memory · learn.py"]
-    G -- "↻ reviewed lines feed the lookup" --> L
-    subgraph offline["offline, once: the rulebook"]
-        direction LR
-        D["policy docs<br/>nine policies"] --> Y1["LLM drafts<br/>first pass"] --> Y2["person checks<br/>quotes tested"] --> Y[("rules.yaml<br/>40 rules")]
-    end
-    Y -.-> P
-    Y -.-> E
-    L -.- LT[("lookup table<br/>shared memory")]
-    classDef default fill:#F7F7F5,stroke:#B4B2A9,color:#2C2C2A
-    classDef ai fill:#FAECE7,stroke:#993C1D,color:#712B13
-    classDef lookup fill:#EEEDFE,stroke:#534AB7,color:#3C3489
-    classDef people fill:#E1F5EE,stroke:#0F6E56,color:#085041
-    classDef table fill:#FAEEDA,stroke:#BA7517,color:#633806
-    class Y1,T,K ai
-    class L lookup
-    class Y2,Q,G people
-    class LT table
-    style offline fill:#FFFFFF,stroke:#B4B2A9,stroke-dasharray:4 4,color:#2C2C2A
-    linkStyle 5 stroke:#7F77DD
-    linkStyle 11 stroke:#1D9E75
-    linkStyle 17 stroke:#BA7517
-```
+<p align="center"><img src="docs/architecture-clean.png" alt="Architecture: the rulebook is built offline once; each receipt is normalised, looked up, translated and classified if new, then retrieved, checked by the engine and reported; unsure or flagged lines go to a review queue, and make learn feeds reviewed lines back to the lookup." width="680"></p>
 
-Coral: the model. Purple: the lookup, with its lookup table in amber. Teal: people. Dotted: the rulebook feeds retrieval and the engine. As an image: [docs/architecture-clean.png](docs/architecture-clean.png).
+Coral: the model. Purple: the lookup, with its lookup table in amber. Teal: people. Dotted: the rulebook feeds retrieval and the engine. The same diagram is drawn in the viewer's Architecture diagram page, from [its source](docs/diagrams/architecture.html).
 
 Each step is its own module in [`validator/`](validator); only translation and classification call the model, and every call is cached. The semantic lookup ([`lookup.py`](validator/lookup.py)) decides a line only when every word matches, by meaning, a line a person reviewed and nothing restricted is close; it never decides a restricted category, and let no blind look-alike trap through. On these receipts it is a cold start and decides 1 line. People's reviews fill its one shared memory through `make learn`, only when the model agrees (two keys). Design and tests: experiments 6–12 ([DECISIONS.md, section 12](DECISIONS.md)).
 
