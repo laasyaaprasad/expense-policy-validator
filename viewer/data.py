@@ -5,7 +5,6 @@ evaluation; they are shown beside the results, never used to produce them.
 """
 
 import ast
-import inspect
 import json
 
 import streamlit as st
@@ -138,24 +137,6 @@ def readings() -> dict[str, list[tuple[str, str]]]:
         for rule_id in targets:
             found.setdefault(rule_id, []).append((decision, sentence))
     return found
-
-
-def check_source(rule_id: str) -> str | None:
-    """The Python that checks a rule: its registered check, with the module's helpers it calls, or for an engine
-    mechanic the code that carries it out."""
-    from validator.engine import context, disposition, engine, rules as checks
-    mechanics = {"EXC-01": [disposition.disposition], "EXC-02": [checks._needs_reference],
-                 "EXC-03": [context.ReceiptView.__init__], "EXC-04": [engine._check_evidence],
-                 "MCC-03": [context.ReceiptView.on_premises.fget], "REG-05": [context.ReceiptView.rate.fget]}
-    if rule_id in mechanics:
-        return "\n\n".join(inspect.getsource(fn) for fn in mechanics[rule_id])
-    fn = checks.CHECKS.get(rule_id)
-    if fn is None:
-        return None
-    source = inspect.getsource(fn)
-    helpers = [name for name, obj in vars(checks).items()
-               if name.startswith("_") and inspect.isfunction(obj) and f"{name}(" in source]
-    return "\n\n".join([source] + [inspect.getsource(getattr(checks, name)) for name in helpers])
 
 
 @st.cache_data

@@ -295,10 +295,10 @@ def test_the_rulebook_lists_every_field_of_the_rule_with_its_name():
         m.value for m in page("viewer/rules.py", source="System", rule="ENT-01").markdown if m.value.startswith("| Field |"))
 
 
-def test_the_rulebook_shows_a_rules_text_check_receipts_and_tests():
+def test_the_rulebook_shows_a_rules_text_receipts_and_tests():
     at = page("viewer/rules.py", source="System", rule="ALC-03")
     assert not at.exception
-    assert "def alc_03" in at.code[0].value and "def _broken" in at.code[0].value
+    assert not at.code and "How it's checked" not in [s.value for s in at.subheader]  # no Python on the page
     where = table_with(at, "receipt", "raised by us", "in the correct answer")
     assert set(where["receipt"]) >= {"RCP-011", "RCP-014"} and set(where["agree"]) == {"✓"}
     assert any("tests/test_" in m.value for m in at.markdown)

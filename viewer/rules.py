@@ -292,16 +292,7 @@ if rule.kind != "mechanic":
             st.session_state["selected"] = fired_table.iloc[hit.selection.rows[0]]["receipt"]
             st.switch_page("viewer/detail.py")
 
-# --- how it's checked and tested ------------------------------------------------------------------
-st.subheader("How it's checked")
-code = data.check_source(rule_id)
-if code:
-    st.caption("The Python behind the rule, with the helpers it calls, from `validator/engine/`. It reads its numbers from "
-               "`rules.yaml`. Checks never call each other; the engine runs them in a fixed order.")
-    st.code(code, language="python")
-else:
-    st.write("No check of its own.")
-
+# --- how it's tested -----------------------------------------------------------------------------
 st.subheader("Tests that cover it")
 scenarios = data.scenarios_by_rule().get(rule_id, [])
 tests = data.tests_by_rule().get(rule_id, [])
