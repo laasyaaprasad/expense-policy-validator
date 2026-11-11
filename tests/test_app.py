@@ -24,9 +24,13 @@ def test_the_app_runs_with_its_navigation():
     at = page("app.py")
     assert not at.exception
     assert [t.value for t in at.title] == ["Expense Policy Validator"]  # it opens on the problem
-    assert at.header[0].value.startswith("Decide flag, review or pass for each of 32 receipts")
-    assert [s.value for s in at.subheader][:7] == ["Names that mislead", "Six languages", "Regional overrides",
-                                                   "Carve-outs", "Across receipts", "False alarms", "Approach"]
+    texts = [m.value for m in at.markdown]
+    assert any("Decide <b>flag</b>, <b>review</b> or <b>pass</b> for each of 32 receipts" in t for t in texts)
+    cards = [t.split('class="card-title">', 1)[1].split("<", 1)[0] for t in texts if 'class="card-title"' in t]
+    assert cards == ["Names that mislead", "Six languages", "Regional overrides", "Carve-outs", "Across receipts",
+                     "False alarms"]
+    assert [t.split('class="eyebrow">', 1)[1].split("<", 1)[0] for t in texts if 'class="eyebrow"' in t] == [
+        "What makes it hard", "Approach", "Three designs considered"]
     assert [m.value.split(": ", 1)[1].rstrip("]") for m in at.markdown if "-badge[" in m.value] == [
         "Rejected", "Baseline · 20 / 28", "Selected · 28 / 28"]  # the three designs considered
     assert not at.sidebar.radio  # the results choice only shows where it matters
