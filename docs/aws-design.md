@@ -14,7 +14,7 @@ flowchart TB
     W -- "lines the lookup left" --> OR["OpenRouter → Fireworks<br/>the model, outside AWS · key in Secrets Manager"]
     W --> ST[("DynamoDB + S3<br/>cross-receipt totals · results")]
     W --> LOG["CloudWatch Logs<br/>one trace per receipt, no line text"]
-    W --> RQ["review queue<br/>unsure, flagged, 2% audit, disagreements"]
+    W --> RQ["review queue<br/>unsure, flagged, 2% audit"]
     RQ --> LJ["nightly learning job<br/>two keys"]
     LJ -- "↻ writes the shared memory" --> MEM
     subgraph release["release by pull request"]
