@@ -9,8 +9,7 @@ st.set_page_config(page_title="Expense Policy Validator", layout="wide")
 page = st.navigation({
     "Start here": [
         st.Page("viewer/overview.py", title="Expense Policy Validator", icon=":material/policy:", default=True),
-        st.Page("viewer/architecture.py", title="Architecture", icon=":material/account_tree:"),
-        st.Page("viewer/architecture_diagram.py", title="Architecture diagram", icon=":material/schema:"),
+        st.Page("viewer/architecture_diagram.py", title="Architecture", icon=":material/account_tree:"),
     ],
     "Results": [
         st.Page("viewer/receipts.py", title="Receipt list", icon=":material/list:"),

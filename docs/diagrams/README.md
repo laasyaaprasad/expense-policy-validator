@@ -7,5 +7,5 @@
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --force-device-scale-factor=3 --window-size=680,1200 --screenshot=docs/architecture-clean.png "file://$PWD/docs/diagrams/architecture.html"
 ```
 
-Use `--window-size=680,900` and the AWS file names for the AWS diagram. The README shows `architecture-clean.png` and the viewer draws `architecture.html` itself; the AWS Mermaid version lives in
+Use `--window-size=680,900` and the AWS file names for the AWS diagram. The README shows `architecture-clean.png` and the viewer's Architecture page draws `architecture.html` itself; the AWS Mermaid version lives in
 `docs/aws-design.md`; keep it in step.

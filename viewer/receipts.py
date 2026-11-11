@@ -9,7 +9,7 @@ from viewer import data
 source = data.current_source()
 results, gold, receipts = data.results(source), data.gold(), data.receipts()
 
-st.title("Receipts")
+st.title("Receipt list")
 
 def findings(exceptions: list[str], signals: list[str]) -> str:
     """Exception rule IDs, then any review signals in brackets, in one cell."""

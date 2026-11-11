@@ -37,7 +37,7 @@ def test_the_app_runs_with_its_navigation():
 
 @pytest.mark.parametrize("name, says", [("viewer/overview.py", "<b>All four work the same way:"),
                                         ("viewer/summary.py", "**The keyword baseline**"),
-                                        ("viewer/architecture.py", "Coral steps call the model"),
+                                        ("viewer/architecture_diagram.py", "Coral steps call the model"),
                                         ("viewer/aws.py", "**Cost at 50,000 receipts a day:**")])
 def test_the_overview_architecture_and_aws_pages_run(name, says):
     at = page(name)

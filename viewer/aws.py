@@ -16,7 +16,7 @@ def section(start: str, end: str | None = None) -> str:
     return body.replace("$", r"\$").strip()
 
 
-st.title("AWS deployment")
+st.title("AWS deployment and cost")
 st.caption("A design on paper, as the brief asks: nothing is deployed. Everything here is read from "
            "`docs/aws-design.md`. Coral is the model (outside AWS), purple the lookup, teal people.")
 

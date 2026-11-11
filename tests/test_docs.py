@@ -31,3 +31,15 @@ def test_the_readme_spend_matches_the_ledgers():
     calls, usd = openrouter_spend()
     assert f"**About ${usd:.2f} over {calls:,} calls on the OpenRouter key**" in readme  # what the dashboard should show
     assert f"${ledger_total():.4f} for the submitted run" in readme
+
+
+def test_the_readme_total_spend_matches_the_summary_page():
+    from viewer.data import spend
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    totals = spend()
+    calls, usd = totals["total"]
+    assert f"**In all, the project spent ${usd:.2f} over {calls:,} model calls**" in readme
+    other_calls, other_usd = totals["other gateways"]
+    assert f"made {other_calls} more calls through Vercel AI Gateway and Baseten (${other_usd:.4f})" in readme
+    first_calls, first_usd = totals["DeepSeek's own API"]
+    assert f"The first run's {first_calls} calls (${first_usd:.4f})" in readme

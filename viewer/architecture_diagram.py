@@ -36,5 +36,7 @@ def diagram() -> str:
     return html.replace("\n", " ")  # one line: Markdown would end the HTML block at the first line break
 
 
-st.title("Architecture diagram")
+st.title("Architecture")
+st.caption("Coral steps call the model, purple is the lookup, teal is people; everything else is plain code. "
+           "The same diagram is in the README (`docs/architecture-clean.png`).")
 st.markdown(diagram(), unsafe_allow_html=True)  # st.html would strip the SVG
