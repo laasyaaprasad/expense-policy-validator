@@ -53,7 +53,7 @@ reset-reviews:
 baseline:
 	uv run python -m validator.baseline
 
-# CORD pilot: the system on 100 real receipts, scored against the assistant's labels, not yet checked by hand (cord/README.md). Offline;
+# CORD pilot: the system on 100 real receipts, scored against the assistant's labels, 57 of them checked by hand (cord/README.md). Offline;
 # `uv run python -m evaluation.cord --run` reruns the pipeline first.
 cord:
 	uv run python -m evaluation.cord
@@ -69,12 +69,14 @@ verifier:
 	uv run python -m experiments.verifier
 
 # Experiment 3, after the freeze: an LLM pipeline from the policy text to the standardized config, scored
-# against rules.yaml and end to end (experiments/policy_config/PLAN.md). Offline once cached; changes nothing submitted.
+# against rules.yaml and end to end (experiments/policy_config/PLAN.md). Needs a key: its cache holds policy text, so it isn't
+# committed. Changes nothing submitted.
 policy-config:
 	uv run python -m experiments.policy_config
 
 # Experiment 4, after the freeze: a policy knowledge graph for retrieval, against the structured index, BM25 and
-# embeddings (experiments/graph_retrieval/PLAN.md). Offline once cached; changes nothing submitted.
+# embeddings (experiments/graph_retrieval/PLAN.md). Needs a key: its LLM cache holds policy text, so it isn't committed.
+# Changes nothing submitted.
 graph-retrieval:
 	uv run python -m experiments.graph_retrieval
 
@@ -85,8 +87,8 @@ paraphrase:
 	uv run python -m experiments.paraphrase
 
 # Experiment 6, after the freeze: a semantic first stage that decides clear, safe lines from labelled anchors and
-# sends the rest to the model at temperature 0 (experiments/semantic_first/PLAN.md). Offline once cached; changes
-# nothing submitted.
+# sends the rest to the model at temperature 0 (experiments/semantic_first/PLAN.md). Needs a key: its 24 MB cache isn't
+# committed. Changes nothing submitted.
 semantic-first:
 	uv run python -m experiments.semantic_first
 
