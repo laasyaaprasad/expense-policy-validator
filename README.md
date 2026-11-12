@@ -45,7 +45,7 @@ Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the
 
 ## Spend
 
-**About $0.45 over 2,949 calls on the OpenRouter key**, as billed: $0.0575 for the submitted run's 378 calls (`outputs/spend.jsonl`) and $0.39 for the experiments. The first run's 350 calls ($0.0759) went through DeepSeek's own API, before the key arrived. Experiment 2's verifier made 54 more calls through Vercel AI Gateway and Baseten ($0.0011). **In all, the project spent $0.53 over 3,353 model calls**, not counting the coding assistant. **Model:** DeepSeek V4.1 Flash (`deepseek/deepseek-v4.1-flash`), which I pushed for: with reasoning off it led the open-weights models on Artificial Analysis's index ([archived](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)) and returns the logprobs the confidence needs ([why](DECISIONS.md#8-model)).
+**About $0.45 over 2,949 calls on the OpenRouter key**, as billed: $0.0575 for the submitted run's 378 calls (`outputs/spend.jsonl`) and $0.39 for the experiments. The first run's 350 calls ($0.0759) went through DeepSeek's own API, before the key arrived. Experiment 2's verifier made 54 more calls through Vercel AI Gateway ($0.0011). **In all, the project spent $0.53 over 3,353 model calls**, not counting the coding assistant. **Model:** DeepSeek V4.1 Flash (`deepseek/deepseek-v4.1-flash`), which I pushed for: with reasoning off it led the open-weights models on Artificial Analysis's index ([archived](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)) and returns the logprobs the confidence needs ([why](DECISIONS.md#8-model)).
 
 ## What I would do next
 
