@@ -37,7 +37,11 @@ The first run was committed before scoring. The 28 in-scope receipts, with 95% W
 | Receipts exactly right | 28 / 28 (88–100%) | 20 / 28 |
 | False positives · missed violations | 0 / 9 (0–30%) · 0 / 16 (0–19%) | 2 / 9 · 2 / 16 |
 
-This proves less than it looks: the traps are the taxonomy's own examples, the prompt's author had seen these receipts, and nine clean receipts can't rule out a 30% false-positive rate. Reworded, it still got 64 / 65 items. On 100 real receipts ([CORD](cord/README.md)) it got 94% of lines right but flagged or reviewed 10 of 98 clean ones. The baseline does better only on cost, speed and keeping data in-house. None of the 28 is wrong, so the two failure cases come from outside the scored set: the split-receipt pair RCP-020/021 (rule logic, since fixed) and CORD-V008, where "TALAM UNGU" was glossed "PURPLE TRAY" (translation); see [evaluation](docs/evaluation.md).
+This proves less than it looks: the traps are the taxonomy's own examples, the prompt's author had seen these receipts, and nine clean receipts can't rule out a 30% false-positive rate. The baseline does better only on cost, speed and keeping data in-house. None of the 28 is wrong, so the two failure cases come from outside the scored set: the split-receipt pair RCP-020/021 (rule logic, since fixed) and CORD-V008, where "TALAM UNGU" was glossed "PURPLE TRAY" (translation); see [evaluation](docs/evaluation.md).
+
+**Two extra test sets I added (not part of the brief's data)** check that the result isn't tied to these 28 receipts:
+- **Reworded** ([experiment 5](experiments/paraphrase/README.md)): every line of the 28 rewritten in other words and checked by hand before any run: 64 / 65 items, 27 / 28 receipts.
+- **Real receipts** ([CORD](cord/README.md)): 100 public Indonesian receipts, with made-up context and my own labels (57 rechecked by hand): 94% of lines right, but 10 of 98 clean ones flagged or reviewed.
 
 ## AI collaboration
 

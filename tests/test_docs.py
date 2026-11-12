@@ -40,6 +40,6 @@ def test_the_readme_total_spend_matches_the_summary_page():
     calls, usd = totals["total"]
     assert f"**In all, the project spent ${usd:.2f} over {calls:,} model calls**" in readme
     other_calls, other_usd = totals["other gateways"]
-    assert f"made {other_calls} more calls through Vercel AI Gateway and Baseten (${other_usd:.4f})" in readme
+    assert f"made {other_calls} more calls through Vercel AI Gateway (${other_usd:.4f})" in readme
     first_calls, first_usd = totals["DeepSeek's own API"]
     assert f"The first run's {first_calls} calls (${first_usd:.4f})" in readme
