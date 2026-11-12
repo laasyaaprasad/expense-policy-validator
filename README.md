@@ -2,13 +2,17 @@
 
 A language model says what each receipt line is; plain code checks it against the nine policies and quotes the policy for every exception. Results: [`outputs/results.jsonl`](outputs/results.jsonl). More: [evaluation](docs/evaluation.md), [AWS design](docs/aws-design.md), [decisions](DECISIONS.md), [working log](NOTES.md).
 
-**Setup:** Python 3.12 and [uv](https://docs.astral.sh/uv/); copy the organisers' `data/` into the repo, then `uv sync`. `make test`, `make run`, `make eval`, `make baseline` and `make app` (the viewer) run offline from the committed model cache. New model calls need `OPENROUTER_API_KEY` in `.env` (see `.env.example`).
+**Run it locally** (Python 3.12, [uv](https://docs.astral.sh/uv/) and `make`; no API key needed, as every model call is cached):
+1. Clone this repo, copy the organisers' `data/` folder to its root, and run `uv sync`.
+2. `make test`, `make run`, `make eval` and `make baseline` reproduce the committed outputs.
+3. `make app` opens the viewer at http://localhost:8501.
+4. Only new model calls need `OPENROUTER_API_KEY` in `.env` (see `.env.example`).
 
 ## Architecture
 
 <img align="right" src="docs/architecture-clean.png" alt="Architecture: the rulebook is built offline once; each receipt is normalised, looked up, translated and classified if new, then retrieved, checked by the engine and reported; unsure or flagged lines go to a review queue, and make learn feeds reviewed lines back to the lookup." width="300">
 
-As in Expensify, Navan, SAP Concur and Ramp, **the model reads and code judges.** Of three designs, an LLM judging each receipt was rejected (untestable, and the brief bars it from EXC-01); keywords alone became the baseline (20 / 28); this split was picked (28 / 28). Each step is a module in [`validator/`](validator); only translation and classification call the model, and every call is cached. The semantic lookup ([`lookup.py`](validator/lookup.py)) reuses a reviewed answer only when every word matches it by meaning and nothing restricted is close; reviews fill it through `make learn` only when the model agrees. On these receipts it decides 1 line.
+As in Expensify, Navan, SAP Concur and Ramp, **the model reads and code judges.** Of three designs, an LLM judging each receipt was rejected (untestable, and the brief bars it from EXC-01); keywords alone became the baseline (20 / 28); this split was picked (28 / 28). Each step is a module in [`validator/`](validator); only translation and classification call the model. The semantic lookup ([`lookup.py`](validator/lookup.py)) reuses a reviewed answer only when every word matches it by meaning and nothing restricted is close; reviews fill it through `make learn` only when the model agrees. On these receipts it decides 1 line.
 
 **End to end, RCP-011:** Cellar Door Fine Wines (MCC 5921), Client Entertainment, pre-approval PA-2026-0431. "Vino tinto Rioja Reserva 750ml" is glossed "Rioja Reserva red wine 750ml" and classified `alcohol` at 0.99996. Of 12 retrieved rules, the engine raises ALC-03 on L1 (alcohol bought where it isn't served) and MCC-01 (high-risk merchant), which the pre-approval doesn't waive: **flag**, as in the answer key. Every step: [`outputs/traces.jsonl`](outputs/traces.jsonl).
 
@@ -41,8 +45,8 @@ Claude Code (Claude Opus 5.5) wrote most of the code, tests and docs; I made the
 
 ## Spend
 
-**About $0.45 over 2,949 calls on the OpenRouter key**, as billed: $0.0575 for the submitted run's 378 calls (`outputs/spend.jsonl`) and $0.39 for the experiments. A full run costs $0.0058. The first run's 350 calls ($0.0759) went through DeepSeek's own API, before the key arrived. Experiment 2's verifier made 54 more calls through Vercel AI Gateway and Baseten ($0.0011). **In all, the project spent $0.53 over 3,353 model calls**, not counting the coding assistant. **Model:** DeepSeek V4.1 Flash (`deepseek/deepseek-v4.1-flash`), which I pushed for: with reasoning off it led the open-weights models on Artificial Analysis's index ([archived](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)), uses 152 output tokens a receipt and returns the logprobs the confidence needs ([why](DECISIONS.md#8-model)). Calls are pinned to Fireworks, then Together, the hosts that returned logprobs.
+**About $0.45 over 2,949 calls on the OpenRouter key**, as billed: $0.0575 for the submitted run's 378 calls (`outputs/spend.jsonl`) and $0.39 for the experiments. The first run's 350 calls ($0.0759) went through DeepSeek's own API, before the key arrived. Experiment 2's verifier made 54 more calls through Vercel AI Gateway and Baseten ($0.0011). **In all, the project spent $0.53 over 3,353 model calls**, not counting the coding assistant. **Model:** DeepSeek V4.1 Flash (`deepseek/deepseek-v4.1-flash`), which I pushed for: with reasoning off it led the open-weights models on Artificial Analysis's index ([archived](https://web.archive.org/web/20260925000203/https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning)), uses 152 output tokens a receipt and returns the logprobs the confidence needs ([why](DECISIONS.md#8-model)).
 
 ## What I would do next
 
-Measure flag precision and calibrate both thresholds on the company's own receipts; say whether packaging sold with food is `other` (most CORD errors are bags and cups); send names to the model only as placeholders; gloss dish names as the dish ("TALAM UNGU" became "PURPLE TRAY").
+Measure flag precision and calibrate both thresholds on the company's own receipts; say whether packaging sold with food is `other` (most CORD errors); send names to the model only as placeholders; gloss dish names as the dish.
